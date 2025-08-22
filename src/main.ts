@@ -17,7 +17,13 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   
   // CORS
-  app.enableCors();
+  app.enableCors(
+    {
+      origin: 'http://localhost:8080',
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    },
+  );
   
   // Swagger configuration
   const config = new DocumentBuilder()
