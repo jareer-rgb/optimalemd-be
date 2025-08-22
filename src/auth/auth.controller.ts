@@ -34,7 +34,7 @@ export class AuthController {
   @Post('register')
   @ApiOperation({
     summary: 'User Registration',
-    description: 'Register a new user account with email, password, and optional profile information.',
+    description: 'Register a new user account with all required medical information and optional fields.',
   })
   @ApiBody({
     type: RegisterDto,
@@ -44,23 +44,75 @@ export class AuthController {
         summary: 'Basic Registration',
         description: 'Register with required fields only',
         value: {
+          medicalRecordNo: '1234567890',
+          title: 'Mr',
           firstName: 'John',
+          middleName: 'Michael',
           lastName: 'Doe',
-          email: 'john.doe@example.com',
+          dateOfBirth: '1990-01-01',
+          gender: 'Male',
+          completeAddress: '123 Main St, Apt 4B',
+          city: 'New York',
+          state: 'NY',
+          zipcode: '10001',
+          primaryEmail: 'john.doe@example.com',
+          alternativeEmail: 'john.doe.alternative@example.com',
+          primaryPhone: '+1234567890',
+          alternativePhone: '+1987654321',
+          emergencyContactName: 'Jane Doe',
+          emergencyContactRelationship: 'Spouse',
+          emergencyContactPhone: '+1234567890',
+          referringSource: 'Self',
+          consentForTreatment: 'Y',
+          hipaaPrivacyNoticeAcknowledgment: 'Y',
+          releaseOfMedicalRecordsConsent: 'Y',
+          preferredMethodOfCommunication: 'Email',
+          disabilityAccessibilityNeeds: 'None',
           password: 'securepassword123',
         } as RegisterDto,
       },
       full: {
         summary: 'Full Registration',
-        description: 'Register with all available fields',
+        description: 'Register with all available fields including optional ones',
         value: {
+          medicalRecordNo: '1234567890',
+          title: 'Dr',
           firstName: 'Jane',
+          middleName: 'Elizabeth',
           lastName: 'Smith',
-          email: 'jane.smith@example.com',
+          dateOfBirth: '1985-05-15',
+          gender: 'Female',
+          completeAddress: '456 Oak Ave, Suite 200',
+          city: 'Los Angeles',
+          state: 'CA',
+          zipcode: '90210',
+          primaryEmail: 'jane.smith@example.com',
+          alternativeEmail: 'jane.smith.alternative@example.com',
+          primaryPhone: '+1234567890',
+          alternativePhone: '+1987654321',
+          emergencyContactName: 'John Smith',
+          emergencyContactRelationship: 'Spouse',
+          emergencyContactPhone: '+1234567890',
+          referringSource: 'Physician',
+          consentForTreatment: 'Y',
+          hipaaPrivacyNoticeAcknowledgment: 'Y',
+          releaseOfMedicalRecordsConsent: 'Y',
+          preferredMethodOfCommunication: 'Phone',
+          disabilityAccessibilityNeeds: 'None',
+          careProviderPhone: '+1555123456',
+          lastFourDigitsSSN: '1234',
+          languagePreference: 'English',
+          ethnicityRace: 'Caucasian',
+          primaryCarePhysician: 'Dr. Johnson',
+          insuranceProviderName: 'Blue Cross Blue Shield',
+          insurancePolicyNumber: 'POL123456789',
+          insuranceGroupNumber: 'GRP987654321',
+          insurancePhoneNumber: '+18005551234',
+          guarantorResponsibleParty: 'Jane Smith',
+          dateOfFirstVisitPlanned: '2024-02-15',
+          interpreterRequired: 'N',
+          advanceDirectives: 'N',
           password: 'securepassword123',
-          phone: '+1234567890',
-          dateOfBirth: '1990-01-01',
-          city: 'New York',
         } as RegisterDto,
       },
     },
@@ -81,7 +133,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'User Login',
-    description: 'Authenticate existing user with email and password to receive JWT access token.',
+    description: 'Authenticate existing user with primary email and password to receive JWT access token.',
   })
   @ApiBody({
     type: LoginDto,
@@ -89,9 +141,9 @@ export class AuthController {
     examples: {
       login: {
         summary: 'Login Credentials',
-        description: 'Enter your email and password',
+        description: 'Enter your primary email and password',
         value: {
-          email: 'john.doe@example.com',
+          primaryEmail: 'john.doe@example.com',
           password: 'securepassword123',
         } as LoginDto,
       },
@@ -113,17 +165,17 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Forgot Password',
-    description: 'Request a password reset link to be sent to the user\'s email address.',
+    description: 'Request a password reset link to be sent to the user\'s primary email address.',
   })
   @ApiBody({
     type: ForgotPasswordDto,
-    description: 'Email address for password reset',
+    description: 'Primary email address for password reset',
     examples: {
       forgotPassword: {
         summary: 'Forgot Password Request',
-        description: 'Enter your email address',
+        description: 'Enter your primary email address',
         value: {
-          email: 'john.doe@example.com',
+          primaryEmail: 'john.doe@example.com',
         } as ForgotPasswordDto,
       },
     },
@@ -194,22 +246,22 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Resend Email Verification',
-    description: 'Resend email verification link to user\'s email address.',
+    description: 'Resend email verification link to user\'s primary email address.',
   })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        email: {
+        primaryEmail: {
           type: 'string',
           format: 'email',
           example: 'john.doe@example.com',
-          description: 'Email address to resend verification to',
+          description: 'Primary email address to resend verification to',
         },
       },
-      required: ['email'],
+      required: ['primaryEmail'],
     },
-    description: 'Email address for verification resend',
+    description: 'Primary email address for verification resend',
   })
   @ApiOkResponse({
     description: 'Verification email resent successfully',
@@ -223,7 +275,7 @@ export class AuthController {
           type: 'object',
           properties: {
             message: { type: 'string', example: 'Verification email sent successfully' },
-            email: { type: 'string', example: 'john.doe@example.com' },
+            primaryEmail: { type: 'string', example: 'john.doe@example.com' },
           },
         },
         timestamp: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
@@ -241,7 +293,7 @@ export class AuthController {
           statusCode: 400,
           message: 'Validation failed',
           error: 'ValidationError',
-          details: ['email must be an email'],
+          details: ['primaryEmail must be an email'],
           timestamp: '2024-01-01T00:00:00.000Z',
           path: '/api/auth/resend-verification',
           requestId: 'req_1234567890abcdef',
@@ -261,8 +313,8 @@ export class AuthController {
       },
     },
   })
-  async resendVerification(@Body() body: { email: string }): Promise<BaseApiResponse<any>> {
-    const data = await this.authService.resendVerification(body.email);
+  async resendVerification(@Body() body: { primaryEmail: string }): Promise<BaseApiResponse<any>> {
+    const data = await this.authService.resendVerification(body.primaryEmail);
     return {
       success: true,
       statusCode: HttpStatus.OK,
@@ -277,7 +329,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Check Email Verification Status',
-    description: 'Check if the current user\'s email is verified.',
+    description: 'Check if the current user\'s primary email is verified.',
   })
   @ApiResponse({
     status: 200,
@@ -292,7 +344,7 @@ export class AuthController {
           type: 'object',
           properties: {
             isEmailVerified: { type: 'boolean', example: false },
-            email: { type: 'string', example: 'john.doe@example.com' },
+            primaryEmail: { type: 'string', example: 'john.doe@example.com' },
           },
         },
         timestamp: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
@@ -317,8 +369,8 @@ export class AuthController {
       },
     },
   })
-  async getVerificationStatus(@Query('email') email: string): Promise<BaseApiResponse<any>> {
-    const data = await this.authService.getVerificationStatus(email);
+  async getVerificationStatus(@Query('primaryEmail') primaryEmail: string): Promise<BaseApiResponse<any>> {
+    const data = await this.authService.getVerificationStatus(primaryEmail);
     return {
       success: true,
       statusCode: HttpStatus.OK,

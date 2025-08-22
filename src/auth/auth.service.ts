@@ -17,15 +17,24 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDataDto> {
-    const { email, password, ...userData } = registerDto;
+    const { password, ...userData } = registerDto;
 
-    // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
+    // Check if user already exists by medical record number
+    const existingUserByMRN = await this.prisma.user.findUnique({
+      where: { medicalRecordNo: userData.medicalRecordNo },
     });
 
-    if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+    if (existingUserByMRN) {
+      throw new ConflictException('User with this Medical Record Number already exists');
+    }
+
+    // Check if user already exists by primary email
+    const existingUserByEmail = await this.prisma.user.findUnique({
+      where: { primaryEmail: userData.primaryEmail },
+    });
+
+    if (existingUserByEmail) {
+      throw new ConflictException('User with this primary email already exists');
     }
 
     // Hash password
@@ -35,27 +44,33 @@ export class AuthService {
     const emailVerificationToken = crypto.randomBytes(32).toString('hex');
     const emailVerificationTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
+    // Prepare user data for creation
+    const userCreateData = {
+      ...userData,
+      password: hashedPassword,
+      dateOfBirth: new Date(userData.dateOfBirth),
+      dateOfFirstVisitPlanned: userData.dateOfFirstVisitPlanned ? new Date(userData.dateOfFirstVisitPlanned) : null,
+      emailVerificationToken,
+      emailVerificationTokenExpiry,
+      // Map legacy fields for backward compatibility
+      email: userData.primaryEmail,
+      phone: userData.primaryPhone,
+    };
+
     // Create user
     const user = await this.prisma.user.create({
-      data: {
-        ...userData,
-        email,
-        password: hashedPassword,
-        dateOfBirth: userData.dateOfBirth ? new Date(userData.dateOfBirth) : null,
-        emailVerificationToken,
-        emailVerificationTokenExpiry,
-      },
+      data: userCreateData,
     });
 
     // Generate JWT token
-    const payload = { sub: user.id, email: user.email };
+    const payload = { sub: user.id, email: user.primaryEmail };
     const accessToken = this.jwtService.sign(payload);
 
     // Send email verification email
     try {
-      const verificationLink = `${this.configService.get<string>('frontend.url')}/verify-email?token=${emailVerificationToken}`;
+      const verificationLink = `http://localhost:8080/verify-email?token=${emailVerificationToken}`;
       await this.mailerService.sendEmailVerificationEmail(
-        email,
+        userData.primaryEmail,
         user.firstName,
         verificationLink
       );
@@ -74,11 +89,11 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponseDataDto> {
-    const { email, password } = loginDto;
+    const { primaryEmail, password } = loginDto;
 
-    // Find user by email
+    // Find user by primary email
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { primaryEmail },
     });
 
     if (!user) {
@@ -102,7 +117,7 @@ export class AuthService {
     }
 
     // Generate JWT token
-    const payload = { sub: user.id, email: user.email };
+    const payload = { sub: user.id, email: user.primaryEmail };
     const accessToken = this.jwtService.sign(payload);
 
     // Return user data without password
@@ -115,18 +130,18 @@ export class AuthService {
   }
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
-    const { email } = forgotPasswordDto;
+    const { primaryEmail } = forgotPasswordDto;
 
     // Check if user exists
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { primaryEmail },
     });
 
     if (!user) {
       // Don't reveal if user exists or not for security
       return {
         message: 'If an account with that email exists, a password reset link has been sent.',
-        email,
+        primaryEmail,
       };
     }
 
@@ -136,7 +151,7 @@ export class AuthService {
 
     // Save reset token to database
     await this.prisma.user.update({
-      where: { email },
+      where: { primaryEmail },
       data: {
         resetToken,
         resetTokenExpiry,
@@ -144,13 +159,13 @@ export class AuthService {
     });
 
     // Create reset link using configuration
-    const frontendUrl = this.configService.get<string>('frontend.url');
+    const frontendUrl = "http://localhost:8080";
     const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
     // Send password reset email
     try {
       await this.mailerService.sendPasswordResetEmail(
-        email,
+        primaryEmail,
         user.firstName,
         resetLink
       );
@@ -158,7 +173,7 @@ export class AuthService {
       console.error('Failed to send password reset email:', error);
       // Remove the token if email fails
       await this.prisma.user.update({
-        where: { email },
+        where: { primaryEmail },
         data: {
           resetToken: null,
           resetTokenExpiry: null,
@@ -169,7 +184,7 @@ export class AuthService {
 
     return {
       message: 'If an account with that email exists, a password reset link has been sent.',
-      email,
+      primaryEmail,
     };
   }
 
@@ -205,7 +220,7 @@ export class AuthService {
 
     // Send welcome back email
     try {
-      await this.mailerService.sendWelcomeEmail(user.email, user.firstName);
+      await this.mailerService.sendWelcomeEmail(user.primaryEmail, user.firstName);
     } catch (error) {
       console.error('Failed to send welcome email:', error);
       // Don't fail the password reset if welcome email fails
@@ -213,7 +228,7 @@ export class AuthService {
 
     return {
       message: 'Password has been reset successfully',
-      email: user.email,
+      primaryEmail: user.primaryEmail,
     };
   }
 
@@ -272,7 +287,7 @@ export class AuthService {
     }
 
     return {
-      email: user.email,
+      primaryEmail: user.primaryEmail,
       valid: true,
     };
   }
@@ -345,7 +360,7 @@ export class AuthService {
 
     // Send welcome email
     try {
-      await this.mailerService.sendWelcomeEmail(user.email, user.firstName);
+      await this.mailerService.sendWelcomeEmail(user.primaryEmail, user.firstName);
     } catch (error) {
       console.error('Failed to send welcome email:', error);
       // Don't fail verification if welcome email fails
@@ -353,14 +368,14 @@ export class AuthService {
 
     return {
       message: 'Email verified successfully',
-      email: user.email,
+      primaryEmail: user.primaryEmail,
     };
   }
 
-  async resendVerification(email: string) {
+  async resendVerification(primaryEmail: string) {
     // Check if user exists
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { primaryEmail },
     });
 
     if (!user) {
@@ -378,7 +393,7 @@ export class AuthService {
 
     // Update user with new verification token
     await this.prisma.user.update({
-      where: { email },
+      where: { primaryEmail },
       data: {
         emailVerificationToken,
         emailVerificationTokenExpiry,
@@ -389,7 +404,7 @@ export class AuthService {
     try {
       const verificationLink = `${this.configService.get<string>('frontend.url')}/verify-email?token=${emailVerificationToken}`;
       await this.mailerService.sendEmailVerificationEmail(
-        email,
+        primaryEmail,
         user.firstName,
         verificationLink
       );
@@ -397,7 +412,7 @@ export class AuthService {
       console.error('Failed to send email verification email:', error);
       // Remove the token if email fails
       await this.prisma.user.update({
-        where: { email },
+        where: { primaryEmail },
         data: {
           emailVerificationToken: null,
           emailVerificationTokenExpiry: null,
@@ -408,16 +423,16 @@ export class AuthService {
 
     return {
       message: 'Verification email sent successfully',
-      email,
+      primaryEmail,
     };
   }
 
-  async getVerificationStatus(email: string) {
+  async getVerificationStatus(primaryEmail: string) {
     // Check if user exists
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { primaryEmail },
       select: {
-        email: true,
+        primaryEmail: true,
         isEmailVerified: true,
       },
     });
@@ -428,7 +443,7 @@ export class AuthService {
 
     return {
       isEmailVerified: user.isEmailVerified,
-      email: user.email,
+      primaryEmail: user.primaryEmail,
     };
   }
 }

@@ -12,13 +12,53 @@ datasource db {
 
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique
+  
+  // Mandatory Fields (Green in image)
+  medicalRecordNo String   @unique // 10 digits
+  title          String   // Mr, Mrs, Ms, Dr, Other
+  firstName      String
+  middleName     String
+  lastName       String
+  dateOfBirth    DateTime
+  gender         String   // Male/Female/Other
+  completeAddress String  // House/Apt, Street
+  city           String
+  state          String
+  zipcode        String
+  primaryEmail   String   @unique
+  alternativeEmail String
+  primaryPhone   String
+  alternativePhone String
+  emergencyContactName String
+  emergencyContactRelationship String
+  emergencyContactPhone String
+  referringSource String // Self/Physician/Other
+  consentForTreatment String // Y/N
+  hipaaPrivacyNoticeAcknowledgment String // Y/N
+  releaseOfMedicalRecordsConsent String // Y/N
+  preferredMethodOfCommunication String // Phone/Email/Mail
+  disabilityAccessibilityNeeds String
+  
+  // Optional Fields (Yellow in image)
+  careProviderPhone String?
+  lastFourDigitsSSN String?
+  languagePreference String?
+  ethnicityRace String?
+  primaryCarePhysician String?
+  insuranceProviderName String?
+  insurancePolicyNumber String?
+  insuranceGroupNumber String?
+  insurancePhoneNumber String?
+  guarantorResponsibleParty String?
+  dateOfRegistration DateTime @default(now())
+  dateOfFirstVisitPlanned DateTime?
+  interpreterRequired String? // Y/N
+  advanceDirectives String? // Y/N
+  
+  // Legacy fields (keeping for backward compatibility)
+  email     String   @unique // maps to primaryEmail
   password  String
-  firstName String
-  lastName  String
-  phone     String?
-  dateOfBirth DateTime?
-  city      String?
+  phone     String?  // maps to primaryPhone
   isActive  Boolean  @default(true)
   
   // Email verification fields

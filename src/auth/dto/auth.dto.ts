@@ -1,15 +1,15 @@
-import { IsEmail, IsString, MinLength, IsOptional, IsDateString } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsDateString, IsIn, Matches, Length } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BaseApiResponse } from '../../common/dto/api-response.dto';
 
 export class LoginDto {
   @ApiProperty({
-    description: 'User email address',
+    description: 'User primary email address',
     example: 'john.doe@example.com',
     type: String,
   })
   @IsEmail()
-  email: string;
+  primaryEmail: string;
 
   @ApiProperty({
     description: 'User password (minimum 6 characters)',
@@ -23,6 +23,27 @@ export class LoginDto {
 }
 
 export class RegisterDto {
+  // Mandatory Fields (Green in image)
+  @ApiProperty({
+    description: 'Medical Record Number (10 digits)',
+    example: '1234567890',
+    minLength: 10,
+    maxLength: 10,
+  })
+  @IsString()
+  @Length(10, 10)
+  @Matches(/^\d{10}$/, { message: 'Medical Record Number must be exactly 10 digits' })
+  medicalRecordNo: string;
+
+  @ApiProperty({
+    description: 'Title (Mr, Mrs, Ms, Dr, Other)',
+    example: 'Mr',
+    enum: ['Mr', 'Mrs', 'Ms', 'Dr', 'Other'],
+  })
+  @IsString()
+  @IsIn(['Mr', 'Mrs', 'Ms', 'Dr', 'Other'])
+  title: string;
+
   @ApiProperty({
     description: 'User first name',
     example: 'John',
@@ -30,6 +51,14 @@ export class RegisterDto {
   })
   @IsString()
   firstName: string;
+
+  @ApiProperty({
+    description: 'User middle name',
+    example: 'Michael',
+    type: String,
+  })
+  @IsString()
+  middleName: string;
 
   @ApiProperty({
     description: 'User last name',
@@ -40,12 +69,285 @@ export class RegisterDto {
   lastName: string;
 
   @ApiProperty({
-    description: 'User email address (must be unique)',
+    description: 'User date of birth (YYYY-MM-DD format)',
+    example: '1990-01-01',
+    type: String,
+  })
+  @IsDateString()
+  dateOfBirth: string;
+
+  @ApiProperty({
+    description: 'Gender (Male/Female/Other)',
+    example: 'Male',
+    enum: ['Male', 'Female', 'Other'],
+  })
+  @IsString()
+  @IsIn(['Male', 'Female', 'Other'])
+  gender: string;
+
+  @ApiProperty({
+    description: 'Complete address (House/Apt, Street)',
+    example: '123 Main St, Apt 4B',
+    type: String,
+  })
+  @IsString()
+  completeAddress: string;
+
+  @ApiProperty({
+    description: 'City',
+    example: 'New York',
+    type: String,
+  })
+  @IsString()
+  city: string;
+
+  @ApiProperty({
+    description: 'State',
+    example: 'NY',
+    type: String,
+  })
+  @IsString()
+  state: string;
+
+  @ApiProperty({
+    description: 'Zipcode',
+    example: '10001',
+    type: String,
+  })
+  @IsString()
+  zipcode: string;
+
+  @ApiProperty({
+    description: 'Primary email address (must be unique)',
     example: 'john.doe@example.com',
     type: String,
   })
   @IsEmail()
-  email: string;
+  primaryEmail: string;
+
+  @ApiProperty({
+    description: 'Alternative email address',
+    example: 'john.doe.alternative@example.com',
+    type: String,
+  })
+  @IsEmail()
+  alternativeEmail: string;
+
+  @ApiProperty({
+    description: 'Primary phone number',
+    example: '+1234567890',
+    type: String,
+  })
+  @IsString()
+  primaryPhone: string;
+
+  @ApiProperty({
+    description: 'Alternative phone number',
+    example: '+1987654321',
+    type: String,
+  })
+  @IsString()
+  alternativePhone: string;
+
+  @ApiProperty({
+    description: 'Emergency contact name',
+    example: 'Jane Doe',
+    type: String,
+  })
+  @IsString()
+  emergencyContactName: string;
+
+  @ApiProperty({
+    description: 'Emergency contact relationship',
+    example: 'Spouse',
+    type: String,
+  })
+  @IsString()
+  emergencyContactRelationship: string;
+
+  @ApiProperty({
+    description: 'Emergency contact phone number',
+    example: '+1234567890',
+    type: String,
+  })
+  @IsString()
+  emergencyContactPhone: string;
+
+  @ApiProperty({
+    description: 'Referring source (Self/Physician/Other)',
+    example: 'Self',
+    enum: ['Self', 'Physician', 'Other'],
+  })
+  @IsString()
+  @IsIn(['Self', 'Physician', 'Other'])
+  referringSource: string;
+
+  @ApiProperty({
+    description: 'Consent for treatment (Y/N)',
+    example: 'Y',
+    enum: ['Y', 'N'],
+  })
+  @IsString()
+  @IsIn(['Y', 'N'])
+  consentForTreatment: string;
+
+  @ApiProperty({
+    description: 'HIPAA Privacy Notice Acknowledgment (Y/N)',
+    example: 'Y',
+    enum: ['Y', 'N'],
+  })
+  @IsString()
+  @IsIn(['Y', 'N'])
+  hipaaPrivacyNoticeAcknowledgment: string;
+
+  @ApiProperty({
+    description: 'Release of Medical Records Consent (Y/N)',
+    example: 'Y',
+    enum: ['Y', 'N'],
+  })
+  @IsString()
+  @IsIn(['Y', 'N'])
+  releaseOfMedicalRecordsConsent: string;
+
+  @ApiProperty({
+    description: 'Preferred method of communication (Phone/Email/Mail)',
+    example: 'Email',
+    enum: ['Phone', 'Email', 'Mail'],
+  })
+  @IsString()
+  @IsIn(['Phone', 'Email', 'Mail'])
+  preferredMethodOfCommunication: string;
+
+  @ApiProperty({
+    description: 'Disability/Accessibility needs',
+    example: 'None',
+    type: String,
+  })
+  @IsString()
+  disabilityAccessibilityNeeds: string;
+
+  // Optional Fields (Yellow in image)
+  @ApiPropertyOptional({
+    description: 'Care provider phone number',
+    example: '+1234567890',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  careProviderPhone?: string;
+
+  @ApiPropertyOptional({
+    description: 'Last 4 digits of SSN',
+    example: '1234',
+    minLength: 4,
+    maxLength: 4,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(4, 4)
+  @Matches(/^\d{4}$/, { message: 'SSN must be exactly 4 digits' })
+  lastFourDigitsSSN?: string;
+
+  @ApiPropertyOptional({
+    description: 'Language preference',
+    example: 'English',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  languagePreference?: string;
+
+  @ApiPropertyOptional({
+    description: 'Ethnicity/Race',
+    example: 'Caucasian',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  ethnicityRace?: string;
+
+  @ApiPropertyOptional({
+    description: 'Primary care physician',
+    example: 'Dr. Smith',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  primaryCarePhysician?: string;
+
+  @ApiPropertyOptional({
+    description: 'Insurance provider name',
+    example: 'Blue Cross Blue Shield',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  insuranceProviderName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Insurance policy number',
+    example: 'POL123456789',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  insurancePolicyNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Insurance group number',
+    example: 'GRP987654321',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  insuranceGroupNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Insurance phone number',
+    example: '+18005551234',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  insurancePhoneNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Guarantor/Responsible party',
+    example: 'John Doe',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  guarantorResponsibleParty?: string;
+
+  @ApiPropertyOptional({
+    description: 'Date of first visit planned (YYYY-MM-DD format)',
+    example: '2024-02-15',
+    type: String,
+  })
+  @IsOptional()
+  @IsDateString()
+  dateOfFirstVisitPlanned?: string;
+
+  @ApiPropertyOptional({
+    description: 'Interpreter required (Y/N)',
+    example: 'N',
+    enum: ['Y', 'N'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['Y', 'N'])
+  interpreterRequired?: string;
+
+  @ApiPropertyOptional({
+    description: 'Advance directives (Y/N)',
+    example: 'N',
+    enum: ['Y', 'N'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['Y', 'N'])
+  advanceDirectives?: string;
 
   @ApiProperty({
     description: 'User password (minimum 6 characters)',
@@ -56,44 +358,17 @@ export class RegisterDto {
   @IsString()
   @MinLength(6)
   password: string;
-
-  @ApiPropertyOptional({
-    description: 'User phone number',
-    example: '+1234567890',
-    type: String,
-  })
-  @IsOptional()
-  @IsString()
-  phone?: string;
-
-  @ApiPropertyOptional({
-    description: 'User date of birth (YYYY-MM-DD format)',
-    example: '1990-01-01',
-    type: String,
-  })
-  @IsOptional()
-  @IsDateString()
-  dateOfBirth?: string;
-
-  @ApiPropertyOptional({
-    description: 'User city',
-    example: 'New York',
-    type: String,
-  })
-  @IsOptional()
-  @IsString()
-  city?: string;
 }
 
 // Forgot Password DTO
 export class ForgotPasswordDto {
   @ApiProperty({
-    description: 'User email address to send reset link',
+    description: 'User primary email address to send reset link',
     example: 'john.doe@example.com',
     type: String,
   })
   @IsEmail()
-  email: string;
+  primaryEmail: string;
 }
 
 // Reset Password DTO
@@ -138,6 +413,328 @@ export class UpdatePasswordDto {
   newPassword: string;
 }
 
+// Profile Update DTO
+export class ProfileUpdateDto {
+  @ApiPropertyOptional({
+    description: 'Title (Mr, Mrs, Ms, Dr, Other)',
+    example: 'Mr',
+    enum: ['Mr', 'Mrs', 'Ms', 'Dr', 'Other'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['Mr', 'Mrs', 'Ms', 'Dr', 'Other'])
+  title?: string;
+
+  @ApiPropertyOptional({
+    description: 'User first name',
+    example: 'John',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiPropertyOptional({
+    description: 'User middle name',
+    example: 'Michael',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  middleName?: string;
+
+  @ApiPropertyOptional({
+    description: 'User last name',
+    example: 'Doe',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @ApiPropertyOptional({
+    description: 'User date of birth (YYYY-MM-DD format)',
+    example: '1990-01-01',
+    type: String,
+  })
+  @IsOptional()
+  @IsDateString()
+  dateOfBirth?: string;
+
+  @ApiPropertyOptional({
+    description: 'Gender (Male/Female/Other)',
+    example: 'Male',
+    enum: ['Male', 'Female', 'Other'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['Male', 'Female', 'Other'])
+  gender?: string;
+
+  @ApiPropertyOptional({
+    description: 'Complete address (House/Apt, Street)',
+    example: '123 Main St, Apt 4B',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  completeAddress?: string;
+
+  @ApiPropertyOptional({
+    description: 'City',
+    example: 'New York',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiPropertyOptional({
+    description: 'State',
+    example: 'NY',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @ApiPropertyOptional({
+    description: 'Zipcode',
+    example: '10001',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  zipcode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Alternative email address',
+    example: 'john.doe.alternative@example.com',
+    type: String,
+  })
+  @IsOptional()
+  @IsEmail()
+  alternativeEmail?: string;
+
+  @ApiPropertyOptional({
+    description: 'Alternative phone number',
+    example: '+1987654321',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  alternativePhone?: string;
+
+  @ApiPropertyOptional({
+    description: 'Emergency contact name',
+    example: 'Jane Doe',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  emergencyContactName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Emergency contact relationship',
+    example: 'Spouse',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  emergencyContactRelationship?: string;
+
+  @ApiPropertyOptional({
+    description: 'Emergency contact phone number',
+    example: '+1234567890',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  emergencyContactPhone?: string;
+
+  @ApiPropertyOptional({
+    description: 'Referring source (Self/Physician/Other)',
+    example: 'Self',
+    enum: ['Self', 'Physician', 'Other'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['Self', 'Physician', 'Other'])
+  referringSource?: string;
+
+  @ApiPropertyOptional({
+    description: 'Consent for treatment (Y/N)',
+    example: 'Y',
+    enum: ['Y', 'N'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['Y', 'N'])
+  consentForTreatment?: string;
+
+  @ApiPropertyOptional({
+    description: 'HIPAA Privacy Notice Acknowledgment (Y/N)',
+    example: 'Y',
+    enum: ['Y', 'N'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['Y', 'N'])
+  hipaaPrivacyNoticeAcknowledgment?: string;
+
+  @ApiPropertyOptional({
+    description: 'Release of Medical Records Consent (Y/N)',
+    example: 'Y',
+    enum: ['Y', 'N'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['Y', 'N'])
+  releaseOfMedicalRecordsConsent?: string;
+
+  @ApiPropertyOptional({
+    description: 'Preferred method of communication (Phone/Email/Mail)',
+    example: 'Email',
+    enum: ['Phone', 'Email', 'Mail'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['Phone', 'Email', 'Mail'])
+  preferredMethodOfCommunication?: string;
+
+  @ApiPropertyOptional({
+    description: 'Disability/Accessibility needs',
+    example: 'None',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  disabilityAccessibilityNeeds?: string;
+
+  // Optional Fields (Yellow in image)
+  @ApiPropertyOptional({
+    description: 'Care provider phone number',
+    example: '+1234567890',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  careProviderPhone?: string;
+
+  @ApiPropertyOptional({
+    description: 'Last 4 digits of SSN',
+    example: '1234',
+    minLength: 4,
+    maxLength: 4,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(4, 4)
+  @Matches(/^\d{4}$/, { message: 'SSN must be exactly 4 digits' })
+  lastFourDigitsSSN?: string;
+
+  @ApiPropertyOptional({
+    description: 'Language preference',
+    example: 'English',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  languagePreference?: string;
+
+  @ApiPropertyOptional({
+    description: 'Ethnicity/Race',
+    example: 'Caucasian',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  ethnicityRace?: string;
+
+  @ApiPropertyOptional({
+    description: 'Primary care physician',
+    example: 'Dr. Smith',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  primaryCarePhysician?: string;
+
+  @ApiPropertyOptional({
+    description: 'Insurance provider name',
+    example: 'Blue Cross Blue Shield',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  insuranceProviderName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Insurance policy number',
+    example: 'POL123456789',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  insurancePolicyNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Insurance group number',
+    example: 'GRP987654321',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  insuranceGroupNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Insurance phone number',
+    example: '+18005551234',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  insurancePhoneNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Guarantor/Responsible party',
+    example: 'John Doe',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  guarantorResponsibleParty?: string;
+
+  @ApiPropertyOptional({
+    description: 'Date of first visit planned (YYYY-MM-DD format)',
+    example: '2024-02-15',
+    type: String,
+  })
+  @IsOptional()
+  @IsDateString()
+  dateOfFirstVisitPlanned?: string;
+
+  @ApiPropertyOptional({
+    description: 'Interpreter required (Y/N)',
+    example: 'N',
+    enum: ['Y', 'N'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['Y', 'N'])
+  interpreterRequired?: string;
+
+  @ApiPropertyOptional({
+    description: 'Advance directives (Y/N)',
+    example: 'N',
+    enum: ['Y', 'N'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['Y', 'N'])
+  advanceDirectives?: string;
+}
+
 // User data structure for responses
 export class UserResponseDto {
   @ApiProperty({
@@ -147,10 +744,16 @@ export class UserResponseDto {
   id: string;
 
   @ApiProperty({
-    description: 'User email address',
-    example: 'john.doe@example.com',
+    description: 'Medical Record Number',
+    example: '1234567890',
   })
-  email: string;
+  medicalRecordNo: string;
+
+  @ApiProperty({
+    description: 'Title',
+    example: 'Mr',
+  })
+  title: string;
 
   @ApiProperty({
     description: 'User first name',
@@ -159,31 +762,227 @@ export class UserResponseDto {
   firstName: string;
 
   @ApiProperty({
+    description: 'User middle name',
+    example: 'Michael',
+  })
+  middleName: string;
+
+  @ApiProperty({
     description: 'User last name',
     example: 'Doe',
   })
   lastName: string;
 
   @ApiProperty({
-    description: 'User phone number',
+    description: 'User date of birth',
+    example: '1990-01-01T00:00:00.000Z',
+  })
+  dateOfBirth: Date;
+
+  @ApiProperty({
+    description: 'Gender',
+    example: 'Male',
+  })
+  gender: string;
+
+  @ApiProperty({
+    description: 'Complete address',
+    example: '123 Main St, Apt 4B',
+  })
+  completeAddress: string;
+
+  @ApiProperty({
+    description: 'City',
+    example: 'New York',
+  })
+  city: string;
+
+  @ApiProperty({
+    description: 'State',
+    example: 'NY',
+  })
+  state: string;
+
+  @ApiProperty({
+    description: 'Zipcode',
+    example: '10001',
+  })
+  zipcode: string;
+
+  @ApiProperty({
+    description: 'Primary email address',
+    example: 'john.doe@example.com',
+  })
+  primaryEmail: string;
+
+  @ApiProperty({
+    description: 'Alternative email address',
+    example: 'john.doe.alternative@example.com',
+  })
+  alternativeEmail: string;
+
+  @ApiProperty({
+    description: 'Primary phone number',
+    example: '+1234567890',
+  })
+  primaryPhone: string;
+
+  @ApiProperty({
+    description: 'Alternative phone number',
+    example: '+1987654321',
+  })
+  alternativePhone: string;
+
+  @ApiProperty({
+    description: 'Emergency contact name',
+    example: 'Jane Doe',
+  })
+  emergencyContactName: string;
+
+  @ApiProperty({
+    description: 'Emergency contact relationship',
+    example: 'Spouse',
+  })
+  emergencyContactRelationship: string;
+
+  @ApiProperty({
+    description: 'Emergency contact phone number',
+    example: '+1234567890',
+  })
+  emergencyContactPhone: string;
+
+  @ApiProperty({
+    description: 'Referring source',
+    example: 'Self',
+  })
+  referringSource: string;
+
+  @ApiProperty({
+    description: 'Consent for treatment',
+    example: 'Y',
+  })
+  consentForTreatment: string;
+
+  @ApiProperty({
+    description: 'HIPAA Privacy Notice Acknowledgment',
+    example: 'Y',
+  })
+  hipaaPrivacyNoticeAcknowledgment: string;
+
+  @ApiProperty({
+    description: 'Release of Medical Records Consent',
+    example: 'Y',
+  })
+  releaseOfMedicalRecordsConsent: string;
+
+  @ApiProperty({
+    description: 'Preferred method of communication',
+    example: 'Email',
+  })
+  preferredMethodOfCommunication: string;
+
+  @ApiProperty({
+    description: 'Disability/Accessibility needs',
+    example: 'None',
+  })
+  disabilityAccessibilityNeeds: string;
+
+  @ApiProperty({
+    description: 'Care provider phone number',
     example: '+1234567890',
     nullable: true,
   })
-  phone: string | null;
+  careProviderPhone: string | null;
 
   @ApiProperty({
-    description: 'User date of birth',
-    example: '1990-01-01T00:00:00.000Z',
+    description: 'Last 4 digits of SSN',
+    example: '1234',
     nullable: true,
   })
-  dateOfBirth: Date | null;
+  lastFourDigitsSSN: string | null;
 
   @ApiProperty({
-    description: 'User city',
-    example: 'New York',
+    description: 'Language preference',
+    example: 'English',
     nullable: true,
   })
-  city: string | null;
+  languagePreference: string | null;
+
+  @ApiProperty({
+    description: 'Ethnicity/Race',
+    example: 'Caucasian',
+    nullable: true,
+  })
+  ethnicityRace: string | null;
+
+  @ApiProperty({
+    description: 'Primary care physician',
+    example: 'Dr. Smith',
+    nullable: true,
+  })
+  primaryCarePhysician: string | null;
+
+  @ApiProperty({
+    description: 'Insurance provider name',
+    example: 'Blue Cross Blue Shield',
+    nullable: true,
+  })
+  insuranceProviderName: string | null;
+
+  @ApiProperty({
+    description: 'Insurance policy number',
+    example: 'POL123456789',
+    nullable: true,
+  })
+  insurancePolicyNumber: string | null;
+
+  @ApiProperty({
+    description: 'Insurance group number',
+    example: 'GRP987654321',
+    nullable: true,
+  })
+  insuranceGroupNumber: string | null;
+
+  @ApiProperty({
+    description: 'Insurance phone number',
+    example: '+18005551234',
+    nullable: true,
+  })
+  insurancePhoneNumber: string | null;
+
+  @ApiProperty({
+    description: 'Guarantor/Responsible party',
+    example: 'John Doe',
+    nullable: true,
+  })
+  guarantorResponsibleParty: string | null;
+
+  @ApiProperty({
+    description: 'Date of registration',
+    example: '2024-01-01T00:00:00.000Z',
+  })
+  dateOfRegistration: Date;
+
+  @ApiProperty({
+    description: 'Date of first visit planned',
+    example: '2024-02-15T00:00:00.000Z',
+    nullable: true,
+  })
+  dateOfFirstVisitPlanned: Date | null;
+
+  @ApiProperty({
+    description: 'Interpreter required',
+    example: 'N',
+    nullable: true,
+  })
+  interpreterRequired: string | null;
+
+  @ApiProperty({
+    description: 'Advance directives',
+    example: 'N',
+    nullable: true,
+  })
+  advanceDirectives: string | null;
 
   @ApiProperty({
     description: 'Whether the user account is active',
@@ -234,7 +1033,7 @@ export class PasswordResetResponseDataDto {
     description: 'Email address where reset link was sent',
     example: 'john.doe@example.com',
   })
-  email: string;
+  primaryEmail: string;
 }
 
 // Password reset response wrapper

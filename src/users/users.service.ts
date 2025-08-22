@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProfileUpdateDto } from '../auth/dto/auth.dto';
 
 @Injectable()
 export class UsersService {
@@ -18,16 +19,33 @@ export class UsersService {
     return userWithoutPassword;
   }
 
-  async findByEmail(email: string) {
+  async findByPrimaryEmail(primaryEmail: string) {
     return this.prisma.user.findUnique({
-      where: { email },
+      where: { primaryEmail },
     });
   }
 
-  async updateProfile(id: string, updateData: any) {
+  async findByMedicalRecordNo(medicalRecordNo: string) {
+    return this.prisma.user.findUnique({
+      where: { medicalRecordNo },
+    });
+  }
+
+  async updateProfile(id: string, updateData: ProfileUpdateDto) {
+    // Create a new object with converted date fields for Prisma
+    const prismaUpdateData: any = { ...updateData };
+    
+    // Handle date fields conversion
+    if (updateData.dateOfBirth) {
+      prismaUpdateData.dateOfBirth = new Date(updateData.dateOfBirth);
+    }
+    if (updateData.dateOfFirstVisitPlanned) {
+      prismaUpdateData.dateOfFirstVisitPlanned = new Date(updateData.dateOfFirstVisitPlanned);
+    }
+
     const user = await this.prisma.user.update({
       where: { id },
-      data: updateData,
+      data: prismaUpdateData,
     });
 
     const { password, ...userWithoutPassword } = user;
