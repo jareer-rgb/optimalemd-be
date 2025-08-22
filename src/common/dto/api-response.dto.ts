@@ -170,3 +170,23 @@ export class SuccessApiResponse {
   })
   path: string;
 }
+
+// Success response with data
+export class SuccessApiResponseWithData<T> {
+  @ApiProperty({
+    description: 'Indicates if the request was successful',
+    example: true,
+  })
+  success: boolean;
+
+  @ApiProperty({
+    description: 'Response message',
+    example: 'Operation completed successfully',
+  })
+  message: string;
+
+  @ApiProperty({
+    description: 'Response data payload',
+  })
+  data: T;
+}

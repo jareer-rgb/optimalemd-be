@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MailerService } from '../mailer/mailer.service';
 import { ConfigService } from '@nestjs/config';
 import { LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordDto, AuthResponseDataDto, UserResponseDto, UpdatePasswordDto } from './dto/auth.dto';
+import { DoctorResponseDto } from '../doctors/dto/doctor.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -85,15 +86,31 @@ export class AuthService {
     return {
       accessToken,
       user: userWithoutPassword as UserResponseDto,
+      userType: 'user' as const,
     };
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponseDataDto> {
-    const { primaryEmail, password } = loginDto;
+    const { userType, email, password } = loginDto;
 
+    if (userType === 'user') {
+      // Handle user (patient) login
+      return this.loginUser(email, password);
+    } else if (userType === 'doctor') {
+      // Handle doctor login
+      return this.loginDoctor(email, password);
+    } else {
+      throw new BadRequestException('Invalid user type. Must be either "user" or "doctor"');
+    }
+  }
+
+  /**
+   * Login user (patient)
+   */
+  private async loginUser(email: string, password: string): Promise<AuthResponseDataDto> {
     // Find user by primary email
     const user = await this.prisma.user.findUnique({
-      where: { primaryEmail },
+      where: { primaryEmail: email },
     });
 
     if (!user) {
@@ -117,7 +134,7 @@ export class AuthService {
     }
 
     // Generate JWT token
-    const payload = { sub: user.id, email: user.primaryEmail };
+    const payload = { sub: user.id, email: user.primaryEmail, userType: 'user' };
     const accessToken = this.jwtService.sign(payload);
 
     // Return user data without password
@@ -126,101 +143,208 @@ export class AuthService {
     return {
       accessToken,
       user: userWithoutPassword as UserResponseDto,
+      userType: 'user' as const,
+    };
+  }
+
+  /**
+   * Login doctor
+   */
+  private async loginDoctor(email: string, password: string): Promise<AuthResponseDataDto> {
+    // Find doctor by email
+    const doctor = await this.prisma.doctor.findUnique({
+      where: { email },
+    });
+
+    if (!doctor) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Check if doctor is active
+    if (!doctor.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Check if email is verified
+    if (!doctor.isEmailVerified) {
+      throw new UnauthorizedException('Please verify your email address before logging in');
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, doctor.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Generate JWT token
+    const payload = { sub: doctor.id, email: doctor.email, userType: 'doctor' };
+    const accessToken = this.jwtService.sign(payload);
+
+    // Return doctor data without password
+    const { password: _, ...doctorWithoutPassword } = doctor;
+
+    return {
+      accessToken,
+      user: doctorWithoutPassword as DoctorResponseDto,
+      userType: 'doctor' as const,
     };
   }
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
-    const { primaryEmail } = forgotPasswordDto;
+    const { email } = forgotPasswordDto;
 
     // Check if user exists
     const user = await this.prisma.user.findUnique({
-      where: { primaryEmail },
+      where: { primaryEmail: email },
     });
 
-    if (!user) {
-      // Don't reveal if user exists or not for security
+    // Check if doctor exists
+    const doctor = await this.prisma.doctor.findUnique({
+      where: { email },
+    });
+
+    if (!user && !doctor) {
+      // Don't reveal if user/doctor exists or not for security
       return {
         message: 'If an account with that email exists, a password reset link has been sent.',
-        primaryEmail,
+        email,
       };
     }
+
+    // Determine which type of account this is
+    const accountType = user ? 'user' : 'doctor';
+    const account = user || doctor;
 
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    // Save reset token to database
-    await this.prisma.user.update({
-      where: { primaryEmail },
-      data: {
-        resetToken,
-        resetTokenExpiry,
-      },
-    });
+    // Save reset token to appropriate table
+    if (accountType === 'user') {
+      await this.prisma.user.update({
+        where: { primaryEmail: email },
+        data: {
+          resetToken,
+          resetTokenExpiry,
+        },
+      });
+    } else {
+      await this.prisma.doctor.update({
+        where: { email },
+        data: {
+          resetToken,
+          resetTokenExpiry,
+        },
+      });
+    }
 
     // Create reset link using configuration
     const frontendUrl = "http://localhost:8080";
-    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}&type=${accountType}`;
 
     // Send password reset email
     try {
+      const firstName = accountType === 'user' ? (account as any).firstName : (account as any).firstName;
       await this.mailerService.sendPasswordResetEmail(
-        primaryEmail,
-        user.firstName,
+        email,
+        firstName,
         resetLink
       );
     } catch (error) {
       console.error('Failed to send password reset email:', error);
       // Remove the token if email fails
-      await this.prisma.user.update({
-        where: { primaryEmail },
-        data: {
-          resetToken: null,
-          resetTokenExpiry: null,
-        },
-      });
+      if (accountType === 'user') {
+        await this.prisma.user.update({
+          where: { primaryEmail: email },
+          data: {
+            resetToken: null,
+            resetTokenExpiry: null,
+          },
+        });
+      } else {
+        await this.prisma.doctor.update({
+          where: { email },
+          data: {
+            resetToken: null,
+            resetTokenExpiry: null,
+          },
+        });
+      }
       throw new BadRequestException('Failed to send password reset email. Please try again later.');
     }
 
     return {
       message: 'If an account with that email exists, a password reset link has been sent.',
-      primaryEmail,
+      email,
     };
   }
 
   async resetPassword(resetPasswordDto: ResetPasswordDto) {
-    const { token, newPassword } = resetPasswordDto;
+    const { token, accountType, newPassword } = resetPasswordDto;
 
-    // Find user with valid reset token
-    const user = await this.prisma.user.findFirst({
-      where: {
-        resetToken: token,
-        resetTokenExpiry: {
-          gt: new Date(),
+    let account;
+    let email;
+
+    if (accountType === 'user') {
+      // Find user with valid reset token
+      account = await this.prisma.user.findFirst({
+        where: {
+          resetToken: token,
+          resetTokenExpiry: {
+            gt: new Date(),
+          },
         },
-      },
-    });
+      });
+      if (account) {
+        email = (account as any).primaryEmail;
+      }
+    } else {
+      // Find doctor with valid reset token
+      account = await this.prisma.doctor.findFirst({
+        where: {
+          resetToken: token,
+          resetTokenExpiry: {
+            gt: new Date(),
+          },
+        },
+      });
+      if (account) {
+        email = (account as any).email;
+      }
+    }
 
-    if (!user) {
+    if (!account) {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
     // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-    // Update password and clear reset token
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
-        resetToken: null,
-        resetTokenExpiry: null,
-      },
-    });
+    // Update password and clear reset token in appropriate table
+    if (accountType === 'user') {
+      await this.prisma.user.update({
+        where: { id: account.id },
+        data: {
+          password: hashedPassword,
+          resetToken: null,
+          resetTokenExpiry: null,
+        },
+      });
+    } else {
+      await this.prisma.doctor.update({
+        where: { id: account.id },
+        data: {
+          password: hashedPassword,
+          resetToken: null,
+          resetTokenExpiry: null,
+        },
+      });
+    }
 
     // Send welcome back email
     try {
-      await this.mailerService.sendWelcomeEmail(user.primaryEmail, user.firstName);
+      const firstName = (account as any).firstName;
+      await this.mailerService.sendWelcomeEmail(email, firstName);
     } catch (error) {
       console.error('Failed to send welcome email:', error);
       // Don't fail the password reset if welcome email fails
@@ -228,7 +352,7 @@ export class AuthService {
 
     return {
       message: 'Password has been reset successfully',
-      primaryEmail: user.primaryEmail,
+      email,
     };
   }
 

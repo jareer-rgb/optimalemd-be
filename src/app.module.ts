@@ -6,6 +6,11 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CommonModule } from './common/common.module';
+import { AppointmentsModule } from './appointments/appointments.module';
+import { DoctorsModule } from './doctors/doctors.module';
+import { ServicesModule } from './services/services.module';
+import { SchedulesModule } from './schedules/schedules.module';
+import { StripeModule } from './stripe/stripe.module';
 
 @Module({
   imports: [
@@ -16,6 +21,11 @@ import { CommonModule } from './common/common.module';
     PrismaModule,
     AuthModule,
     UsersModule,
+    AppointmentsModule,
+    DoctorsModule,
+    ServicesModule,
+    SchedulesModule,
+    StripeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -11,7 +11,7 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   
   // Mandatory Fields (Green in image)
   medicalRecordNo String   @unique // 10 digits
@@ -73,5 +73,296 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relations
+  bookings Booking[]
+  patientAppointments Appointment[]
+
   @@map("users")
+}
+
+// Doctor model for healthcare providers
+model Doctor {
+  id                String   @id @default(uuid())
+  
+  // Authentication fields
+  email             String   @unique
+  password          String
+  isActive          Boolean  @default(true)
+  
+  // Email verification fields
+  isEmailVerified           Boolean  @default(false)
+  emailVerificationToken    String?
+  emailVerificationTokenExpiry DateTime?
+  
+  // Password reset fields
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  
+  // Personal Information
+  title             String   // Dr, Prof, etc.
+  firstName         String
+  middleName        String?
+  lastName          String
+  dateOfBirth       DateTime
+  gender            String   // Male/Female/Other
+  completeAddress   String   // House/Apt, Street
+  city              String
+  state             String
+  zipcode           String
+  alternativeEmail  String?
+  primaryPhone      String
+  alternativePhone  String?
+  
+  // Professional Information
+  licenseNumber     String   @unique
+  specialization   String   // e.g., "Cardiology", "General Practice"
+  qualifications   String[] // Array of qualifications
+  experience       Int      // Years of experience
+  bio              String?  // Professional biography
+  
+  // Availability
+  isAvailable      Boolean  @default(true)
+  consultationFee  Decimal  @db.Decimal(10, 2)
+  
+  // Working hours (JSON for flexibility)
+  workingHours     Json     // { "monday": {"start": "09:00", "end": "17:00"}, ... }
+  
+  // Status
+  isVerified       Boolean  @default(false)
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Relations
+  schedules        Schedule[]
+  appointments     Appointment[]
+  services        DoctorService[]
+  bookings        Booking[]
+  createdServices Service[] // Services created by this doctor
+
+  @@map("doctors")
+}
+
+// Service model for different types of medical services
+model Service {
+  id                String   @id @default(uuid())
+  doctorId          String   // Doctor who created this service
+  name              String   // No longer unique globally, but unique per doctor
+  description       String?
+  category          String   // e.g., "Consultation", "Procedure", "Test"
+  duration          Int      // Duration in minutes
+  basePrice         Decimal  @db.Decimal(10, 2)
+  isActive          Boolean  @default(true)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  doctor            Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctorServices    DoctorService[]
+  appointments      Appointment[]
+  bookings         Booking[]
+  
+  @@unique([doctorId, name]) // Service name must be unique per doctor
+  @@map("services")
+}
+
+// Junction table for doctor-service relationships
+model DoctorService {
+  id                String   @id @default(uuid())
+  doctorId          String
+  serviceId         String
+  price             Decimal  @db.Decimal(10, 2) // Doctor's specific price for this service
+  isAvailable       Boolean  @default(true)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  doctor            Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  service           Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  
+  @@unique([doctorId, serviceId])
+  @@map("doctor_services")
+}
+
+// Schedule model for doctor availability
+model Schedule {
+  id                String   @id @default(uuid())
+  doctorId          String
+  date              DateTime @db.Date
+  startTime         String   // Format: "HH:MM"
+  endTime           String   // Format: "HH:MM"
+  isAvailable       Boolean  @default(true)
+  maxAppointments   Int      @default(10) // Maximum appointments for this time slot
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  doctor            Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  slots             Slot[]
+  
+  @@unique([doctorId, date, startTime])
+  @@map("schedules")
+}
+
+// Slot model for individual appointment slots
+model Slot {
+  id                String   @id @default(uuid())
+  scheduleId        String
+  startTime         String   // Format: "HH:MM"
+  endTime           String   // Format: "HH:MM"
+  isAvailable       Boolean  @default(true)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  schedule          Schedule     @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  appointment       Appointment?
+  
+  @@unique([scheduleId, startTime])
+  @@map("slots")
+}
+
+// Payment model for tracking Stripe payments
+model Payment {
+  id                String   @id @default(uuid())
+  appointmentId     String   @unique
+  stripePaymentId   String   @unique
+  amount            Decimal  @db.Decimal(10, 2)
+  currency          String   @default("usd")
+  status            PaymentStatus
+  paymentMethod     String?  // card, bank_transfer, etc.
+  paymentIntent     String   @unique // Stripe payment intent ID - make it unique
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  paidAt            DateTime?
+  
+  // Relations
+  appointment       Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  
+  @@map("payments")
+}
+
+// Appointment model for booked appointments
+model Appointment {
+  id                String   @id @default(uuid())
+  patientId         String
+  doctorId          String
+  serviceId         String
+  slotId            String   @unique
+  appointmentDate   DateTime @db.Date
+  appointmentTime   String   // Format: "HH:MM"
+  duration          Int      // Duration in minutes
+  
+  // Status tracking
+  status            AppointmentStatus @default(PENDING)
+  
+  // Patient information
+  patientNotes      String?
+  symptoms          String?
+  
+  // Payment and billing
+  amount            Decimal  @db.Decimal(10, 2)
+  isPaid            Boolean  @default(false)
+  paymentMethod     String?
+  
+  // Cancellation and rescheduling
+  cancellationReason String?
+  rescheduledFrom   String?  // Reference to previous appointment ID
+  
+  // Timestamps
+  scheduledAt       DateTime @default(now())
+  confirmedAt       DateTime?
+  cancelledAt       DateTime?
+  completedAt       DateTime?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  patient           User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor            Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  service           Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  slot              Slot     @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  payment           Payment?
+  
+  @@map("appointments")
+}
+
+// Booking model for appointment requests
+model Booking {
+  id                String   @id @default(uuid())
+  patientId         String
+  doctorId          String
+  serviceId         String
+  preferredDate     DateTime @db.Date
+  preferredTime     String   // Format: "HH:MM"
+  alternativeDates  DateTime[] @db.Date // Alternative preferred dates
+  alternativeTimes  String[] // Alternative preferred times
+  
+  // Patient information
+  patientNotes      String?
+  symptoms          String?
+  urgency           UrgencyLevel @default(ROUTINE)
+  
+  // Status
+  status            BookingStatus @default(PENDING)
+  
+  // Response
+  doctorNotes       String?
+  suggestedDate     DateTime?
+  suggestedTime     String?
+  
+  // Timestamps
+  requestedAt       DateTime @default(now())
+  respondedAt       DateTime?
+  expiresAt         DateTime? // When the booking request expires
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  patient           User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor            Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  service           Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  
+  @@map("bookings")
+}
+
+// Enums
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CONVERTED_TO_APPOINTMENT
+}
+
+enum UrgencyLevel {
+  ROUTINE
+  URGENT
+  EMERGENCY
 }

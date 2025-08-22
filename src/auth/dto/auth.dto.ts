@@ -1,18 +1,28 @@
 import { IsEmail, IsString, MinLength, IsOptional, IsDateString, IsIn, Matches, Length } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BaseApiResponse } from '../../common/dto/api-response.dto';
+import { DoctorResponseDto } from '../../doctors/dto/doctor.dto';
 
 export class LoginDto {
   @ApiProperty({
-    description: 'User primary email address',
+    description: 'User type (user for patients, doctor for healthcare providers)',
+    example: 'user',
+    enum: ['user', 'doctor'],
+  })
+  @IsString()
+  @IsIn(['user', 'doctor'])
+  userType: 'user' | 'doctor';
+
+  @ApiProperty({
+    description: 'Email address (primary email for users, email for doctors)',
     example: 'john.doe@example.com',
     type: String,
   })
   @IsEmail()
-  primaryEmail: string;
+  email: string;
 
   @ApiProperty({
-    description: 'User password (minimum 6 characters)',
+    description: 'Password (minimum 6 characters)',
     example: 'securepassword123',
     minLength: 6,
     type: String,
@@ -363,12 +373,12 @@ export class RegisterDto {
 // Forgot Password DTO
 export class ForgotPasswordDto {
   @ApiProperty({
-    description: 'User primary email address to send reset link',
+    description: 'Email address (primary email for users, email for doctors)',
     example: 'john.doe@example.com',
     type: String,
   })
   @IsEmail()
-  primaryEmail: string;
+  email: string;
 }
 
 // Reset Password DTO
@@ -380,6 +390,15 @@ export class ResetPasswordDto {
   })
   @IsString()
   token: string;
+
+  @ApiProperty({
+    description: 'Account type (user for patients, doctor for healthcare providers)',
+    example: 'user',
+    enum: ['user', 'doctor'],
+  })
+  @IsString()
+  @IsIn(['user', 'doctor'])
+  accountType: 'user' | 'doctor';
 
   @ApiProperty({
     description: 'New password (minimum 6 characters)',
@@ -739,7 +758,7 @@ export class ProfileUpdateDto {
 export class UserResponseDto {
   @ApiProperty({
     description: 'User unique identifier',
-    example: 'clx1234567890abcdef',
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
   id: string;
 
@@ -1012,10 +1031,20 @@ export class AuthResponseDataDto {
   accessToken: string;
 
   @ApiProperty({
-    description: 'User information',
-    type: UserResponseDto,
+    description: 'User or Doctor information',
+    oneOf: [
+      { $ref: '#/components/schemas/UserResponseDto' },
+      { $ref: '#/components/schemas/DoctorResponseDto' }
+    ],
   })
-  user: UserResponseDto;
+  user: UserResponseDto | DoctorResponseDto;
+
+  @ApiProperty({
+    description: 'Type of user (user for patients, doctor for healthcare providers)',
+    example: 'user',
+    enum: ['user', 'doctor'],
+  })
+  userType: 'user' | 'doctor';
 }
 
 // Authentication response wrapper
@@ -1033,7 +1062,7 @@ export class PasswordResetResponseDataDto {
     description: 'Email address where reset link was sent',
     example: 'john.doe@example.com',
   })
-  primaryEmail: string;
+  email: string;
 }
 
 // Password reset response wrapper

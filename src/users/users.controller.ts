@@ -45,7 +45,7 @@ export class UsersController {
           statusCode: 200,
           message: 'User profile retrieved successfully',
           data: {
-            id: 'clx1234567890abcdef',
+            id: '123e4567-e89b-12d3-a456-426614174000',
             medicalRecordNo: '1234567890',
             title: 'Mr',
             firstName: 'John',
@@ -216,7 +216,7 @@ export class UsersController {
           statusCode: 200,
           message: 'User profile updated successfully',
           data: {
-            id: 'clx1234567890abcdef',
+            id: '123e4567-e89b-12d3-a456-426614174000',
             medicalRecordNo: '1234567890',
             title: 'Mr',
             firstName: 'John',
@@ -393,7 +393,7 @@ export class UsersController {
           data: {
             message: 'Password updated successfully',
             user: {
-              id: 'clx1234567890abcdef',
+              id: '123e4567-e89b-12d3-a456-426614174000',
               medicalRecordNo: '1234567890',
               title: 'Mr',
               firstName: 'John',

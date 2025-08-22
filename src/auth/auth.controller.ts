@@ -132,29 +132,141 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'User Login',
-    description: 'Authenticate existing user with primary email and password to receive JWT access token.',
+    summary: 'User/Doctor Login',
+    description: 'Authenticate a user (patient) or doctor with email and password.',
   })
   @ApiBody({
     type: LoginDto,
-    description: 'User login credentials',
+    description: 'Login credentials with user type',
     examples: {
-      login: {
-        summary: 'Login Credentials',
-        description: 'Enter your primary email and password',
+      userLogin: {
+        summary: 'User (Patient) Login',
+        description: 'Login as a patient user',
         value: {
-          primaryEmail: 'john.doe@example.com',
-          password: 'securepassword123',
+          userType: 'user',
+          email: 'john.doe@example.com',
+          password: 'securepassword123'
+        } as LoginDto,
+      },
+      doctorLogin: {
+        summary: 'Doctor Login',
+        description: 'Login as a healthcare provider',
+        value: {
+          userType: 'doctor',
+          email: 'dr.smith@example.com',
+          password: 'securepassword123'
         } as LoginDto,
       },
     },
   })
-  async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
+  @ApiOkResponse({
+    description: 'Login successful',
+    type: AuthResponseDto,
+    examples: {
+      userSuccess: {
+        summary: 'User Login Success',
+        value: {
+          success: true,
+          statusCode: 200,
+          message: 'Login successful',
+          data: {
+            accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+            user: {
+              id: '123e4567-e89b-12d3-a456-426614174000',
+              medicalRecordNo: '1234567890',
+              title: 'Mr',
+              firstName: 'John',
+              // ... other user fields
+            },
+            userType: 'user'
+          },
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/auth/login',
+        },
+      },
+      doctorSuccess: {
+        summary: 'Doctor Login Success',
+        value: {
+          success: true,
+          statusCode: 200,
+          message: 'Login successful',
+          data: {
+            accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+            user: {
+              id: '123e4567-e89b-12d3-a456-426614174000',
+              email: 'dr.smith@example.com',
+              title: 'Dr',
+              firstName: 'John',
+              // ... other doctor fields
+            },
+            userType: 'doctor'
+          },
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/auth/login',
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Validation error or invalid user type',
+    examples: {
+      invalidUserType: {
+        summary: 'Invalid User Type',
+        value: {
+          success: false,
+          statusCode: 400,
+          message: 'Invalid user type. Must be either "user" or "doctor"',
+          error: 'BadRequestError',
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/auth/login',
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid credentials or account issues',
+    examples: {
+      invalidCredentials: {
+        summary: 'Invalid Credentials',
+        value: {
+          success: false,
+          statusCode: 401,
+          message: 'Invalid credentials',
+          error: 'UnauthorizedError',
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/auth/login',
+        },
+      },
+      unverifiedEmail: {
+        summary: 'Unverified Email',
+        value: {
+          success: false,
+          statusCode: 401,
+          message: 'Please verify your email address before logging in',
+          error: 'UnauthorizedError',
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/auth/login',
+        },
+      },
+      deactivatedAccount: {
+        summary: 'Deactivated Account',
+        value: {
+          success: false,
+          statusCode: 401,
+          message: 'Account is deactivated',
+          error: 'UnauthorizedError',
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/auth/login',
+        },
+      },
+    },
+  })
+  async login(@Body() loginDto: LoginDto) {
     const data = await this.authService.login(loginDto);
     return {
       success: true,
-      statusCode: HttpStatus.OK,
-      message: 'User authenticated successfully',
+      statusCode: 200,
+      message: 'Login successful',
       data,
       timestamp: new Date().toISOString(),
       path: '/api/auth/login',
@@ -165,26 +277,46 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Forgot Password',
-    description: 'Request a password reset link to be sent to the user\'s primary email address.',
+    description: 'Request a password reset link for user or doctor accounts.',
   })
   @ApiBody({
     type: ForgotPasswordDto,
-    description: 'Primary email address for password reset',
+    description: 'Email address for password reset',
     examples: {
       forgotPassword: {
         summary: 'Forgot Password Request',
-        description: 'Enter your primary email address',
+        description: 'Enter your email address to receive a password reset link',
         value: {
-          primaryEmail: 'john.doe@example.com',
+          email: 'john.doe@example.com'
         } as ForgotPasswordDto,
       },
     },
   })
-  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto): Promise<PasswordResetResponseDto> {
+  @ApiOkResponse({
+    description: 'Password reset email sent successfully',
+    type: PasswordResetResponseDto,
+    examples: {
+      success: {
+        summary: 'Reset Email Sent',
+        value: {
+          success: true,
+          statusCode: 200,
+          message: 'Password reset email sent successfully',
+          data: {
+            message: 'If an account with that email exists, a password reset link has been sent.',
+            email: 'john.doe@example.com',
+          },
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/auth/forgot-password',
+        },
+      },
+    },
+  })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     const data = await this.authService.forgotPassword(forgotPasswordDto);
     return {
       success: true,
-      statusCode: HttpStatus.OK,
+      statusCode: 200,
       message: 'Password reset email sent successfully',
       data,
       timestamp: new Date().toISOString(),
@@ -196,28 +328,65 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Reset Password',
-    description: 'Reset user password using a valid reset token received via email.',
+    description: 'Reset password using the token received via email for user or doctor accounts.',
   })
   @ApiBody({
     type: ResetPasswordDto,
-    description: 'Reset token and new password',
+    description: 'Password reset data with token and new password',
     examples: {
       resetPassword: {
         summary: 'Reset Password',
-        description: 'Enter reset token and new password',
+        description: 'Enter the reset token and new password',
         value: {
           token: 'reset_token_1234567890abcdef',
-          newPassword: 'newpassword123',
+          accountType: 'user',
+          newPassword: 'newpassword123'
         } as ResetPasswordDto,
       },
     },
   })
-  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto): Promise<PasswordResetResponseDto> {
+  @ApiOkResponse({
+    description: 'Password reset successful',
+    type: PasswordResetResponseDto,
+    examples: {
+      success: {
+        summary: 'Password Reset Success',
+        value: {
+          success: true,
+          statusCode: 200,
+          message: 'Password reset successful',
+          data: {
+            message: 'Password has been reset successfully',
+            email: 'john.doe@example.com',
+          },
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/auth/reset-password',
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid or expired reset token',
+    examples: {
+      invalidToken: {
+        summary: 'Invalid Token',
+        value: {
+          success: false,
+          statusCode: 400,
+          message: 'Invalid or expired reset token',
+          error: 'BadRequestError',
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/auth/reset-password',
+        },
+      },
+    },
+  })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     const data = await this.authService.resetPassword(resetPasswordDto);
     return {
       success: true,
-      statusCode: HttpStatus.OK,
-      message: 'Password reset successfully',
+      statusCode: 200,
+      message: 'Password reset successful',
       data,
       timestamp: new Date().toISOString(),
       path: '/api/auth/reset-password',
