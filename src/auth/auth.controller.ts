@@ -421,16 +421,16 @@ export class AuthController {
     schema: {
       type: 'object',
       properties: {
-        primaryEmail: {
+        email: {
           type: 'string',
           format: 'email',
           example: 'john.doe@example.com',
           description: 'Primary email address to resend verification to',
         },
       },
-      required: ['primaryEmail'],
+      required: ['email'],
     },
-    description: 'Primary email address for verification resend',
+    description: 'Email address for verification resend',
   })
   @ApiOkResponse({
     description: 'Verification email resent successfully',
@@ -482,8 +482,8 @@ export class AuthController {
       },
     },
   })
-  async resendVerification(@Body() body: { primaryEmail: string }): Promise<BaseApiResponse<any>> {
-    const data = await this.authService.resendVerification(body.primaryEmail);
+  async resendVerification(@Body() body: { email: string }): Promise<BaseApiResponse<any>> {
+    const data = await this.authService.resendVerification(body.email);
     return {
       success: true,
       statusCode: HttpStatus.OK,

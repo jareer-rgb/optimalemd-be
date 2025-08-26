@@ -496,10 +496,10 @@ export class AuthService {
     };
   }
 
-  async resendVerification(primaryEmail: string) {
+  async resendVerification(email: string) {
     // Check if user exists
     const user = await this.prisma.user.findUnique({
-      where: { primaryEmail },
+      where: { primaryEmail: email },
     });
 
     if (!user) {
@@ -517,7 +517,7 @@ export class AuthService {
 
     // Update user with new verification token
     await this.prisma.user.update({
-      where: { primaryEmail },
+      where: { primaryEmail: email },
       data: {
         emailVerificationToken,
         emailVerificationTokenExpiry,
@@ -528,7 +528,7 @@ export class AuthService {
     try {
       const verificationLink = `${this.configService.get<string>('frontend.url')}/verify-email?token=${emailVerificationToken}`;
       await this.mailerService.sendEmailVerificationEmail(
-        primaryEmail,
+        email,
         user.firstName,
         verificationLink
       );
@@ -536,7 +536,7 @@ export class AuthService {
       console.error('Failed to send email verification email:', error);
       // Remove the token if email fails
       await this.prisma.user.update({
-        where: { primaryEmail },
+        where: { primaryEmail: email },
         data: {
           emailVerificationToken: null,
           emailVerificationTokenExpiry: null,
@@ -547,7 +547,7 @@ export class AuthService {
 
     return {
       message: 'Verification email sent successfully',
-      primaryEmail,
+      email,
     };
   }
 
