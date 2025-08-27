@@ -595,4 +595,8 @@ export class ServicesService {
       orderBy: { name: 'asc' }
     });
   }
+
+  async getPrimaryServices(): Promise<any> {
+    return this.prisma.primaryService.findMany();
+  }
 }

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentsService } from '../appointments/appointments.service';
+import { MailerService } from '../mailer/mailer.service';
 import { CreatePaymentIntentDto, ConfirmPaymentDto } from './dto';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class StripeService {
     private configService: ConfigService,
     private prisma: PrismaService,
     private appointmentsService: AppointmentsService,
+    private mailerService: MailerService
   ) {
     const stripeKey = this.configService.get('STRIPE_SECRET_KEY');
     if (!stripeKey) {
@@ -110,6 +112,27 @@ export class StripeService {
         isPaid: true,
         confirmedAt: new Date(),
       },
+      include: {
+        patient: {
+          select: {
+            firstName: true,
+            lastName: true,
+            primaryEmail: true,
+          },
+        },
+        doctor: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        service: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
 
     await this.prisma.slot.update({
@@ -118,6 +141,39 @@ export class StripeService {
         isAvailable: false,
       },
     });
+
+    // Send email notifications
+    try {
+      const patientName = `${updatedAppointment.patient.firstName} ${updatedAppointment.patient.lastName}`;
+      const doctorName = `Dr. ${updatedAppointment.doctor.firstName} ${updatedAppointment.doctor.lastName}`;
+      const appointmentDate = updatedAppointment.appointmentDate.toISOString().split('T')[0];
+      const amount = updatedAppointment.amount.toString();
+
+      // Send confirmation email to patient
+      await this.mailerService.sendAppointmentConfirmationEmail(
+        updatedAppointment.patient.primaryEmail,
+        patientName,
+        doctorName,
+        updatedAppointment.service.name,
+        appointmentDate,
+        updatedAppointment.appointmentTime,
+        amount
+      );
+
+      // Send notification to doctor
+      await this.mailerService.sendDoctorAppointmentNotification(
+        updatedAppointment.doctor.email,
+        doctorName,
+        patientName,
+        updatedAppointment.service.name,
+        appointmentDate,
+        updatedAppointment.appointmentTime,
+        amount
+      );
+    } catch (error) {
+      console.error('Failed to send confirmation emails:', error);
+      // Don't throw error to avoid breaking the payment confirmation process
+    }
 
     return {
       success: true,

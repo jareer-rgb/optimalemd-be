@@ -157,6 +157,27 @@ export class ServicesController {
     };
   }
 
+  @Get('primary')
+  @ApiOperation({
+    summary: 'Get Primary Services',
+    description: 'Retrieve all primary services.',
+  })
+  @ApiOkResponse({
+    description: 'Primary services retrieved successfully',
+    type: BaseApiResponse<any>,
+  })
+  async getPrimaryServices(): Promise<BaseApiResponse<any>> {
+    const data = await this.servicesService.getPrimaryServices();
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Primary services retrieved successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: '/api/services/primary',
+    };
+  }
+
   @Get()
   @ApiOperation({
     summary: 'Get Services',

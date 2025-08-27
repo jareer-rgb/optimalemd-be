@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailerService } from '../mailer/mailer.service';
 import {
   CreateAppointmentDto,
   UpdateAppointmentDto,
@@ -13,13 +14,16 @@ import { AppointmentStatus } from '@prisma/client';
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mailerService: MailerService
+  ) {}
 
   /**
    * Create a temporary appointment for payment processing
    */
   async createTemporaryAppointment(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
-    const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount } = createAppointmentDto;
+    const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount, primaryServiceId } = createAppointmentDto;
 
     // Check if patient exists and is active
     const patient = await this.prisma.user.findUnique({
@@ -105,6 +109,7 @@ export class AppointmentsService {
         doctorId,
         serviceId,
         slotId,
+        primaryServiceId,
         appointmentDate: new Date(appointmentDate),
         appointmentTime,
         duration,
@@ -156,7 +161,7 @@ export class AppointmentsService {
    * Create a new appointment
    */
   async createAppointment(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
-    const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount } = createAppointmentDto;
+    const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount, primaryServiceId } = createAppointmentDto;
 
     // Check if patient exists and is active
     const patient = await this.prisma.user.findUnique({
@@ -242,6 +247,7 @@ export class AppointmentsService {
         doctorId,
         serviceId,
         slotId,
+        primaryServiceId,
         appointmentDate: new Date(appointmentDate),
         appointmentTime,
         duration,
@@ -443,7 +449,31 @@ export class AppointmentsService {
   async cancelAppointment(id: string, cancelAppointmentDto: CancelAppointmentDto): Promise<AppointmentResponseDto> {
     const appointment = await this.prisma.appointment.findUnique({
       where: { id },
-      include: { slot: true }
+      include: { 
+        slot: true,
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            primaryEmail: true,
+          },
+        },
+        doctor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        service: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      }
     });
 
     if (!appointment) {
@@ -459,32 +489,69 @@ export class AppointmentsService {
       throw new BadRequestException('Appointment is already cancelled');
     }
 
-    // Check cancellation window (e.g., 24 hours before appointment)
+    // Check cancellation window (1 hour before appointment as per requirements)
     const appointmentDateTime = new Date(`${appointment.appointmentDate.toISOString().split('T')[0]}T${appointment.appointmentTime}`);
     const now = new Date();
     const hoursUntilAppointment = (appointmentDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     
-    if (hoursUntilAppointment < 24) {
-      throw new BadRequestException('Appointments can only be cancelled at least 24 hours in advance');
+    if (hoursUntilAppointment < 1) {
+      throw new BadRequestException('Appointments can only be cancelled at least 1 hour in advance');
     }
 
-    // Cancel appointment
-    const cancelledAppointment = await this.prisma.appointment.update({
-      where: { id },
-      data: {
-        status: AppointmentStatus.CANCELLED,
-        cancellationReason: cancelAppointmentDto.cancellationReason,
-        cancelledAt: new Date()
-      }
+    // Use transaction to ensure data consistency
+    const result = await this.prisma.$transaction(async (prisma) => {
+      // Cancel appointment
+      const cancelledAppointment = await prisma.appointment.update({
+        where: { id },
+        data: {
+          status: AppointmentStatus.CANCELLED,
+          cancellationReason: cancelAppointmentDto.cancellationReason,
+          cancelledAt: new Date()
+        }
+      });
+
+      // Make slot available again
+      await prisma.slot.update({
+        where: { id: appointment.slotId },
+        data: { isAvailable: true }
+      });
+
+      return cancelledAppointment;
     });
 
-    // Make slot available again
-    await this.prisma.slot.update({
-      where: { id: appointment.slotId },
-      data: { isAvailable: true }
-    });
+    // Send email notifications
+    try {
+      const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
+      const doctorName = `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`;
+      const appointmentDate = appointment.appointmentDate.toISOString().split('T')[0];
+      const amount = appointment.amount.toString();
 
-    return cancelledAppointment;
+      // Send cancellation email to patient
+      await this.mailerService.sendCancellationEmail(
+        appointment.patient.primaryEmail,
+        patientName,
+        doctorName,
+        appointmentDate,
+        appointment.appointmentTime,
+        amount
+      );
+
+      // Send cancellation notification to doctor with refund request
+      await this.mailerService.sendDoctorCancellationNotification(
+        appointment.doctor.email,
+        doctorName,
+        patientName,
+        appointment.patient.primaryEmail,
+        appointmentDate,
+        appointment.appointmentTime,
+        amount
+      );
+    } catch (error) {
+      console.error('Failed to send cancellation emails:', error);
+      // Don't throw error to avoid breaking the cancellation process
+    }
+
+    return result;
   }
 
   /**
@@ -495,7 +562,31 @@ export class AppointmentsService {
 
     const appointment = await this.prisma.appointment.findUnique({
       where: { id },
-      include: { slot: true }
+      include: { 
+        slot: true,
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            primaryEmail: true,
+          },
+        },
+        doctor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        service: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      }
     });
 
     if (!appointment) {
@@ -537,24 +628,29 @@ export class AppointmentsService {
       }
     }
 
+    // Store old appointment details for email
+    const oldDate = appointment.appointmentDate.toISOString().split('T')[0];
+    const oldTime = appointment.appointmentTime;
+    const newDate = newSlot.schedule.date.toISOString().split('T')[0];
+    const newTime = newSlot.startTime;
+
     // Use transaction to ensure data consistency
     const result = await this.prisma.$transaction(async (prisma) => {
-      // Update appointment
+      // Make old slot available again
+      await prisma.slot.update({
+        where: { id: appointment.slotId },
+        data: { isAvailable: true }
+      });
+
+      // Update appointment with new slot
       const updatedAppointment = await prisma.appointment.update({
         where: { id },
         data: {
           slotId: newSlotId,
           appointmentDate: newSlot.schedule.date,
           appointmentTime: newSlot.startTime,
-          rescheduledFrom: appointment.id,
-          status: AppointmentStatus.RESCHEDULED
+          status: AppointmentStatus.CONFIRMED, // Keep as confirmed since payment was already made
         }
-      });
-
-      // Make old slot available
-      await prisma.slot.update({
-        where: { id: appointment.slotId },
-        data: { isAvailable: true }
       });
 
       // Make new slot unavailable
@@ -565,6 +661,37 @@ export class AppointmentsService {
 
       return updatedAppointment;
     });
+
+    // Send email notifications
+    try {
+      const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
+      const doctorName = `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`;
+
+      // Send reschedule email to patient
+      await this.mailerService.sendRescheduleEmail(
+        appointment.patient.primaryEmail,
+        patientName,
+        doctorName,
+        oldDate,
+        oldTime,
+        newDate,
+        newTime
+      );
+
+      // Send reschedule notification to doctor
+      await this.mailerService.sendDoctorRescheduleNotification(
+        appointment.doctor.email,
+        doctorName,
+        patientName,
+        oldDate,
+        oldTime,
+        newDate,
+        newTime
+      );
+    } catch (error) {
+      console.error('Failed to send reschedule emails:', error);
+      // Don't throw error to avoid breaking the reschedule process
+    }
 
     return result;
   }

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -535,90 +536,6 @@ export class AppointmentsController {
     };
   }
 
-  @Post(':id/cancel')
-  @ApiOperation({
-    summary: 'Cancel Appointment',
-    description: 'Cancel an appointment with validation and slot management.',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'Appointment ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiBody({
-    type: CancelAppointmentDto,
-    description: 'Cancellation reason',
-  })
-  @ApiOkResponse({
-    description: 'Appointment cancelled successfully',
-    type: BaseApiResponse<AppointmentResponseDto>,
-  })
-  @ApiBadRequestResponse({
-    description: 'Validation error or business rule violation',
-  })
-  @ApiNotFoundResponse({
-    description: 'Appointment not found',
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Unauthorized - invalid or missing JWT token',
-  })
-  async cancelAppointment(
-    @Param('id') id: string,
-    @Body() cancelAppointmentDto: CancelAppointmentDto,
-  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
-    const data = await this.appointmentsService.cancelAppointment(id, cancelAppointmentDto);
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      message: 'Appointment cancelled successfully',
-      data,
-      timestamp: new Date().toISOString(),
-      path: `/api/appointments/${id}/cancel`,
-    };
-  }
-
-  @Post(':id/reschedule')
-  @ApiOperation({
-    summary: 'Reschedule Appointment',
-    description: 'Reschedule an appointment to a new slot with conflict checking.',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'Appointment ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiBody({
-    type: RescheduleAppointmentDto,
-    description: 'Rescheduling data',
-  })
-  @ApiOkResponse({
-    description: 'Appointment rescheduled successfully',
-    type: BaseApiResponse<AppointmentResponseDto>,
-  })
-  @ApiBadRequestResponse({
-    description: 'Validation error or business rule violation',
-  })
-  @ApiNotFoundResponse({
-    description: 'Appointment not found',
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Unauthorized - invalid or missing JWT token',
-  })
-  async rescheduleAppointment(
-    @Param('id') id: string,
-    @Body() rescheduleAppointmentDto: RescheduleAppointmentDto,
-  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
-    const data = await this.appointmentsService.rescheduleAppointment(id, rescheduleAppointmentDto);
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      message: 'Appointment rescheduled successfully',
-      data,
-      timestamp: new Date().toISOString(),
-      path: `/api/appointments/${id}/reschedule`,
-    };
-  }
-
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete Appointment',
@@ -752,6 +669,138 @@ export class AppointmentsController {
       data,
       timestamp: new Date().toISOString(),
       path: `/api/appointments/bookings/${id}/respond`,
+    };
+  }
+
+  @Patch(':id/cancel')
+  @ApiOperation({
+    summary: 'Cancel Appointment',
+    description: 'Cancel an appointment with 1-hour advance notice requirement.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Appointment ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiBody({
+    type: CancelAppointmentDto,
+    description: 'Cancellation data',
+  })
+  @ApiOkResponse({
+    description: 'Appointment cancelled successfully',
+    type: BaseApiResponse<AppointmentResponseDto>,
+  })
+  @ApiBadRequestResponse({
+    description: 'Validation error or business rule violation',
+    examples: {
+      tooLate: {
+        summary: 'Too Late to Cancel',
+        value: {
+          success: false,
+          statusCode: 400,
+          message: 'Appointments can only be cancelled at least 1 hour in advance',
+          error: 'BadRequestError',
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/appointments/123e4567-e89b-12d3-a456-426614174000/cancel',
+        },
+      },
+      alreadyCancelled: {
+        summary: 'Already Cancelled',
+        value: {
+          success: false,
+          statusCode: 400,
+          message: 'Appointment is already cancelled',
+          error: 'BadRequestError',
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/appointments/123e4567-e89b-12d3-a456-426614174000/cancel',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Appointment not found',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - invalid or missing JWT token',
+  })
+  async cancelAppointment(
+    @Param('id') id: string,
+    @Body() cancelAppointmentDto: CancelAppointmentDto,
+  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
+    const data = await this.appointmentsService.cancelAppointment(id, cancelAppointmentDto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Appointment cancelled successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: `/api/appointments/${id}/cancel`,
+    };
+  }
+
+  @Patch(':id/reschedule')
+  @ApiOperation({
+    summary: 'Reschedule Appointment',
+    description: 'Reschedule an appointment to a new date and time slot.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Appointment ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiBody({
+    type: RescheduleAppointmentDto,
+    description: 'Reschedule data',
+  })
+  @ApiOkResponse({
+    description: 'Appointment rescheduled successfully',
+    type: BaseApiResponse<AppointmentResponseDto>,
+  })
+  @ApiBadRequestResponse({
+    description: 'Validation error or business rule violation',
+    examples: {
+      slotUnavailable: {
+        summary: 'Slot Not Available',
+        value: {
+          success: false,
+          statusCode: 400,
+          message: 'New slot is not available',
+          error: 'BadRequestError',
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/appointments/123e4567-e89b-12d3-a456-426614174000/reschedule',
+        },
+      },
+      insufficientDuration: {
+        summary: 'Insufficient Duration',
+        value: {
+          success: false,
+          statusCode: 400,
+          message: 'New slot duration is insufficient for this service',
+          error: 'BadRequestError',
+          timestamp: '2024-12-20T10:00:00.000Z',
+          path: '/api/appointments/123e4567-e89b-12d3-a456-426614174000/reschedule',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Appointment not found',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - invalid or missing JWT token',
+  })
+  async rescheduleAppointment(
+    @Param('id') id: string,
+    @Body() rescheduleAppointmentDto: RescheduleAppointmentDto,
+  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
+    const data = await this.appointmentsService.rescheduleAppointment(id, rescheduleAppointmentDto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Appointment rescheduled successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: `/api/appointments/${id}/reschedule`,
     };
   }
 }

@@ -248,12 +248,32 @@ model Payment {
   @@map("payments")
 }
 
+model PrimaryService {
+  id                String   @id @default(uuid())
+  name              String
+  description       String?
+  category          String   // e.g., "Consultation", "Procedure", "Test"
+  duration          Int      // Duration in minutes
+  basePrice         Decimal  @db.Decimal(10, 2)
+  isActive          Boolean  @default(true)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  appointments      Appointment[]
+
+  @@unique([name])
+  @@map("primary_services")
+}
+
 // Appointment model for booked appointments
 model Appointment {
   id                String   @id @default(uuid())
   patientId         String
   doctorId          String
   serviceId         String
+  primaryServiceId  String?
   slotId            String   @unique
   appointmentDate   DateTime @db.Date
   appointmentTime   String   // Format: "HH:MM"
@@ -289,6 +309,7 @@ model Appointment {
   doctor            Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   service           Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   slot              Slot     @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  primaryService    PrimaryService? @relation(fields: [primaryServiceId], references: [id], onDelete: Cascade)
   payment           Payment?
   
   @@map("appointments")

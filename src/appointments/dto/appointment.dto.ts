@@ -23,6 +23,11 @@ export class CreateAppointmentDto {
   @IsNotEmpty()
   slotId: string;
 
+  @ApiProperty({ description: 'Primary Service ID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @IsString()
+  @IsNotEmpty()
+  primaryServiceId: string;
+
   @ApiProperty({ description: 'Appointment date (YYYY-MM-DD)', example: '2024-12-25' })
   @IsDateString()
   appointmentDate: string;
