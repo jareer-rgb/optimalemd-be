@@ -1,8 +1,8 @@
-# 🔑 OptimalEMD Backend - Password Management Guide
+# 🔑 OptimaleMD Backend - Password Management Guide
 
 ## Overview
 
-This document outlines the complete password management system implemented in the OptimalEMD Backend, including forgot password, reset password, and update password functionality.
+This document outlines the complete password management system implemented in the OptimaleMD Backend, including forgot password, reset password, and update password functionality.
 
 ## 🎯 Password Management Features
 

@@ -1,4 +1,4 @@
-# OptimalEMD Backend API Documentation
+# OptimaleMD Backend API Documentation
 
 ## Base URL
 ```

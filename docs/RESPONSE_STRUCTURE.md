@@ -1,8 +1,8 @@
-# 🏗️ OptimalEMD Backend - Standardized Response Structure
+# 🏗️ OptimaleMD Backend - Standardized Response Structure
 
 ## Overview
 
-This document outlines the standardized response structure implemented across all API endpoints in the OptimalEMD Backend. This ensures consistency, better debugging, and improved developer experience.
+This document outlines the standardized response structure implemented across all API endpoints in the OptimaleMD Backend. This ensures consistency, better debugging, and improved developer experience.
 
 ## 🎯 Why Standardized Responses?
 

@@ -103,6 +103,7 @@ model Doctor {
   firstName         String
   middleName        String?
   lastName          String
+  profilePicture    String?
   dateOfBirth       DateTime
   gender            String   // Male/Female/Other
   completeAddress   String   // House/Apt, Street

@@ -27,8 +27,8 @@ async function bootstrap() {
   
   // Swagger configuration
   const config = new DocumentBuilder()
-    .setTitle('OptimalEMD API')
-    .setDescription('The OptimalEMD Backend API for patient management and authentication')
+    .setTitle('OptimaleMD API')
+    .setDescription('The OptimaleMD Backend API for patient management and authentication')
     .setVersion('1.0')
     .addTag('auth', 'Authentication endpoints')
     .addTag('users', 'User management endpoints')

@@ -97,7 +97,7 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
 
-# OptimalEMD Backend
+# OptimaleMD Backend
 
 A NestJS backend application with authentication and user management.
 
@@ -123,7 +123,7 @@ Create a `.env` file in the root directory:
 
 ```env
 # Database
-DATABASE_URL="postgresql://username:password@localhost:5432/optimalemd?schema=public"
+DATABASE_URL="postgresql://username:password@localhost:5432/optimaleMD?schema=public"
 
 # JWT
 JWT_SECRET="your-super-secret-jwt-key-here"

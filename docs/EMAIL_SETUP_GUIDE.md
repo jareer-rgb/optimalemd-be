@@ -1,14 +1,14 @@
-# 📧 OptimalEMD Backend - Email Service Setup Guide
+# 📧 OptimaleMD Backend - Email Service Setup Guide
 
 ## Overview
 
-This guide will help you set up the email service for your OptimalEMD Backend, including password reset emails, welcome emails, and email verification. The system now uses verification links instead of OTP codes and is fully integrated with your existing mailer service.
+This guide will help you set up the email service for your OptimaleMD Backend, including password reset emails, welcome emails, and email verification. The system now uses verification links instead of OTP codes and is fully integrated with your existing mailer service.
 
 ## 🎯 What's Been Updated
 
 ### 1. **Mailer Service Conversion**
 - ✅ **From OTP to Verification Links**: No more OTP codes, now uses secure verification links
-- ✅ **OptimalEMD Branding**: Dark theme with red accents matching your frontend
+- ✅ **OptimaleMD Branding**: Dark theme with red accents matching your frontend
 - ✅ **Professional Email Templates**: Beautiful, responsive email designs
 - ✅ **Multiple Email Types**: Welcome, password reset, and verification emails
 
@@ -27,11 +27,11 @@ This guide will help you set up the email service for your OptimalEMD Backend, i
 
 ### Required Environment Variables
 
-Create a `.env` file in your `optimalemd-be` directory with these variables:
+Create a `.env` file in your `optimaleMD-be` directory with these variables:
 
 ```env
 # Database Configuration
-DATABASE_URL="postgresql://username:password@localhost:5432/optimalemd_db?schema=public"
+DATABASE_URL="postgresql://username:password@localhost:5432/optimaleMD_db?schema=public"
 
 # JWT Configuration
 JWT_SECRET="your-super-secret-jwt-key-here-make-it-long-and-random"
@@ -116,7 +116,7 @@ SMTP_PASS="abcd efgh ijkl mnop"  # Your 16-character app password
 ### 1. **Welcome Email Template**
 - **Purpose**: Sent after successful registration
 - **Features**: 
-  - OptimalEMD branding with dark theme
+  - OptimaleMD branding with dark theme
   - Red accent colors matching your frontend
   - Professional design with gradient backgrounds
   - Responsive layout for all devices
@@ -341,7 +341,7 @@ SMTP_FROM="noreply@yourdomain.com"
 
 ## 🎉 Ready to Use!
 
-Your OptimalEMD Backend now has a fully integrated email service with:
+Your OptimaleMD Backend now has a fully integrated email service with:
 
 - ✅ **Professional email templates** matching your brand
 - ✅ **Secure verification links** instead of OTP codes

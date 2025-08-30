@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Setting up OptimalEMD Backend..."
+echo "🚀 Setting up OptimaleMD Backend..."
 
 # Install dependencies
 echo "📦 Installing dependencies..."
@@ -11,7 +11,7 @@ if [ ! -f .env ]; then
     echo "🔧 Creating .env file..."
     cat > .env << EOF
 # Database
-DATABASE_URL="postgresql://username:password@localhost:5432/optimalemd?schema=public"
+DATABASE_URL="postgresql://username:password@localhost:5432/optimaleMD?schema=public"
 
 # JWT
 JWT_SECRET="your-super-secret-jwt-key-here"

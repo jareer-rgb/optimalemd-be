@@ -126,7 +126,7 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimalEMD</div>
+            <div class="logo">OptimaleMD</div>
           </div>
           <div class="content">
             <h2 class="title">Verify Your Email</h2>
@@ -147,7 +147,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimalEMD</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
           </div>
         </div>
       </body>
@@ -156,9 +156,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimalEMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Verify Your Email - OptimalEMD',
+        subject: 'Verify Your Email - OptimaleMD',
         html,
       });
       console.log(`Email verification email sent successfully to ${to}`);
@@ -273,7 +273,7 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimalEMD</div>
+            <div class="logo">OptimaleMD</div>
           </div>
           <div class="content">
             <h2 class="title">Reset Your Password</h2>
@@ -299,7 +299,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimalEMD</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
           </div>
         </div>
       </body>
@@ -308,9 +308,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimalEMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Reset Your Password - OptimalEMD',
+        subject: 'Reset Your Password - OptimaleMD',
         html,
       });
       console.log(`Password reset email sent successfully to ${to}`);
@@ -419,17 +419,17 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimalEMD</div>
+            <div class="logo">OptimaleMD</div>
           </div>
           <div class="content">
-            <h2 class="title">Welcome to OptimalEMD!</h2>
+            <h2 class="title">Welcome to OptimaleMD!</h2>
             <p class="description">Hi ${name},</p>
-            <p class="description">Welcome to OptimalEMD! Your account has been successfully verified.</p>
+            <p class="description">Welcome to OptimaleMD! Your account has been successfully verified.</p>
             
             <div class="welcome-message">
               <span class="welcome-icon">🎉</span>
               <p style="margin: 0 0 10px 0; color: #dc2626; font-weight: bold; font-size: 18px;">Your account is now active!</p>
-              <p style="margin: 0;">You can now access all features of OptimalEMD.</p>
+              <p style="margin: 0;">You can now access all features of OptimaleMD.</p>
             </div>
             
             <div class="cta-section">
@@ -438,11 +438,11 @@ export class MailerService implements OnModuleInit {
               <a href="${this.configService.get<string>('frontend.url')}/login" class="cta-button">Login Now</a>
             </div>
             
-            <p class="description">Thank you for choosing OptimalEMD!</p>
+            <p class="description">Thank you for choosing OptimaleMD!</p>
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimalEMD</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
           </div>
         </div>
       </body>
@@ -451,9 +451,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimalEMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Welcome to OptimalEMD!',
+        subject: 'Welcome to OptimaleMD!',
         html,
       });
       console.log(`Welcome email sent successfully to ${to}`);
@@ -564,7 +564,7 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimalEMD</div>
+            <div class="logo">OptimaleMD</div>
           </div>
           <div class="content">
             <h2 class="title">Appointment Confirmed!</h2>
@@ -599,7 +599,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimalEMD</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
           </div>
         </div>
       </body>
@@ -608,9 +608,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimalEMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to: patientEmail,
-        subject: 'Appointment Confirmed - OptimalEMD',
+        subject: 'Appointment Confirmed - OptimaleMD',
         html,
       });
       console.log(`Appointment confirmation email sent successfully to ${patientEmail}`);
@@ -721,7 +721,7 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimalEMD</div>
+            <div class="logo">OptimaleMD</div>
           </div>
           <div class="content">
             <h2 class="title">New Appointment Scheduled</h2>
@@ -755,7 +755,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimalEMD</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
           </div>
         </div>
       </body>
@@ -764,9 +764,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimalEMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to: doctorEmail,
-        subject: 'New Appointment Scheduled - OptimalEMD',
+        subject: 'New Appointment Scheduled - OptimaleMD',
         html,
       });
       console.log(`Doctor appointment notification sent successfully to ${doctorEmail}`);
@@ -884,7 +884,7 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimalEMD</div>
+            <div class="logo">OptimaleMD</div>
           </div>
           <div class="content">
             <h2 class="title">Appointment Cancelled</h2>
@@ -911,15 +911,15 @@ export class MailerService implements OnModuleInit {
             </div>
             
             <div class="refund-notice">
-              <p style="margin: 0;"><strong>Refund Information:</strong></p>
-              <p style="margin: 5px 0 0 0;">A refund request has been sent to your doctor. They will process the refund and contact you via email.</p>
+              <p style="margin: 0;"><strong>Cancellation Policy:</strong></p>
+              <p style="margin: 5px 0 0 0;">You may be charged $25 if you cancelled within less than 24 hours, or $50 if you missed your appointment. Please check with your doctor for any applicable charges.</p>
             </div>
             
             <p class="description">You can book a new appointment anytime through your dashboard.</p>
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimalEMD</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
           </div>
         </div>
       </body>
@@ -928,9 +928,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimalEMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to: patientEmail,
-        subject: 'Appointment Cancelled - OptimalEMD',
+        subject: 'Appointment Cancelled - OptimaleMD',
         html,
       });
       console.log(`Cancellation email sent successfully to ${patientEmail}`);
@@ -1049,7 +1049,7 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimalEMD</div>
+            <div class="logo">OptimaleMD</div>
           </div>
           <div class="content">
             <h2 class="title">Appointment Cancelled</h2>
@@ -1080,13 +1080,13 @@ export class MailerService implements OnModuleInit {
             </div>
             
             <div class="refund-notice">
-              <p style="margin: 0;"><strong>Action Required:</strong></p>
-              <p style="margin: 5px 0 0 0;">Please process the refund for this patient and contact them via email to confirm the refund has been processed.</p>
+              <p style="margin: 0;"><strong>Cancellation Policy:</strong></p>
+              <p style="margin: 5px 0 0 0;">Please review if the patient should be charged $25 for cancelling within less than 24 hours, or $50 if they missed the appointment.</p>
             </div>
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimalEMD</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
           </div>
         </div>
       </body>
@@ -1095,9 +1095,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimalEMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to: doctorEmail,
-        subject: 'Appointment Cancelled - Refund Required - OptimalEMD',
+        subject: 'Appointment Cancelled - OptimaleMD',
         html,
       });
       console.log(`Doctor cancellation notification sent successfully to ${doctorEmail}`);
@@ -1219,7 +1219,7 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimalEMD</div>
+            <div class="logo">OptimaleMD</div>
           </div>
           <div class="content">
             <h2 class="title">Appointment Rescheduled</h2>
@@ -1259,7 +1259,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimalEMD</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
           </div>
         </div>
       </body>
@@ -1268,9 +1268,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimalEMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to: patientEmail,
-        subject: 'Appointment Rescheduled - OptimalEMD',
+        subject: 'Appointment Rescheduled - OptimaleMD',
         html,
       });
       console.log(`Reschedule email sent successfully to ${patientEmail}`);
@@ -1392,7 +1392,7 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimalEMD</div>
+            <div class="logo">OptimaleMD</div>
           </div>
           <div class="content">
             <h2 class="title">Appointment Rescheduled</h2>
@@ -1432,7 +1432,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimalEMD</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
           </div>
         </div>
       </body>
@@ -1441,9 +1441,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimalEMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to: doctorEmail,
-        subject: 'Appointment Rescheduled - OptimalEMD',
+        subject: 'Appointment Rescheduled - OptimaleMD',
         html,
       });
       console.log(`Doctor reschedule notification sent successfully to ${doctorEmail}`);

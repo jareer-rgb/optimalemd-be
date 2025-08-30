@@ -1,8 +1,8 @@
-# 🚀 OptimalEMD Backend - Swagger Integration Guide
+# 🚀 OptimaleMD Backend - Swagger Integration Guide
 
 ## Overview
 
-Your OptimalEMD Backend now includes comprehensive Swagger/OpenAPI documentation that provides:
+Your OptimaleMD Backend now includes comprehensive Swagger/OpenAPI documentation that provides:
 
 - 📚 **Interactive API Documentation** - Test endpoints directly from the browser
 - 🔐 **JWT Authentication Support** - Easy token management for protected routes
@@ -331,7 +331,7 @@ All error responses follow this consistent structure:
 
 The Swagger configuration in `main.ts` includes:
 
-- **API Title**: "OptimalEMD API"
+- **API Title**: "OptimaleMD API"
 - **Description**: Comprehensive API description
 - **Version**: "1.0"
 - **Tags**: Organized endpoint grouping
@@ -409,4 +409,4 @@ Navigate to: `http://localhost:3000/api/docs`
 
 **Happy API Testing! 🚀**
 
-Your OptimalEMD Backend now has professional-grade API documentation with standardized responses and complete password management workflows!
+Your OptimaleMD Backend now has professional-grade API documentation with standardized responses and complete password management workflows!
