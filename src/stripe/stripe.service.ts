@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentsService } from '../appointments/appointments.service';
 import { MailerService } from '../mailer/mailer.service';
+import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
 import { CreatePaymentIntentDto, ConfirmPaymentDto } from './dto';
 
 @Injectable()
@@ -14,7 +15,8 @@ export class StripeService {
     private configService: ConfigService,
     private prisma: PrismaService,
     private appointmentsService: AppointmentsService,
-    private mailerService: MailerService
+    private mailerService: MailerService,
+    private googleCalendarService: GoogleCalendarService
   ) {
     const stripeKey = this.configService.get('STRIPE_SECRET_KEY');
     if (!stripeKey) {
@@ -104,13 +106,58 @@ export class StripeService {
       },
     });
 
-    // Update appointment status to confirmed and mark as paid
+    // Generate Google Meet link for the appointment
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        patient: {
+          select: {
+            firstName: true,
+            lastName: true,
+            primaryEmail: true,
+          },
+        },
+        doctor: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        service: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
+    const doctorName = `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`;
+    
+    // Generate Google Meet link
+    const meetResult = await this.googleCalendarService.generateMeetLink(
+      appointment.appointmentDate,
+      appointment.appointmentTime,
+      appointment.duration,
+      doctorName,
+      patientName,
+      appointment.service.name,
+      appointment.patient.primaryEmail // Pass patient email
+    );
+
+    // Update appointment status to confirmed, mark as paid, and store Google Meet link
     const updatedAppointment = await this.prisma.appointment.update({
       where: { id: appointmentId },
       data: {
         status: 'CONFIRMED',
         isPaid: true,
         confirmedAt: new Date(),
+        googleMeetLink: meetResult.meetLink,
       },
       include: {
         patient: {
@@ -135,6 +182,18 @@ export class StripeService {
       },
     });
 
+    // Update calendar event with patient email if Google Calendar API is working
+    if (meetResult.eventId) {
+      try {
+        await this.googleCalendarService.updateEventWithPatientEmail(
+          meetResult.eventId,
+          appointment.patient.primaryEmail
+        );
+      } catch (error) {
+        console.log('Could not update calendar event with patient email:', error.message);
+      }
+    }
+
     await this.prisma.slot.update({
       where: { id: updatedAppointment.slotId },
       data: {
@@ -149,7 +208,7 @@ export class StripeService {
       const appointmentDate = updatedAppointment.appointmentDate.toISOString().split('T')[0];
       const amount = updatedAppointment.amount.toString();
 
-      // Send confirmation email to patient
+      // Send confirmation email to patient with Google Meet link
       await this.mailerService.sendAppointmentConfirmationEmail(
         updatedAppointment.patient.primaryEmail,
         patientName,
@@ -157,10 +216,11 @@ export class StripeService {
         updatedAppointment.service.name,
         appointmentDate,
         updatedAppointment.appointmentTime,
-        amount
+        amount,
+        updatedAppointment.googleMeetLink || undefined
       );
 
-      // Send notification to doctor
+      // Send notification to doctor with Google Meet link
       await this.mailerService.sendDoctorAppointmentNotification(
         updatedAppointment.doctor.email,
         doctorName,
@@ -168,7 +228,8 @@ export class StripeService {
         updatedAppointment.service.name,
         appointmentDate,
         updatedAppointment.appointmentTime,
-        amount
+        amount,
+        updatedAppointment.googleMeetLink || undefined
       );
     } catch (error) {
       console.error('Failed to send confirmation emails:', error);

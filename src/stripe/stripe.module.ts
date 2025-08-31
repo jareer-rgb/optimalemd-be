@@ -5,9 +5,10 @@ import { StripeController } from './stripe.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { MailerModule } from '../mailer/mailer.module';
+import { GoogleCalendarModule } from '../google-calendar/google-calendar.module';
 
 @Module({
-  imports: [ConfigModule, PrismaModule, AppointmentsModule, MailerModule],
+  imports: [ConfigModule, PrismaModule, AppointmentsModule, MailerModule, GoogleCalendarModule],
   providers: [StripeService],
   controllers: [StripeController],
   exports: [StripeService],

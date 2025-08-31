@@ -4,9 +4,10 @@ import { AppointmentsService } from './appointments.service';
 import { BookingsService } from './bookings.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MailerModule } from '../mailer/mailer.module';
+import { GoogleCalendarModule } from '../google-calendar/google-calendar.module';
 
 @Module({
-  imports: [PrismaModule, MailerModule],
+  imports: [PrismaModule, MailerModule, GoogleCalendarModule],
   controllers: [AppointmentsController],
   providers: [AppointmentsService, BookingsService],
   exports: [AppointmentsService, BookingsService],

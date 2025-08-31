@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailerService } from '../mailer/mailer.service';
+import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
 import {
   CreateAppointmentDto,
   UpdateAppointmentDto,
@@ -16,7 +17,8 @@ import { AppointmentStatus } from '@prisma/client';
 export class AppointmentsService {
   constructor(
     private prisma: PrismaService,
-    private mailerService: MailerService
+    private mailerService: MailerService,
+    private googleCalendarService: GoogleCalendarService
   ) {}
 
   /**
@@ -634,6 +636,20 @@ export class AppointmentsService {
     const newDate = newSlot.schedule.date.toISOString().split('T')[0];
     const newTime = newSlot.startTime;
 
+    // Generate new Google Meet link for rescheduled appointment
+    const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
+    const doctorName = `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`;
+    
+    const meetResult = await this.googleCalendarService.generateMeetLink(
+      newSlot.schedule.date,
+      newSlot.startTime,
+      appointment.duration,
+      doctorName,
+      patientName,
+      appointment.service.name,
+      appointment.patient.primaryEmail // Pass patient email
+    );
+
     // Use transaction to ensure data consistency
     const result = await this.prisma.$transaction(async (prisma) => {
       // Make old slot available again
@@ -642,7 +658,7 @@ export class AppointmentsService {
         data: { isAvailable: true }
       });
 
-      // Update appointment with new slot
+      // Update appointment with new slot and new Google Meet link
       const updatedAppointment = await prisma.appointment.update({
         where: { id },
         data: {
@@ -650,6 +666,7 @@ export class AppointmentsService {
           appointmentDate: newSlot.schedule.date,
           appointmentTime: newSlot.startTime,
           status: AppointmentStatus.CONFIRMED, // Keep as confirmed since payment was already made
+          googleMeetLink: meetResult.meetLink,
         }
       });
 
@@ -667,7 +684,7 @@ export class AppointmentsService {
       const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
       const doctorName = `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`;
 
-      // Send reschedule email to patient
+      // Send reschedule email to patient with new Google Meet link
       await this.mailerService.sendRescheduleEmail(
         appointment.patient.primaryEmail,
         patientName,
@@ -675,10 +692,11 @@ export class AppointmentsService {
         oldDate,
         oldTime,
         newDate,
-        newTime
+        newTime,
+        meetResult.meetLink
       );
 
-      // Send reschedule notification to doctor
+      // Send reschedule notification to doctor with new Google Meet link
       await this.mailerService.sendDoctorRescheduleNotification(
         appointment.doctor.email,
         doctorName,
@@ -686,7 +704,8 @@ export class AppointmentsService {
         oldDate,
         oldTime,
         newDate,
-        newTime
+        newTime,
+        meetResult.meetLink
       );
     } catch (error) {
       console.error('Failed to send reschedule emails:', error);

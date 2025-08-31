@@ -201,6 +201,9 @@ export class AppointmentResponseDto {
   @ApiProperty({ description: 'Payment method', required: false })
   paymentMethod: string | null;
 
+  @ApiProperty({ description: 'Google Meet link for video consultation', required: false })
+  googleMeetLink: string | null;
+
   @ApiProperty({ description: 'Cancellation reason', required: false })
   cancellationReason: string | null;
 

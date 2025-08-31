@@ -470,7 +470,8 @@ export class MailerService implements OnModuleInit {
     serviceName: string, 
     appointmentDate: string, 
     appointmentTime: string,
-    amount: string
+    amount: string,
+    googleMeetLink?: string
   ): Promise<void> {
     const html = `
       <!DOCTYPE html>
@@ -595,6 +596,14 @@ export class MailerService implements OnModuleInit {
             </div>
             
             <p class="description">Please arrive 10 minutes before your scheduled time.</p>
+            ${googleMeetLink ? `
+            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+              <h3 style="color: #28a745; margin-top: 0;">Video Consultation</h3>
+              <p style="color: #333; margin-bottom: 15px;">This is a telemedicine appointment. Please use the Google Meet link below to join your video consultation:</p>
+              <a href="${googleMeetLink}" style="display: inline-block; background-color: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 10px 0;">Join Google Meet</a>
+              <p style="color: #666; font-size: 14px; margin-top: 10px;">Or copy this link: <span style="word-break: break-all;">${googleMeetLink}</span></p>
+            </div>
+            ` : ''}
             <p class="description">If you need to reschedule or cancel, please do so at least 1 hour before your appointment.</p>
           </div>
           <div class="footer">
@@ -627,7 +636,8 @@ export class MailerService implements OnModuleInit {
     serviceName: string,
     appointmentDate: string,
     appointmentTime: string,
-    amount: string
+    amount: string,
+    googleMeetLink?: string
   ): Promise<void> {
     const html = `
       <!DOCTYPE html>
@@ -752,6 +762,14 @@ export class MailerService implements OnModuleInit {
             </div>
             
             <p class="description">Please ensure you're available at the scheduled time.</p>
+            ${googleMeetLink ? `
+            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+              <h3 style="color: #28a745; margin-top: 0;">Video Consultation</h3>
+              <p style="color: #333; margin-bottom: 15px;">This is a telemedicine appointment. Please use the Google Meet link below to join your video consultation:</p>
+              <a href="${googleMeetLink}" style="display: inline-block; background-color: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 10px 0;">Join Google Meet</a>
+              <p style="color: #666; font-size: 14px; margin-top: 10px;">Or copy this link: <span style="word-break: break-all;">${googleMeetLink}</span></p>
+            </div>
+            ` : ''}
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
@@ -1114,7 +1132,8 @@ export class MailerService implements OnModuleInit {
     oldDate: string,
     oldTime: string,
     newDate: string,
-    newTime: string
+    newTime: string,
+    googleMeetLink?: string
   ): Promise<void> {
     const html = `
       <!DOCTYPE html>
@@ -1256,6 +1275,14 @@ export class MailerService implements OnModuleInit {
             </div>
             
             <p class="description">Please arrive 10 minutes before your new scheduled time.</p>
+            ${googleMeetLink ? `
+            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+              <h3 style="color: #28a745; margin-top: 0;">Video Consultation</h3>
+              <p style="color: #333; margin-bottom: 15px;">This is a telemedicine appointment. Please use the Google Meet link below to join your video consultation:</p>
+              <a href="${googleMeetLink}" style="display: inline-block; background-color: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 10px 0;">Join Google Meet</a>
+              <p style="color: #666; font-size: 14px; margin-top: 10px;">Or copy this link: <span style="word-break: break-all;">${googleMeetLink}</span></p>
+            </div>
+            ` : ''}
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
@@ -1287,7 +1314,8 @@ export class MailerService implements OnModuleInit {
     oldDate: string,
     oldTime: string,
     newDate: string,
-    newTime: string
+    newTime: string,
+    googleMeetLink?: string
   ): Promise<void> {
     const html = `
       <!DOCTYPE html>
@@ -1429,6 +1457,14 @@ export class MailerService implements OnModuleInit {
             </div>
             
             <p class="description">Please ensure you're available at the new scheduled time.</p>
+            ${googleMeetLink ? `
+            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+              <h3 style="color: #28a745; margin-top: 0;">Video Consultation</h3>
+              <p style="color: #333; margin-bottom: 15px;">This is a telemedicine appointment. Please use the Google Meet link below to join your video consultation:</p>
+              <a href="${googleMeetLink}" style="display: inline-block; background-color: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 10px 0;">Join Google Meet</a>
+              <p style="color: #666; font-size: 14px; margin-top: 10px;">Or copy this link: <span style="word-break: break-all;">${googleMeetLink}</span></p>
+            </div>
+            ` : ''}
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>

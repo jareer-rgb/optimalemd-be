@@ -292,6 +292,9 @@ model Appointment {
   isPaid            Boolean  @default(false)
   paymentMethod     String?
   
+  // Video consultation
+  googleMeetLink    String?  // Google Meet link for video consultation
+  
   // Cancellation and rescheduling
   cancellationReason String?
   rescheduledFrom   String?  // Reference to previous appointment ID
