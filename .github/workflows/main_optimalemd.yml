@@ -2,79 +2,95 @@ name: Build and deploy Node.js app to Azure Web App - optimaleMD
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
+
+# allow workflow to request id-token for azure/login and read repo contents
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  NODE_ENV: production
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js version
+      - name: Setup Node 20
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
 
-      - name: Install, generate prisma client, build and test
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
         run: |
           set -e
-          echo "=== npm ci ==="
           npm ci
 
-          echo "=== prisma generate (creates node_modules/.prisma & @prisma/client) ==="
+      - name: Generate Prisma client (CI)
+        run: |
+          set -e
+          echo "=> Running prisma generate in CI"
           npx prisma generate
 
-          echo "=== build ==="
+      - name: Build app
+        run: |
+          set -e
+          echo "=> Building app"
           npm run build
           npm run test --if-present || true
 
-          echo "=== verify generated prisma client exists ==="
-          if [ ! -d node_modules/.prisma ] || [ ! -d node_modules/@prisma/client ]; then
-            echo "ERROR: generated prisma client not found in node_modules"
-            echo "Contents of node_modules (first-level):"
-            ls -la node_modules || true
-            exit 1
-          fi
-
-          echo "=== verify dist exists ==="
-          if [ ! -f dist/main.js ]; then
-            echo "ERROR: dist/main.js not found. Ensure your build output includes dist/main.js"
-            echo "Contents of dist:"
+      - name: Verify build & generated Prisma client
+        run: |
+          set -e
+          echo "=> Verifying build output"
+          if [ ! -f dist/main.js ] && [ ! -f dist/index.js ]; then
+            echo "ERROR: Build output not found (expected dist/main.js or dist/index.js)."
             ls -la dist || true
             exit 1
           fi
 
-          echo "=== show package.json scripts (sanity) ==="
-          cat package.json | jq -r '.scripts'
+          echo "=> Verifying prisma client exists in node_modules"
+          if [ ! -d node_modules/.prisma ] || [ ! -d node_modules/@prisma/client ]; then
+            echo "ERROR: Prisma client not found in node_modules"
+            ls -la node_modules | head -n 200 || true
+            exit 1
+          fi
 
-          echo "=== create node_modules tar (App Service extracts this at startup) ==="
+      - name: Package node_modules (so prisma client is deployed)
+        run: |
+          set -e
+          echo "=> Creating node_modules.tar.gz"
           tar -czf node_modules.tar.gz node_modules
 
-          echo "=== prepare deploy package ==="
+      - name: Prepare deploy package (ZIP)
+        run: |
+          set -e
+          echo "=> Preparing deploy package"
           rm -rf deploy_package || true
           mkdir -p deploy_package
           cp package.json package-lock.json deploy_package/ || true
           cp -r dist deploy_package/ || true
           cp node_modules.tar.gz deploy_package/ || true
-          # include any runtime-only files you need (e.g. static assets)
-          cp -n .env* deploy_package/ || true
-
-          echo "=== create package.zip ==="
+          # include static runtime assets if you need them
+          cp -n public/* deploy_package/ 2>/dev/null || true
           (cd deploy_package && zip -r ../package.zip .)
-
-          echo "=== list package.zip contents (for debug) ==="
+          echo "=> package.zip contents:"
           unzip -l package.zip || true
 
-      - name: Upload deployment package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-app
-          path: package.zip
+      - name: Upload deployment artifact
         uses: actions/upload-artifact@v4
         with:
           name: node-app
@@ -83,25 +99,25 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    permissions:
-      id-token: write
-      contents: read
 
     steps:
-      - name: Download artifact from build job
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: node-app
           path: node-app
 
-      - name: Show downloaded files (debug)
+      - name: Show downloaded artifact (debug)
         run: |
           echo "PWD: $(pwd)"
+          echo "Files:"
           ls -la
+          echo "node-app contents:"
           ls -la node-app || true
-          ls -la node-app/package.zip || true
+          echo "package.zip listing:"
+          unzip -l node-app/package.zip || true
 
-      - name: Login to Azure
+      - name: Azure Login
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_129A1D0672A546CAAB3B61D73745770C }}
@@ -115,9 +131,3 @@ jobs:
           app-name: 'optimaleMD'
           slot-name: 'Production'
           package: './node-app/package.zip'
-
-      - name: Deployment verification (tail logs)
-        if: always()
-        run: |
-          echo "=== deployment finished; check app logs in Azure portal or use Kudu (SCM) console ==="
-          echo "You can also run Kudu DebugConsole at https://<your-app-name>.scm.azurewebsites.net/DebugConsole"
