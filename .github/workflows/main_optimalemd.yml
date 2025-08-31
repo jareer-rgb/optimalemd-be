@@ -29,12 +29,24 @@ jobs:
           npx prisma generate
           npm run build
           npm run test --if-present
+          
+      - name: Verify Prisma client generation
+        run: |
+          ls -la node_modules/.prisma/client/
+          echo "Prisma client generated successfully"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: |
+            dist/
+            node_modules/
+            package.json
+            package-lock.json
+            web.config
+            prisma/
+            startup.sh
 
   deploy:
     runs-on: ubuntu-latest
