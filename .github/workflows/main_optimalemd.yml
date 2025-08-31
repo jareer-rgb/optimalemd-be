@@ -46,7 +46,6 @@ jobs:
             package-lock.json
             web.config
             prisma/
-            startup.sh
 
   deploy:
     runs-on: ubuntu-latest
