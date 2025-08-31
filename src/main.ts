@@ -13,8 +13,10 @@ async function bootstrap() {
     transform: true,
   }));
   
-  // Global prefix
-  app.setGlobalPrefix('api');
+  // Global prefix - only apply to non-health endpoints
+  app.setGlobalPrefix('api', {
+    exclude: ['/health', '/']
+  });
   
   // CORS
   app.enableCors(
@@ -59,7 +61,7 @@ async function bootstrap() {
     },
   });
   
-  const port = process.env.PORT || 8080;
+  const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
   console.log(`Application is running on: http://0.0.0.0:${port}`);
   console.log(`Swagger documentation available at: http://0.0.0.0:${port}/api/docs`);
