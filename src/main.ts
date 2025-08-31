@@ -21,13 +21,11 @@ async function bootstrap() {
   // CORS
   app.enableCors(
     {
-      origin: process.env.NODE_ENV === 'production' 
-        ? [
-            'https://your-frontend-domain.com', // Replace with your actual frontend domain
-            'https://your-app-id.appspot.com',   // Your App Engine domain
-            'https://optimale-be.uc.r.appspot.com' // Your current App Engine domain
-          ]
-        : ['http://localhost:3000', 'http://localhost:8080'],
+      origin: [
+        'https://optimalmd-mu.vercel.app',
+        'http://localhost:3000', 
+        'http://localhost:8080'
+      ],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
       allowedHeaders: ['Content-Type', 'Authorization'],
       credentials: true,
