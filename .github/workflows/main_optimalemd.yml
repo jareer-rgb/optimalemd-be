@@ -5,17 +5,16 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# allow workflow to request id-token for azure/login and read repo contents
 permissions:
   contents: read
   id-token: write
 
-env:
-  NODE_ENV: production
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    # IMPORTANT: set development so npm ci installs devDependencies (prisma & @nestjs/cli)
+    env:
+      NODE_ENV: development
 
     steps:
       - name: Checkout code
@@ -34,9 +33,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - name: Install dependencies
+      - name: Install dependencies (including dev)
         run: |
           set -e
+          echo "NODE_ENV=${NODE_ENV}"
           npm ci
 
       - name: Generate Prisma client (CI)
@@ -84,7 +84,6 @@ jobs:
           cp package.json package-lock.json deploy_package/ || true
           cp -r dist deploy_package/ || true
           cp node_modules.tar.gz deploy_package/ || true
-          # include static runtime assets if you need them
           cp -n public/* deploy_package/ 2>/dev/null || true
           (cd deploy_package && zip -r ../package.zip .)
           echo "=> package.zip contents:"
@@ -99,6 +98,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
+    # deploy job runs with production env for consistency if needed
+    env:
+      NODE_ENV: production
 
     steps:
       - name: Download artifact
