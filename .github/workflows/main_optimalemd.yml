@@ -26,6 +26,7 @@ jobs:
       - name: npm install, build, and test
         run: |
           npm ci
+          npx prisma generate
           npm run build
           npm run test --if-present
 
