@@ -1,0 +1,33 @@
+runtime: custom
+env: flex
+
+instance_class: F1
+
+automatic_scaling:
+  min_num_instances: 1
+  max_num_instances: 10
+  cool_down_period_sec: 120
+  cpu_utilization:
+    target_utilization: 0.65
+
+env_variables:
+  NODE_ENV: "production"
+  # Database Configuration
+  DATABASE_URL: "postgresql://postgres:moed1234@3.86.182.96:5432/optimalemd?schema=public"
+  # JWT Configuration
+  JWT_SECRET: "your-super-secret-jwt-key-here"
+  JWT_EXPIRES_IN: "7d"
+  # Stripe Configuration
+  STRIPE_SECRET_KEY: "sk_test_51QFBF9Ibcr1VQY2lWe4eiSIkXs0KflET6JwOBSL4fszWNUx7lRpZqNkGxlmzWeety5jIsCctDIjJhvdszMZS4u7F00Kjijx2yl"
+  STRIPE_PUBLISHABLE_KEY: "pk_test_51QFBF9Ibcr1VQY2l0rPXH40tJKpXfK3dD9xJszb1VfYEdqsc2Szd31P5P1kAkifsRxHEasTMnc4M92pIcgPHgsH800kj5r83DP"
+  # Email Configuration (Gmail)
+  SMTP_HOST: "smtp.gmail.com"
+  SMTP_PORT: "465"
+  SMTP_USER: "hassantahir3556@gmail.com"
+  SMTP_PASS: "kakshhkktpkxycsh"
+  SMTP_FROM: "hassantahir3556@gmail.com"
+
+handlers:
+  - url: /.*
+    script: auto
+    secure: always

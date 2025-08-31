@@ -19,9 +19,16 @@ async function bootstrap() {
   // CORS
   app.enableCors(
     {
-      origin: 'http://localhost:8080',
+      origin: process.env.NODE_ENV === 'production' 
+        ? [
+            'https://your-frontend-domain.com', // Replace with your actual frontend domain
+            'https://your-app-id.appspot.com',   // Your App Engine domain
+            'https://optimale-be.uc.r.appspot.com' // Your current App Engine domain
+          ]
+        : ['http://localhost:3000', 'http://localhost:8080'],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
       allowedHeaders: ['Content-Type', 'Authorization'],
+      credentials: true,
     },
   );
   
@@ -52,9 +59,9 @@ async function bootstrap() {
     },
   });
   
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
-  console.log(`Swagger documentation available at: http://localhost:${port}/api/docs`);
+  const port = process.env.PORT || 8080;
+  await app.listen(port, '0.0.0.0');
+  console.log(`Application is running on: http://0.0.0.0:${port}`);
+  console.log(`Swagger documentation available at: http://0.0.0.0:${port}/api/docs`);
 }
 bootstrap();
