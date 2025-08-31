@@ -24,6 +24,7 @@ async function bootstrap() {
       origin: [
         'https://optimalmd-mu.vercel.app',
         'http://localhost:3000', 
+        'http://localhost:5173',
         'http://localhost:8080'
       ],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
