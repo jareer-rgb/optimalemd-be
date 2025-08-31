@@ -1,135 +1,83 @@
-name: Build and deploy Node.js app to Azure Web App - optimaleMD
+name: Build and Deploy Node.js app to Azure Web App - optimalemd
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
-
-permissions:
-  contents: read
-  id-token: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    # IMPORTANT: set development so npm ci installs devDependencies (prisma & @nestjs/cli)
-    env:
-      NODE_ENV: development
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node 20
+      - name: Setup Node.js version
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
+          node-version: '18.x'
 
-      - name: Cache npm
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      - name: Install dependencies (including dev)
-        run: |
-          set -e
-          echo "NODE_ENV=${NODE_ENV}"
-          npm ci
-
-      - name: Generate Prisma client (CI)
-        run: |
-          set -e
-          echo "=> Running prisma generate in CI"
-          npx prisma generate
+      - name: Install dependencies
+        run: npm install
 
       - name: Build app
-        run: |
-          set -e
-          echo "=> Building app"
-          npm run build
-          npm run test --if-present || true
+        run: npm run build --if-present
 
-      - name: Verify build & generated Prisma client
-        run: |
-          set -e
-          echo "=> Verifying build output"
-          if [ ! -f dist/main.js ] && [ ! -f dist/index.js ]; then
-            echo "ERROR: Build output not found (expected dist/main.js or dist/index.js)."
-            ls -la dist || true
-            exit 1
-          fi
+      - name: Run Prisma generate
+        run: npx prisma generate
 
-          echo "=> Verifying prisma client exists in node_modules"
-          if [ ! -d node_modules/.prisma ] || [ ! -d node_modules/@prisma/client ]; then
-            echo "ERROR: Prisma client not found in node_modules"
-            ls -la node_modules | head -n 200 || true
-            exit 1
-          fi
-
-      - name: Package node_modules (so prisma client is deployed)
-        run: |
-          set -e
-          echo "=> Creating node_modules.tar.gz"
-          tar -czf node_modules.tar.gz node_modules
-
-      - name: Prepare deploy package (ZIP)
-        run: |
-          set -e
-          echo "=> Preparing deploy package"
-          rm -rf deploy_package || true
-          mkdir -p deploy_package
-          cp package.json package-lock.json deploy_package/ || true
-          cp -r dist deploy_package/ || true
-          cp node_modules.tar.gz deploy_package/ || true
-          cp -n public/* deploy_package/ 2>/dev/null || true
-          (cd deploy_package && zip -r ../package.zip .)
-          echo "=> package.zip contents:"
-          unzip -l package.zip || true
-
-      - name: Upload deployment artifact
+      - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: package.zip
+          path: |
+            .
+            !node_modules/
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    # deploy job runs with production env for consistency if needed
-    env:
-      NODE_ENV: production
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
-      - name: Download artifact
+      - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: node-app
-          path: node-app
 
-      - name: Show downloaded artifact (debug)
-        run: |
-          echo "PWD: $(pwd)"
-          echo "Files:"
-          ls -la
-          echo "node-app contents:"
-          ls -la node-app || true
-          echo "package.zip listing:"
-          unzip -l node-app/package.zip || true
+      - name: Install dependencies (for Prisma)
+        run: npm install --production
 
-      - name: Azure Login
+      - name: Run Prisma generate
+        run: npx prisma generate
+
+      - name: Login to Azure
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_129A1D0672A546CAAB3B61D73745770C }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_AA2855DFF4484260AB39F7440ABB5F06 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_57A70D711A884D1BBFC55640AD876E9E }}
 
-      - name: Deploy to Azure Web App (ZIP deploy)
+      - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'optimaleMD'
+          app-name: 'optimalemd'
           slot-name: 'Production'
-          package: './node-app/package.zip'
+          package: .
+
+      - name: Set post-deployment startup command
+        uses: azure/appservice-settings@v1
+        with:
+          app-name: 'optimalemd'
+          slot-name: 'Production'
+          app-settings-json: |
+            [
+              {
+                "name": "POST_DEPLOYMENT_COMMAND",
+                "value": "npx prisma generate"
+              }
+            ]
