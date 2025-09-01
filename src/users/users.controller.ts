@@ -46,7 +46,6 @@ export class UsersController {
           message: 'User profile retrieved successfully',
           data: {
             id: '123e4567-e89b-12d3-a456-426614174000',
-            medicalRecordNo: '1234567890',
             title: 'Mr',
             firstName: 'John',
             middleName: 'Michael',
@@ -217,7 +216,6 @@ export class UsersController {
           message: 'User profile updated successfully',
           data: {
             id: '123e4567-e89b-12d3-a456-426614174000',
-            medicalRecordNo: '1234567890',
             title: 'Mr',
             firstName: 'John',
             middleName: 'Michael',
@@ -394,7 +392,6 @@ export class UsersController {
             message: 'Password updated successfully',
             user: {
               id: '123e4567-e89b-12d3-a456-426614174000',
-              medicalRecordNo: '1234567890',
               title: 'Mr',
               firstName: 'John',
               middleName: 'Michael',

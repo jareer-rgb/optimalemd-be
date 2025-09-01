@@ -14,10 +14,9 @@ model User {
   id        String   @id @default(uuid())
   
   // Mandatory Fields (Green in image)
-  medicalRecordNo String   @unique // 10 digits
-  title          String   // Mr, Mrs, Ms, Dr, Other
+  title          String?   // Mr, Mrs, Ms, Dr, Other
   firstName      String
-  middleName     String
+  middleName     String?
   lastName       String
   dateOfBirth    DateTime
   gender         String   // Male/Female/Other
@@ -26,18 +25,18 @@ model User {
   state          String
   zipcode        String
   primaryEmail   String   @unique
-  alternativeEmail String
+  alternativeEmail String?
   primaryPhone   String
-  alternativePhone String
+  alternativePhone String?
   emergencyContactName String
-  emergencyContactRelationship String
+  emergencyContactRelationship String?
   emergencyContactPhone String
-  referringSource String // Self/Physician/Other
+  referringSource String // Online/Friend/Employee
   consentForTreatment String // Y/N
   hipaaPrivacyNoticeAcknowledgment String // Y/N
   releaseOfMedicalRecordsConsent String // Y/N
   preferredMethodOfCommunication String // Phone/Email/Mail
-  disabilityAccessibilityNeeds String
+  disabilityAccessibilityNeeds String?
   
   // Optional Fields (Yellow in image)
   careProviderPhone String?

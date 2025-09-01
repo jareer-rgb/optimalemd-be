@@ -35,17 +35,6 @@ export class LoginDto {
 export class RegisterDto {
   // Mandatory Fields (Green in image)
   @ApiProperty({
-    description: 'Medical Record Number (10 digits)',
-    example: '1234567890',
-    minLength: 10,
-    maxLength: 10,
-  })
-  @IsString()
-  @Length(10, 10)
-  @Matches(/^\d{10}$/, { message: 'Medical Record Number must be exactly 10 digits' })
-  medicalRecordNo: string;
-
-  @ApiProperty({
     description: 'Title (Mr, Mrs, Ms, Dr, Other)',
     example: 'Mr',
     enum: ['Mr', 'Mrs', 'Ms', 'Dr', 'Other'],
@@ -66,9 +55,11 @@ export class RegisterDto {
     description: 'User middle name',
     example: 'Michael',
     type: String,
+    required: false,
   })
+  @IsOptional()
   @IsString()
-  middleName: string;
+  middleName?: string;
 
   @ApiProperty({
     description: 'User last name',
@@ -139,9 +130,11 @@ export class RegisterDto {
     description: 'Alternative email address',
     example: 'john.doe.alternative@example.com',
     type: String,
+    required: false,
   })
+  @IsOptional()
   @IsEmail()
-  alternativeEmail: string;
+  alternativeEmail?: string;
 
   @ApiProperty({
     description: 'Primary phone number',
@@ -155,9 +148,11 @@ export class RegisterDto {
     description: 'Alternative phone number',
     example: '+1987654321',
     type: String,
+    required: false,
   })
+  @IsOptional()
   @IsString()
-  alternativePhone: string;
+  alternativePhone?: string;
 
   @ApiProperty({
     description: 'Emergency contact name',
@@ -171,9 +166,11 @@ export class RegisterDto {
     description: 'Emergency contact relationship',
     example: 'Spouse',
     type: String,
+    required: false,
   })
+  @IsOptional()
   @IsString()
-  emergencyContactRelationship: string;
+  emergencyContactRelationship?: string;
 
   @ApiProperty({
     description: 'Emergency contact phone number',
@@ -184,12 +181,12 @@ export class RegisterDto {
   emergencyContactPhone: string;
 
   @ApiProperty({
-    description: 'Referring source (Self/Physician/Other)',
-    example: 'Self',
-    enum: ['Self', 'Physician', 'Other'],
+    description: 'Referring source (Online/Friend/Employee)',
+    example: 'Online',
+    enum: ['Online', 'Friend', 'Employee'],
   })
   @IsString()
-  @IsIn(['Self', 'Physician', 'Other'])
+  @IsIn(['Online', 'Friend', 'Employee'])
   referringSource: string;
 
   @ApiProperty({
@@ -232,9 +229,11 @@ export class RegisterDto {
     description: 'Disability/Accessibility needs',
     example: 'None',
     type: String,
+    required: false,
   })
+  @IsOptional()
   @IsString()
-  disabilityAccessibilityNeeds: string;
+  disabilityAccessibilityNeeds?: string;
 
   // Optional Fields (Yellow in image)
   @ApiPropertyOptional({
@@ -353,6 +352,7 @@ export class RegisterDto {
     description: 'Advance directives (Y/N)',
     example: 'N',
     enum: ['Y', 'N'],
+    required: false,
   })
   @IsOptional()
   @IsString()
@@ -438,6 +438,7 @@ export class ProfileUpdateDto {
     description: 'Title (Mr, Mrs, Ms, Dr, Other)',
     example: 'Mr',
     enum: ['Mr', 'Mrs', 'Ms', 'Dr', 'Other'],
+    required: false,
   })
   @IsOptional()
   @IsString()
@@ -572,13 +573,13 @@ export class ProfileUpdateDto {
   emergencyContactPhone?: string;
 
   @ApiPropertyOptional({
-    description: 'Referring source (Self/Physician/Other)',
-    example: 'Self',
-    enum: ['Self', 'Physician', 'Other'],
+    description: 'Referring source (Online/Friend/Employee)',
+    example: 'Online',
+    enum: ['Online', 'Friend', 'Employee'],
   })
   @IsOptional()
   @IsString()
-  @IsIn(['Self', 'Physician', 'Other'])
+  @IsIn(['Online', 'Friend', 'Employee'])
   referringSource?: string;
 
   @ApiPropertyOptional({
@@ -747,6 +748,7 @@ export class ProfileUpdateDto {
     description: 'Advance directives (Y/N)',
     example: 'N',
     enum: ['Y', 'N'],
+    required: false,
   })
   @IsOptional()
   @IsString()
@@ -762,17 +764,14 @@ export class UserResponseDto {
   })
   id: string;
 
-  @ApiProperty({
-    description: 'Medical Record Number',
-    example: '1234567890',
-  })
-  medicalRecordNo: string;
+
 
   @ApiProperty({
     description: 'Title',
     example: 'Mr',
+    required: false,
   })
-  title: string;
+  title: string | null;
 
   @ApiProperty({
     description: 'User first name',
@@ -783,8 +782,9 @@ export class UserResponseDto {
   @ApiProperty({
     description: 'User middle name',
     example: 'Michael',
+    required: false,
   })
-  middleName: string;
+  middleName: string | null;
 
   @ApiProperty({
     description: 'User last name',
@@ -837,8 +837,9 @@ export class UserResponseDto {
   @ApiProperty({
     description: 'Alternative email address',
     example: 'john.doe.alternative@example.com',
+    required: false,
   })
-  alternativeEmail: string;
+  alternativeEmail: string | null;
 
   @ApiProperty({
     description: 'Primary phone number',
@@ -849,8 +850,9 @@ export class UserResponseDto {
   @ApiProperty({
     description: 'Alternative phone number',
     example: '+1987654321',
+    required: false,
   })
-  alternativePhone: string;
+  alternativePhone: string | null;
 
   @ApiProperty({
     description: 'Emergency contact name',
@@ -861,8 +863,9 @@ export class UserResponseDto {
   @ApiProperty({
     description: 'Emergency contact relationship',
     example: 'Spouse',
+    required: false,
   })
-  emergencyContactRelationship: string;
+  emergencyContactRelationship: string | null;
 
   @ApiProperty({
     description: 'Emergency contact phone number',
@@ -872,7 +875,7 @@ export class UserResponseDto {
 
   @ApiProperty({
     description: 'Referring source',
-    example: 'Self',
+    example: 'Online',
   })
   referringSource: string;
 
@@ -903,8 +906,9 @@ export class UserResponseDto {
   @ApiProperty({
     description: 'Disability/Accessibility needs',
     example: 'None',
+    required: false,
   })
-  disabilityAccessibilityNeeds: string;
+  disabilityAccessibilityNeeds: string | null;
 
   @ApiProperty({
     description: 'Care provider phone number',

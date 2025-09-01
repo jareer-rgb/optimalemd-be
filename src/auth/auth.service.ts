@@ -20,14 +20,7 @@ export class AuthService {
   async register(registerDto: RegisterDto): Promise<AuthResponseDataDto> {
     const { password, ...userData } = registerDto;
 
-    // Check if user already exists by medical record number
-    const existingUserByMRN = await this.prisma.user.findUnique({
-      where: { medicalRecordNo: userData.medicalRecordNo },
-    });
 
-    if (existingUserByMRN) {
-      throw new ConflictException('User with this Medical Record Number already exists');
-    }
 
     // Check if user already exists by primary email
     const existingUserByEmail = await this.prisma.user.findUnique({

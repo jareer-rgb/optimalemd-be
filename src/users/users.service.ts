@@ -25,11 +25,7 @@ export class UsersService {
     });
   }
 
-  async findByMedicalRecordNo(medicalRecordNo: string) {
-    return this.prisma.user.findUnique({
-      where: { medicalRecordNo },
-    });
-  }
+
 
   async updateProfile(id: string, updateData: ProfileUpdateDto) {
     // Create a new object with converted date fields for Prisma

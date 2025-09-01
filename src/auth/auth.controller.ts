@@ -44,7 +44,6 @@ export class AuthController {
         summary: 'Basic Registration',
         description: 'Register with required fields only',
         value: {
-          medicalRecordNo: '1234567890',
           title: 'Mr',
           firstName: 'John',
           middleName: 'Michael',
@@ -75,7 +74,6 @@ export class AuthController {
         summary: 'Full Registration',
         description: 'Register with all available fields including optional ones',
         value: {
-          medicalRecordNo: '1234567890',
           title: 'Dr',
           firstName: 'Jane',
           middleName: 'Elizabeth',
@@ -173,7 +171,6 @@ export class AuthController {
             accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
             user: {
               id: '123e4567-e89b-12d3-a456-426614174000',
-              medicalRecordNo: '1234567890',
               title: 'Mr',
               firstName: 'John',
               // ... other user fields
