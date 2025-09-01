@@ -40,6 +40,7 @@ export class RegisterDto {
     enum: ['Mr', 'Mrs', 'Ms', 'Dr', 'Other'],
   })
   @IsString()
+  @IsOptional()
   @IsIn(['Mr', 'Mrs', 'Ms', 'Dr', 'Other'])
   title: string;
 
