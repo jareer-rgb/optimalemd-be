@@ -24,7 +24,7 @@ async function bootstrap() {
       origin: [
         'https://optimalmd-mu.vercel.app',
         'http://localhost:3000', 
-        'https://www.optimalemd.health/',
+        'https://www.optimalemd.health',
         'http://localhost:5174',
         'http://localhost:8080'
       ],
