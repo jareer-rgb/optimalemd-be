@@ -242,6 +242,8 @@ export class AppointmentsService {
       throw new ConflictException('Doctor already has an appointment at this time');
     }
 
+    console.log(`✅ Slot ${slotId} made available again after cancellation`);
+
     // Create appointment
     const appointment = await this.prisma.appointment.create({
       data: {
@@ -513,9 +515,17 @@ export class AppointmentsService {
       });
 
       // Make slot available again
-      await prisma.slot.update({
+      const updatedSlot = await prisma.slot.update({
         where: { id: appointment.slotId },
         data: { isAvailable: true }
+      });
+      
+      console.log(`✅ Slot ${appointment.slotId} made available again after cancellation`);
+      console.log(`📅 Slot details:`, {
+        id: updatedSlot.id,
+        startTime: updatedSlot.startTime,
+        endTime: updatedSlot.endTime,
+        isAvailable: updatedSlot.isAvailable
       });
 
       return cancelledAppointment;
@@ -598,10 +608,6 @@ export class AppointmentsService {
     // Check if appointment can be rescheduled
     if (appointment.status === AppointmentStatus.COMPLETED) {
       throw new BadRequestException('Completed appointments cannot be rescheduled');
-    }
-
-    if (appointment.status === AppointmentStatus.CANCELLED) {
-      throw new BadRequestException('Cancelled appointments cannot be rescheduled');
     }
 
     // Check if new slot exists and is available

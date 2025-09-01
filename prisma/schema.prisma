@@ -221,7 +221,7 @@ model Slot {
   
   // Relations
   schedule          Schedule     @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  appointment       Appointment?
+  appointment       Appointment[]
   
   @@unique([scheduleId, startTime])
   @@map("slots")
@@ -275,7 +275,7 @@ model Appointment {
   doctorId          String
   serviceId         String
   primaryServiceId  String?
-  slotId            String   @unique
+  slotId            String   
   appointmentDate   DateTime @db.Date
   appointmentTime   String   // Format: "HH:MM"
   duration          Int      // Duration in minutes
