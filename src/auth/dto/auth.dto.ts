@@ -134,7 +134,6 @@ export class RegisterDto {
     required: false,
   })
   @IsOptional()
-  @IsEmail()
   alternativeEmail?: string;
 
   @ApiProperty({
