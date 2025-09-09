@@ -1,32 +1,6 @@
-/*
-  Warnings:
+-- CreateEnum
+CREATE TYPE "public"."PaymentStatus" AS ENUM ('PENDING', 'SUCCEEDED', 'FAILED', 'CANCELLED', 'REFUNDED');
 
-  - A unique constraint covering the columns `[medicalRecordNo]` on the table `users` will be added. If there are existing duplicate values, this will fail.
-  - A unique constraint covering the columns `[primaryEmail]` on the table `users` will be added. If there are existing duplicate values, this will fail.
-  - Added the required column `alternativeEmail` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `alternativePhone` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `completeAddress` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `consentForTreatment` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `disabilityAccessibilityNeeds` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `emergencyContactName` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `emergencyContactPhone` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `emergencyContactRelationship` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `gender` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `hipaaPrivacyNoticeAcknowledgment` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `medicalRecordNo` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `middleName` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `preferredMethodOfCommunication` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `primaryEmail` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `primaryPhone` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `referringSource` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `releaseOfMedicalRecordsConsent` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `state` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `title` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `zipcode` to the `users` table without a default value. This is not possible if the table is not empty.
-  - Made the column `dateOfBirth` on table `users` required. This step will fail if there are existing NULL values in that column.
-  - Made the column `city` on table `users` required. This step will fail if there are existing NULL values in that column.
-
-*/
 -- CreateEnum
 CREATE TYPE "public"."AppointmentStatus" AS ENUM ('PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'RESCHEDULED');
 
@@ -36,53 +10,86 @@ CREATE TYPE "public"."BookingStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED',
 -- CreateEnum
 CREATE TYPE "public"."UrgencyLevel" AS ENUM ('ROUTINE', 'URGENT', 'EMERGENCY');
 
--- AlterTable
-ALTER TABLE "public"."users" ADD COLUMN     "advanceDirectives" TEXT,
-ADD COLUMN     "alternativeEmail" TEXT NOT NULL,
-ADD COLUMN     "alternativePhone" TEXT NOT NULL,
-ADD COLUMN     "careProviderPhone" TEXT,
-ADD COLUMN     "completeAddress" TEXT NOT NULL,
-ADD COLUMN     "consentForTreatment" TEXT NOT NULL,
-ADD COLUMN     "dateOfFirstVisitPlanned" TIMESTAMP(3),
-ADD COLUMN     "dateOfRegistration" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-ADD COLUMN     "disabilityAccessibilityNeeds" TEXT NOT NULL,
-ADD COLUMN     "emailVerificationToken" TEXT,
-ADD COLUMN     "emailVerificationTokenExpiry" TIMESTAMP(3),
-ADD COLUMN     "emergencyContactName" TEXT NOT NULL,
-ADD COLUMN     "emergencyContactPhone" TEXT NOT NULL,
-ADD COLUMN     "emergencyContactRelationship" TEXT NOT NULL,
-ADD COLUMN     "ethnicityRace" TEXT,
-ADD COLUMN     "gender" TEXT NOT NULL,
-ADD COLUMN     "guarantorResponsibleParty" TEXT,
-ADD COLUMN     "hipaaPrivacyNoticeAcknowledgment" TEXT NOT NULL,
-ADD COLUMN     "insuranceGroupNumber" TEXT,
-ADD COLUMN     "insurancePhoneNumber" TEXT,
-ADD COLUMN     "insurancePolicyNumber" TEXT,
-ADD COLUMN     "insuranceProviderName" TEXT,
-ADD COLUMN     "interpreterRequired" TEXT,
-ADD COLUMN     "isEmailVerified" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "languagePreference" TEXT,
-ADD COLUMN     "lastFourDigitsSSN" TEXT,
-ADD COLUMN     "medicalRecordNo" TEXT NOT NULL,
-ADD COLUMN     "middleName" TEXT NOT NULL,
-ADD COLUMN     "preferredMethodOfCommunication" TEXT NOT NULL,
-ADD COLUMN     "primaryCarePhysician" TEXT,
-ADD COLUMN     "primaryEmail" TEXT NOT NULL,
-ADD COLUMN     "primaryPhone" TEXT NOT NULL,
-ADD COLUMN     "referringSource" TEXT NOT NULL,
-ADD COLUMN     "releaseOfMedicalRecordsConsent" TEXT NOT NULL,
-ADD COLUMN     "resetToken" TEXT,
-ADD COLUMN     "resetTokenExpiry" TIMESTAMP(3),
-ADD COLUMN     "state" TEXT NOT NULL,
-ADD COLUMN     "title" TEXT NOT NULL,
-ADD COLUMN     "zipcode" TEXT NOT NULL,
-ALTER COLUMN "dateOfBirth" SET NOT NULL,
-ALTER COLUMN "city" SET NOT NULL;
+-- CreateTable
+CREATE TABLE "public"."users" (
+    "id" TEXT NOT NULL,
+    "title" TEXT,
+    "firstName" TEXT NOT NULL,
+    "middleName" TEXT,
+    "lastName" TEXT NOT NULL,
+    "dateOfBirth" TIMESTAMP(3) NOT NULL,
+    "gender" TEXT NOT NULL,
+    "completeAddress" TEXT NOT NULL,
+    "city" TEXT NOT NULL,
+    "state" TEXT NOT NULL,
+    "zipcode" TEXT NOT NULL,
+    "primaryEmail" TEXT NOT NULL,
+    "alternativeEmail" TEXT,
+    "primaryPhone" TEXT NOT NULL,
+    "alternativePhone" TEXT,
+    "emergencyContactName" TEXT NOT NULL,
+    "emergencyContactRelationship" TEXT,
+    "emergencyContactPhone" TEXT NOT NULL,
+    "referringSource" TEXT NOT NULL,
+    "consentForTreatment" TEXT NOT NULL,
+    "hipaaPrivacyNoticeAcknowledgment" TEXT NOT NULL,
+    "releaseOfMedicalRecordsConsent" TEXT NOT NULL,
+    "preferredMethodOfCommunication" TEXT NOT NULL,
+    "disabilityAccessibilityNeeds" TEXT,
+    "careProviderPhone" TEXT,
+    "lastFourDigitsSSN" TEXT,
+    "languagePreference" TEXT,
+    "ethnicityRace" TEXT,
+    "primaryCarePhysician" TEXT,
+    "insuranceProviderName" TEXT,
+    "insurancePolicyNumber" TEXT,
+    "insuranceGroupNumber" TEXT,
+    "insurancePhoneNumber" TEXT,
+    "guarantorResponsibleParty" TEXT,
+    "dateOfRegistration" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "dateOfFirstVisitPlanned" TIMESTAMP(3),
+    "interpreterRequired" TEXT,
+    "advanceDirectives" TEXT,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "phone" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "isEmailVerified" BOOLEAN NOT NULL DEFAULT false,
+    "emailVerificationToken" TEXT,
+    "emailVerificationTokenExpiry" TIMESTAMP(3),
+    "resetToken" TEXT,
+    "resetTokenExpiry" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "public"."doctors" (
     "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "isEmailVerified" BOOLEAN NOT NULL DEFAULT false,
+    "emailVerificationToken" TEXT,
+    "emailVerificationTokenExpiry" TIMESTAMP(3),
+    "resetToken" TEXT,
+    "resetTokenExpiry" TIMESTAMP(3),
+    "title" TEXT NOT NULL,
+    "firstName" TEXT NOT NULL,
+    "middleName" TEXT,
+    "lastName" TEXT NOT NULL,
+    "profilePicture" TEXT,
+    "dateOfBirth" TIMESTAMP(3) NOT NULL,
+    "gender" TEXT NOT NULL,
+    "completeAddress" TEXT NOT NULL,
+    "city" TEXT NOT NULL,
+    "state" TEXT NOT NULL,
+    "zipcode" TEXT NOT NULL,
+    "alternativeEmail" TEXT,
+    "primaryPhone" TEXT NOT NULL,
+    "alternativePhone" TEXT,
     "licenseNumber" TEXT NOT NULL,
     "specialization" TEXT NOT NULL,
     "qualifications" TEXT[],
@@ -91,7 +98,6 @@ CREATE TABLE "public"."doctors" (
     "isAvailable" BOOLEAN NOT NULL DEFAULT true,
     "consultationFee" DECIMAL(10,2) NOT NULL,
     "workingHours" JSONB NOT NULL,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
     "isVerified" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -102,6 +108,7 @@ CREATE TABLE "public"."doctors" (
 -- CreateTable
 CREATE TABLE "public"."services" (
     "id" TEXT NOT NULL,
+    "doctorId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "category" TEXT NOT NULL,
@@ -156,11 +163,44 @@ CREATE TABLE "public"."slots" (
 );
 
 -- CreateTable
+CREATE TABLE "public"."payments" (
+    "id" TEXT NOT NULL,
+    "appointmentId" TEXT NOT NULL,
+    "stripePaymentId" TEXT NOT NULL,
+    "amount" DECIMAL(10,2) NOT NULL,
+    "currency" TEXT NOT NULL DEFAULT 'usd',
+    "status" "public"."PaymentStatus" NOT NULL,
+    "paymentMethod" TEXT,
+    "paymentIntent" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "paidAt" TIMESTAMP(3),
+
+    CONSTRAINT "payments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."primary_services" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "category" TEXT NOT NULL,
+    "duration" INTEGER NOT NULL,
+    "basePrice" DECIMAL(10,2) NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "primary_services_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "public"."appointments" (
     "id" TEXT NOT NULL,
     "patientId" TEXT NOT NULL,
     "doctorId" TEXT NOT NULL,
     "serviceId" TEXT NOT NULL,
+    "primaryServiceId" TEXT,
     "slotId" TEXT NOT NULL,
     "appointmentDate" DATE NOT NULL,
     "appointmentTime" TEXT NOT NULL,
@@ -171,6 +211,7 @@ CREATE TABLE "public"."appointments" (
     "amount" DECIMAL(10,2) NOT NULL,
     "isPaid" BOOLEAN NOT NULL DEFAULT false,
     "paymentMethod" TEXT,
+    "googleMeetLink" TEXT,
     "cancellationReason" TEXT,
     "rescheduledFrom" TEXT,
     "scheduledAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -210,13 +251,19 @@ CREATE TABLE "public"."bookings" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "doctors_userId_key" ON "public"."doctors"("userId");
+CREATE UNIQUE INDEX "users_primaryEmail_key" ON "public"."users"("primaryEmail");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "public"."users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "doctors_email_key" ON "public"."doctors"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "doctors_licenseNumber_key" ON "public"."doctors"("licenseNumber");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "services_name_key" ON "public"."services"("name");
+CREATE UNIQUE INDEX "services_doctorId_name_key" ON "public"."services"("doctorId", "name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "doctor_services_doctorId_serviceId_key" ON "public"."doctor_services"("doctorId", "serviceId");
@@ -228,16 +275,19 @@ CREATE UNIQUE INDEX "schedules_doctorId_date_startTime_key" ON "public"."schedul
 CREATE UNIQUE INDEX "slots_scheduleId_startTime_key" ON "public"."slots"("scheduleId", "startTime");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "appointments_slotId_key" ON "public"."appointments"("slotId");
+CREATE UNIQUE INDEX "payments_appointmentId_key" ON "public"."payments"("appointmentId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_medicalRecordNo_key" ON "public"."users"("medicalRecordNo");
+CREATE UNIQUE INDEX "payments_stripePaymentId_key" ON "public"."payments"("stripePaymentId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_primaryEmail_key" ON "public"."users"("primaryEmail");
+CREATE UNIQUE INDEX "payments_paymentIntent_key" ON "public"."payments"("paymentIntent");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "primary_services_name_key" ON "public"."primary_services"("name");
 
 -- AddForeignKey
-ALTER TABLE "public"."doctors" ADD CONSTRAINT "doctors_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "public"."services" ADD CONSTRAINT "services_doctorId_fkey" FOREIGN KEY ("doctorId") REFERENCES "public"."doctors"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."doctor_services" ADD CONSTRAINT "doctor_services_doctorId_fkey" FOREIGN KEY ("doctorId") REFERENCES "public"."doctors"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -252,6 +302,9 @@ ALTER TABLE "public"."schedules" ADD CONSTRAINT "schedules_doctorId_fkey" FOREIG
 ALTER TABLE "public"."slots" ADD CONSTRAINT "slots_scheduleId_fkey" FOREIGN KEY ("scheduleId") REFERENCES "public"."schedules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "public"."payments" ADD CONSTRAINT "payments_appointmentId_fkey" FOREIGN KEY ("appointmentId") REFERENCES "public"."appointments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "public"."appointments" ADD CONSTRAINT "appointments_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -262,6 +315,9 @@ ALTER TABLE "public"."appointments" ADD CONSTRAINT "appointments_serviceId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "public"."appointments" ADD CONSTRAINT "appointments_slotId_fkey" FOREIGN KEY ("slotId") REFERENCES "public"."slots"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."appointments" ADD CONSTRAINT "appointments_primaryServiceId_fkey" FOREIGN KEY ("primaryServiceId") REFERENCES "public"."primary_services"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."bookings" ADD CONSTRAINT "bookings_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
