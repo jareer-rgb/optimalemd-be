@@ -1488,4 +1488,159 @@ export class MailerService implements OnModuleInit {
       throw error;
     }
   }
+
+  async sendMedicalFormEmail(to: string, name: string, formLink: string): Promise<void> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333333;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .header {
+            background-color: #dc2626;
+            padding: 25px;
+            text-align: center;
+          }
+          .logo {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+          }
+          .content {
+            padding: 30px;
+            text-align: center;
+          }
+          .title {
+            color: #333333;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+          }
+          .description {
+            color: #666666;
+            font-size: 16px;
+            margin-bottom: 25px;
+            line-height: 1.6;
+          }
+          .form-button {
+            display: inline-block;
+            background-color: #dc2626;
+            color: #ffffff !important;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 20px 0;
+          }
+          .info-box {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #dc2626;
+            text-align: left;
+          }
+          .important-notice {
+            background-color: #fff3cd;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+          }
+          .footer {
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 20px;
+            color: #666666;
+            font-size: 14px;
+            border-top: 1px solid #e9ecef;
+          }
+          .link-fallback {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border: 1px solid #e9ecef;
+            color: #666666;
+            font-size: 14px;
+          }
+          .link-fallback a {
+            color: #dc2626;
+            word-break: break-all;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo">OptimaleMD</div>
+          </div>
+          <div class="content">
+            <h2 class="title">Complete Your Medical Consultation Form</h2>
+            <p class="description">Hi ${name},</p>
+            <p class="description">Welcome to OptimaleMD! To ensure we can provide you with the best possible care, please complete your medical consultation form.</p>
+            
+            <a href="${formLink}" class="form-button">Complete Medical Form</a>
+            
+            <div class="info-box">
+              <p style="margin: 0 0 10px 0; color: #dc2626; font-weight: bold;">📋 Required Information</p>
+              <p style="margin: 0;">This form includes your medical history, current medications, allergies, and other important health information that will help our doctors provide better care.</p>
+            </div>
+            
+            <div class="important-notice">
+              <p style="margin: 0;"><strong>⚠️ Important:</strong></p>
+              <p style="margin: 5px 0 0 0;">You must complete this form before you can book any appointments. This ensures our doctors have all the necessary information to provide you with the best care.</p>
+            </div>
+            
+            <div class="link-fallback">
+              <p style="margin: 0 0 10px 0;"><strong>Manual Link:</strong></p>
+              <p style="margin: 0;">If the button doesn't work, copy this link:</p>
+              <a href="${formLink}">${formLink}</a>
+            </div>
+            
+            <p class="description">Thank you for choosing OptimaleMD for your healthcare needs!</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email, please do not reply.</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to,
+        subject: 'Complete Your Medical Consultation Form - OptimaleMD',
+        html,
+      });
+      console.log(`Medical form email sent successfully to ${to}`);
+    } catch (error) {
+      console.error('Failed to send medical form email:', error);
+      throw error;
+    }
+  }
 } 

@@ -39,8 +39,8 @@ export class DoctorsService {
       qualifications,
       experience,
       bio,
-      consultationFee,
-      workingHours
+      consultationFee
+      // workingHours - removed, now using WorkingHours model
     } = createDoctorDto;
 
     // Check if email is already taken
@@ -59,18 +59,7 @@ export class DoctorsService {
       throw new ConflictException('License number is already registered');
     }
 
-    // Validate working hours JSON
-    let parsedWorkingHours;
-    try {
-      parsedWorkingHours = typeof workingHours === 'string' ? JSON.parse(workingHours) : workingHours;
-    } catch (error) {
-      throw new BadRequestException('Invalid working hours format');
-    }
-
-    // Validate working hours structure
-    if (!this.validateWorkingHours(parsedWorkingHours)) {
-      throw new BadRequestException('Invalid working hours structure');
-    }
+    // Working hours validation removed - now using WorkingHours model
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -99,7 +88,7 @@ export class DoctorsService {
         experience,
         bio,
         consultationFee: parseFloat(consultationFee),
-        workingHours: parsedWorkingHours,
+        // workingHours removed - now using WorkingHours model
         isAvailable: true,
         isActive: true,
         isVerified: false
@@ -225,23 +214,7 @@ export class DoctorsService {
       updateData.consultationFee = parseFloat(updateDoctorDto.consultationFee);
     }
 
-    // Validate working hours if provided
-    if (updateDoctorDto.workingHours) {
-      let parsedWorkingHours;
-      try {
-        parsedWorkingHours = typeof updateDoctorDto.workingHours === 'string' 
-          ? JSON.parse(updateDoctorDto.workingHours) 
-          : updateDoctorDto.workingHours;
-      } catch (error) {
-        throw new BadRequestException('Invalid working hours format');
-      }
-
-      if (!this.validateWorkingHours(parsedWorkingHours)) {
-        throw new BadRequestException('Invalid working hours structure');
-      }
-
-      updateData.workingHours = parsedWorkingHours;
-    }
+    // Working hours validation removed - now using WorkingHours model
 
     const updatedDoctor = await this.prisma.doctor.update({
       where: { id },
@@ -297,24 +270,15 @@ export class DoctorsService {
       orderBy: { startTime: 'asc' }
     });
 
-    // Parse working hours
-    const workingHours = typeof doctor.workingHours === 'string' 
-      ? JSON.parse(doctor.workingHours) 
-      : doctor.workingHours;
-
-    // Get day of week
-    const dayOfWeek = new Date(date).getDay();
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const currentDay = dayNames[dayOfWeek];
-
-    const dayWorkingHours = workingHours[currentDay];
+    // Working hours logic removed - now using WorkingHours model
+    // This method should be updated to use the new working hours system
 
     return {
       doctor: {
         id: doctor.id,
         specialization: doctor.specialization,
         consultationFee: doctor.consultationFee,
-        workingHours: dayWorkingHours,
+        // workingHours removed - now using WorkingHours model
         services: doctor.services
       },
       schedules,
@@ -354,7 +318,7 @@ export class DoctorsService {
       doctor: {
         id: doctor.id,
         specialization: doctor.specialization,
-        workingHours: doctor.workingHours
+        // workingHours removed - now using WorkingHours model
       },
       schedules
     };
@@ -508,46 +472,246 @@ export class DoctorsService {
     });
   }
 
+  // validateWorkingHours method removed - now using WorkingHours model
+
   /**
-   * Validate working hours structure
+   * Get dashboard statistics for a doctor
    */
-  private validateWorkingHours(workingHours: any): boolean {
-    if (!workingHours || typeof workingHours !== 'object') {
-      return false;
+  async getDashboardStats(doctorId: string): Promise<any> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Get today's appointments
+    const todaysAppointments = await this.prisma.appointment.count({
+      where: {
+        doctorId,
+        appointmentDate: {
+          gte: today,
+          lt: tomorrow
+        }
+      }
+    });
+
+    // Get upcoming appointments (next 7 days)
+    const nextWeek = new Date(today);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    const upcomingAppointments = await this.prisma.appointment.count({
+      where: {
+        doctorId,
+        appointmentDate: {
+          gte: tomorrow,
+          lt: nextWeek
+        },
+        status: {
+          in: ['CONFIRMED', 'PENDING']
+        }
+      }
+    });
+
+    // Get no-show appointments today
+    const noShowToday = await this.prisma.appointment.count({
+      where: {
+        doctorId,
+        appointmentDate: {
+          gte: today,
+          lt: tomorrow
+        },
+        status: 'NO_SHOW'
+      }
+    });
+
+    // Get patients in queue (appointments with status IN_PROGRESS or CHECKED_IN)
+    const patientsInQueue = await this.prisma.appointment.count({
+      where: {
+        doctorId,
+        appointmentDate: {
+          gte: today,
+          lt: tomorrow
+        },
+        status: {
+          in: ['IN_PROGRESS']
+        }
+      }
+    });
+
+    // Get labs to review (this would need to be implemented based on your lab results system)
+    const labsToReview = 0; // Placeholder - implement based on your lab results system
+
+    // Get messages awaiting reply
+    const messagesAwaitingReply = await this.prisma.message.count({
+      where: {
+        receiverId: doctorId,
+        receiverType: 'doctor',
+        isRead: false
+      }
+    });
+
+    // Calculate urgent tasks
+    const urgentTasks: string[] = [];
+    if (labsToReview > 0) urgentTasks.push(`${labsToReview} overdue labs`);
+    if (noShowToday > 0) urgentTasks.push(`${noShowToday} no-show`);
+    if (messagesAwaitingReply > 0) urgentTasks.push(`${messagesAwaitingReply} unread messages`);
+
+    const urgentTasksSummary = urgentTasks.length > 0 ? urgentTasks.join(', ') : 'No urgent tasks';
+    const hasUrgentTasks = urgentTasks.length > 0;
+
+    return {
+      todaysAppointments,
+      labsToReview,
+      messagesAwaitingReply,
+      upcomingAppointments,
+      patientsInQueue,
+      noShowToday,
+      urgentTasksSummary,
+      hasUrgentTasks
+    };
+  }
+
+  /**
+   * Get patients for a doctor
+   */
+  async getDoctorPatients(doctorId: string, query: { search?: string; page: number; limit: number }): Promise<any> {
+    const { search, page, limit } = query;
+    const skip = (page - 1) * limit;
+
+    // First, get all unique patient IDs who have appointments with this doctor
+    const patientAppointments = await this.prisma.appointment.findMany({
+      where: { doctorId },
+      select: { patientId: true },
+      distinct: ['patientId']
+    });
+
+    const patientIds = patientAppointments.map(apt => apt.patientId);
+
+    if (patientIds.length === 0) {
+      return {
+        patients: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0
+      };
     }
 
-    const requiredDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    // Build search conditions
+    const where: any = {
+      id: { in: patientIds }
+    };
 
-    for (const day of requiredDays) {
-      if (!workingHours[day]) {
-        return false;
-      }
-
-      const dayHours = workingHours[day];
-      if (typeof dayHours !== 'object' || !dayHours.start || !dayHours.end) {
-        return false;
-      }
-
-      if (!timeRegex.test(dayHours.start) || !timeRegex.test(dayHours.end)) {
-        return false;
-      }
-
-      // Handle days off (same start and end time, like "00:00")
-      if (dayHours.start === dayHours.end) {
-        // This is a valid day off
-        continue;
-      }
-
-      // Validate that start time is before end time for working days
-      const startTime = new Date(`2000-01-01T${dayHours.start}`);
-      const endTime = new Date(`2000-01-01T${dayHours.end}`);
-      
-      if (startTime >= endTime) {
-        return false;
-      }
+    if (search) {
+      where.OR = [
+        {
+          firstName: {
+            contains: search,
+            mode: 'insensitive'
+          }
+        },
+        {
+          lastName: {
+            contains: search,
+            mode: 'insensitive'
+          }
+        },
+        {
+          primaryEmail: {
+            contains: search,
+            mode: 'insensitive'
+          }
+        }
+      ];
     }
 
-    return true;
+    // Get patients with their latest appointment info
+    const [patients, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          primaryEmail: true,
+          primaryPhone: true,
+          dateOfBirth: true,
+        },
+        skip,
+        take: limit,
+        orderBy: [
+          { lastName: 'asc' },
+          { firstName: 'asc' }
+        ]
+      }),
+      this.prisma.user.count({ where })
+    ]);
+
+    // Get latest appointment info for each patient
+    const patientsWithAppointments = await Promise.all(
+      patients.map(async (patient) => {
+        const latestAppointment = await this.prisma.appointment.findFirst({
+          where: {
+            doctorId,
+            patientId: patient.id
+          },
+          orderBy: {
+            appointmentDate: 'desc'
+          },
+          select: {
+            appointmentDate: true,
+            appointmentTime: true,
+            status: true,
+            service: {
+              select: {
+                name: true
+              }
+            }
+          }
+        });
+
+        // Calculate age
+        const age = patient.dateOfBirth ? this.calculateAge(patient.dateOfBirth) : 0;
+
+        return {
+          id: patient.id,
+          name: `${patient.firstName} ${patient.lastName}`,
+          age,
+          mrn: patient.id.substring(0, 8), // Use first 8 characters of ID as MRN
+          lastVisit: latestAppointment ? this.formatDate(latestAppointment.appointmentDate) : 'N/A',
+          lastVisitTime: latestAppointment?.appointmentTime || 'N/A',
+          lastVisitStatus: latestAppointment?.status || 'N/A',
+          lastVisitPurpose: latestAppointment?.service?.name || 'N/A',
+          email: patient.primaryEmail,
+          phone: patient.primaryPhone,
+          dateOfBirth: patient.dateOfBirth,
+        };
+      })
+    );
+
+    return {
+      patients: patientsWithAppointments,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
+  private calculateAge(dateOfBirth: Date): number {
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  }
+
+  private formatDate(date: Date): string {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   }
 }

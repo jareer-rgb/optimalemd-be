@@ -28,6 +28,7 @@ import {
 } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
 import { BookingsService } from './bookings.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import {
@@ -55,6 +56,7 @@ export class AppointmentsController {
   constructor(
     private readonly appointmentsService: AppointmentsService,
     private readonly bookingsService: BookingsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Post()
@@ -802,5 +804,246 @@ export class AppointmentsController {
       timestamp: new Date().toISOString(),
       path: `/api/appointments/${id}/reschedule`,
     };
+  }
+
+  @Get('doctor/:doctorId/schedule')
+  @ApiOperation({
+    summary: 'Get Doctor Schedule',
+    description: 'Get doctor schedule with filtering by date, status, and appointment type.',
+  })
+  @ApiParam({
+    name: 'doctorId',
+    description: 'Doctor ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiQuery({
+    name: 'date',
+    required: false,
+    description: 'Filter by specific date (YYYY-MM-DD)',
+    example: '2024-12-25',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter by appointment status',
+    enum: ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'RESCHEDULED'],
+  })
+  @ApiQuery({
+    name: 'appointmentType',
+    required: false,
+    description: 'Filter by appointment type',
+    enum: ['TELEMEDICINE', 'IN_PERSON'],
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Page number',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Items per page',
+    example: 10,
+  })
+  @ApiOkResponse({
+    description: 'Doctor schedule retrieved successfully',
+    type: PaginatedApiResponse<AppointmentWithRelationsResponseDto>,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - invalid or missing JWT token',
+  })
+  async getDoctorSchedule(
+    @Param('doctorId') doctorId: string,
+    @Query('date') date?: string,
+    @Query('status') status?: string,
+    @Query('appointmentType') appointmentType?: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ): Promise<PaginatedApiResponse<AppointmentWithRelationsResponseDto>> {
+    const query = {
+      doctorId,
+      startDate: date,
+      endDate: date,
+      status: status as any,
+      appointmentType: appointmentType as any,
+      page,
+      limit,
+    };
+    
+    const { appointments, total } = await this.appointmentsService.getDoctorAppointments(doctorId, query);
+    
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Doctor schedule retrieved successfully',
+      data: appointments,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
+      },
+      timestamp: new Date().toISOString(),
+      path: `/api/appointments/doctor/${doctorId}/schedule`,
+    };
+  }
+
+  @Get('doctor/:doctorId/queue')
+  @ApiOperation({
+    summary: 'Get Doctor Patient Queue',
+    description: 'Get patient queue for a doctor with status filtering.',
+  })
+  @ApiParam({
+    name: 'doctorId',
+    description: 'Doctor ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter by appointment status',
+    enum: ['SCHEDULED', 'WAITING_ROOM', 'IN_VISIT', 'COMPLETED', 'NO_SHOW'],
+  })
+  @ApiQuery({
+    name: 'date',
+    required: false,
+    description: 'Filter by specific date (YYYY-MM-DD), defaults to today',
+    example: '2024-12-25',
+  })
+  @ApiOkResponse({
+    description: 'Patient queue retrieved successfully',
+    type: BaseApiResponse<any>,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - invalid or missing JWT token',
+  })
+  async getDoctorQueue(
+    @Param('doctorId') doctorId: string,
+    @Query('status') status?: string,
+    @Query('date') date?: string,
+  ): Promise<BaseApiResponse<any>> {
+    const targetDate = date ? new Date(date) : new Date();
+    targetDate.setHours(0, 0, 0, 0);
+    const nextDay = new Date(targetDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const where: any = {
+      doctorId,
+      appointmentDate: {
+        gte: targetDate,
+        lt: nextDay,
+      },
+    };
+
+    // Map frontend status to database status
+    if (status) {
+      const statusMap = {
+        'SCHEDULED': 'CONFIRMED',
+        'WAITING_ROOM': 'CONFIRMED', // Assuming waiting room patients are confirmed
+        'IN_VISIT': 'IN_PROGRESS',
+        'COMPLETED': 'COMPLETED',
+        'NO_SHOW': 'NO_SHOW',
+      };
+      where.status = statusMap[status] || status;
+    }
+
+    const appointments = await this.prisma.appointment.findMany({
+      where,
+      include: {
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            primaryEmail: true,
+            primaryPhone: true,
+            dateOfBirth: true,
+          }
+        },
+        doctor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
+        service: {
+          select: {
+            id: true,
+            name: true,
+            duration: true,
+            category: true
+          }
+        },
+        slot: {
+          select: {
+            id: true,
+            startTime: true,
+            endTime: true,
+            schedule: {
+              select: {
+                date: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: [
+        { appointmentTime: 'asc' }
+      ]
+    });
+
+    // Transform the data to match the frontend expectations
+    const queueData = appointments.map(appointment => ({
+      id: appointment.id,
+      time: appointment.appointmentTime,
+      patient: `${appointment.patient.firstName} ${appointment.patient.lastName}`,
+      status: this.mapStatusToQueueStatus(appointment.status),
+      appointmentType: 'IN_PERSON', // Default to in-person since appointmentType is not in the model
+      age: this.calculateAge(appointment.patient.dateOfBirth),
+      lastVisit: appointment.patient.dateOfBirth ? 'N/A' : 'N/A', // This would need to be calculated from previous appointments
+      purpose: appointment.service?.name || 'General Consultation',
+      patientId: appointment.patient.id,
+      patientEmail: appointment.patient.primaryEmail,
+      patientPhone: appointment.patient.primaryPhone,
+    }));
+
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Patient queue retrieved successfully',
+      data: queueData,
+      timestamp: new Date().toISOString(),
+      path: `/api/appointments/doctor/${doctorId}/queue`,
+    };
+  }
+
+  private mapStatusToQueueStatus(dbStatus: string): string {
+    const statusMap = {
+      'PENDING': 'SCHEDULED',
+      'CONFIRMED': 'SCHEDULED',
+      'IN_PROGRESS': 'IN_VISIT',
+      'COMPLETED': 'COMPLETED',
+      'CANCELLED': 'SCHEDULED',
+      'NO_SHOW': 'NO_SHOW',
+      'RESCHEDULED': 'SCHEDULED',
+    };
+    return statusMap[dbStatus] || 'SCHEDULED';
+  }
+
+  private calculateAge(dateOfBirth: Date | null): number {
+    if (!dateOfBirth) return 0;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
   }
 }

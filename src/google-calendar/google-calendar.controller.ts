@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { GoogleCalendarService } from './google-calendar.service';
 
@@ -76,6 +76,60 @@ export class GoogleCalendarController {
         message: 'Google Calendar API test failed',
         error: error.message,
         credentialsValid: this.googleCalendarService.areCredentialsValid()
+      };
+    }
+  }
+
+  @Post('sync-working-hours')
+  @ApiOperation({
+    summary: 'Sync working hours to Google Calendar',
+    description: 'Sync doctor working hours to Google Calendar for a date range'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Working hours synced successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        message: { type: 'string', example: 'Working hours synced successfully' },
+        data: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            eventsCreated: { type: 'number', example: 5 },
+            errors: { type: 'array', items: { type: 'string' }, example: [] }
+          }
+        }
+      }
+    }
+  })
+  async syncWorkingHours(
+    @Body() body: {
+      doctorId: string;
+      workingHours: any[];
+      startDate: string;
+      endDate: string;
+    }
+  ) {
+    try {
+      const result = await this.googleCalendarService.syncWorkingHoursToCalendar(
+        body.doctorId,
+        body.workingHours,
+        new Date(body.startDate),
+        new Date(body.endDate)
+      );
+
+      return {
+        success: true,
+        message: 'Working hours synced successfully',
+        data: result
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to sync working hours',
+        error: error.message
       };
     }
   }

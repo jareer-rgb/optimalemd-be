@@ -1,5 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/prisma.service';
+import { GoogleCalendarOAuthService } from './google-calendar-oauth.service';
 const { google } = require('googleapis');
 
 @Injectable()
@@ -8,7 +10,11 @@ export class GoogleCalendarService implements OnModuleInit {
   private auth: any;
   private credentialsValid: boolean = false;
 
-  constructor(private configService: ConfigService) {}
+  constructor(
+    private configService: ConfigService,
+    private prisma: PrismaService,
+    private oauthService: GoogleCalendarOAuthService
+  ) {}
 
   async onModuleInit() {
     await this.initializeGoogleCalendar();
@@ -91,6 +97,170 @@ export class GoogleCalendarService implements OnModuleInit {
    * Generate a real Google Meet link for an appointment
    * This creates an actual Google Calendar event with Meet integration
    */
+  /**
+   * Sync working hours to Google Calendar for a specific doctor
+   */
+  async syncWorkingHoursToCalendar(
+    doctorId: string,
+    workingHours: any[],
+    startDate: Date,
+    endDate: Date
+  ): Promise<{ success: boolean; eventsCreated: number; errors: string[] }> {
+    const eventsCreated: any[] = [];
+    const errors: string[] = [];
+
+    try {
+      // Check if doctor is connected to Google Calendar
+      const isConnected = await this.oauthService.isDoctorConnected(doctorId);
+      if (!isConnected) {
+        throw new Error('Doctor is not connected to Google Calendar. Please connect your Google Calendar first.');
+      }
+
+      // Get doctor's OAuth client
+      const oauthResult = await this.oauthService.getDoctorOAuthClient(doctorId);
+      if (!oauthResult.success) {
+        throw new Error(oauthResult.error);
+      }
+
+      // Get doctor information
+      const doctor = await this.prisma.doctor.findUnique({
+        where: { id: doctorId },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          googleCalendarId: true
+        }
+      });
+
+      if (!doctor) {
+        throw new Error('Doctor not found');
+      }
+
+      // Create calendar instance with doctor's credentials
+      const calendar = google.calendar({ version: 'v3', auth: oauthResult.client });
+      // Always use primary calendar for working hours to avoid permission issues
+      const calendarId = 'primary';
+
+      // Check calendar permissions before creating events
+      try {
+        const calendarInfo = await calendar.calendars.get({
+          calendarId: calendarId
+        });
+        console.log(`✅ Calendar access confirmed: ${calendarInfo.data.summary}`);
+      } catch (error) {
+        console.error('❌ Calendar access denied:', error.message);
+        // Try to create a dedicated calendar for the doctor
+        try {
+          console.log('🔄 Attempting to create dedicated calendar...');
+          const newCalendar = await calendar.calendars.insert({
+            requestBody: {
+              summary: `Dr. ${doctor.firstName} ${doctor.lastName} - Working Hours`,
+              description: 'Working hours and appointments for OptimaleMD',
+              timeZone: 'UTC'
+            }
+          });
+          console.log(`✅ Created dedicated calendar: ${newCalendar.data.id}`);
+          // Update doctor's calendar ID
+          await this.prisma.doctor.update({
+            where: { id: doctorId },
+            data: { googleCalendarId: newCalendar.data.id }
+          });
+        } catch (createError) {
+          console.error('❌ Failed to create calendar:', createError.message);
+          throw new Error(`Cannot access or create calendar: ${error.message}`);
+        }
+      }
+
+      const currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        const dayOfWeek = currentDate.getDay();
+        const workingHour = workingHours.find(wh => wh.dayOfWeek === dayOfWeek);
+
+        if (workingHour && workingHour.isActive) {
+          try {
+            // Create a calendar event for the working hours
+            const startTime = new Date(currentDate);
+            const [startHour, startMinute] = workingHour.startTime.split(':').map(Number);
+            startTime.setHours(startHour, startMinute, 0, 0);
+
+            const endTime = new Date(currentDate);
+            const [endHour, endMinute] = workingHour.endTime.split(':').map(Number);
+            endTime.setHours(endHour, endMinute, 0, 0);
+
+            const event = {
+              summary: `Dr. ${doctor.firstName} ${doctor.lastName} - Working Hours`,
+              description: `Dr. ${doctor.firstName} ${doctor.lastName} is available for appointments.\n\nSlot Duration: ${workingHour.slotDuration} minutes\nBreak Duration: ${workingHour.breakDuration} minutes`,
+              start: {
+                dateTime: startTime.toISOString(),
+                timeZone: 'UTC',
+              },
+              end: {
+                dateTime: endTime.toISOString(),
+                timeZone: 'UTC',
+              },
+              colorId: '2', // Green color for working hours
+              visibility: 'private',
+              reminders: {
+                useDefault: false,
+                overrides: [
+                  { method: 'email', minutes: 24 * 60 }, // 1 day before
+                  { method: 'popup', minutes: 30 }, // 30 minutes before
+                ],
+              },
+            };
+
+            const response = await calendar.events.insert({
+              calendarId: calendarId,
+              resource: event,
+              sendUpdates: 'none', // Don't send email notifications for working hours
+            });
+
+            eventsCreated.push({
+              date: currentDate.toISOString().split('T')[0],
+              eventId: response.data.id,
+              startTime: workingHour.startTime,
+              endTime: workingHour.endTime
+            });
+
+            console.log(`✅ Working hours synced to Dr. ${doctor.firstName}'s Google Calendar for ${currentDate.toISOString().split('T')[0]}`);
+          } catch (error) {
+            console.error(`❌ Error syncing working hours for ${currentDate.toISOString().split('T')[0]}:`, error.message);
+            errors.push(`${currentDate.toISOString().split('T')[0]}: ${error.message}`);
+          }
+        }
+
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      return {
+        success: true,
+        eventsCreated: eventsCreated.length,
+        errors
+      };
+    } catch (error) {
+      console.error('❌ Error syncing working hours to Google Calendar:', error.message);
+      return {
+        success: false,
+        eventsCreated: 0,
+        errors: [error.message]
+      };
+    }
+  }
+
+  /**
+   * Get doctor information (helper method)
+   */
+  private async getDoctorInfo(doctorId: string): Promise<any> {
+    // This would typically come from your database
+    // For now, we'll return a placeholder
+    return {
+      id: doctorId,
+      firstName: 'Doctor',
+      lastName: 'Name'
+    };
+  }
+
   async generateMeetLink(
     appointmentDate: Date,
     appointmentTime: string,

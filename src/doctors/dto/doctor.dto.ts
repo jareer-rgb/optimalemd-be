@@ -108,20 +108,7 @@ export class CreateDoctorDto {
   @IsNotEmpty()
   consultationFee: string;
 
-  @ApiProperty({
-    description: 'Working hours in JSON format',
-    example: {
-      monday: { start: '09:00', end: '17:00' },
-      tuesday: { start: '09:00', end: '17:00' },
-      wednesday: { start: '09:00', end: '17:00' },
-      thursday: { start: '09:00', end: '17:00' },
-      friday: { start: '09:00', end: '17:00' },
-      saturday: { start: '09:00', end: '13:00' },
-      sunday: { start: '00:00', end: '00:00' }
-    },
-  })
-  @IsJSON()
-  workingHours: string;
+  // workingHours removed - now using WorkingHours model
 }
 
 export class UpdateDoctorDto {
@@ -219,10 +206,7 @@ export class UpdateDoctorDto {
   @IsString()
   consultationFee?: string;
 
-  @ApiProperty({ description: 'Working hours in JSON format', required: false })
-  @IsOptional()
-  @IsJSON()
-  workingHours?: string;
+  // workingHours removed - now using WorkingHours model
 
   @ApiProperty({ description: 'Availability status', example: true, required: false })
   @IsOptional()
@@ -350,8 +334,8 @@ export class DoctorResponseDto {
   @ApiProperty({ description: 'Consultation fee' })
   consultationFee: string | any; // Allow both string and Decimal
 
-  @ApiProperty({ description: 'Working hours' })
-  workingHours: any;
+  @ApiProperty({ description: 'Working hours', required: false })
+  workingHours?: any;
 
   @ApiProperty({ description: 'Active status' })
   isActive: boolean;

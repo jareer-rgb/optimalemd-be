@@ -30,13 +30,16 @@ export class AppointmentsService {
     // Check if patient exists and is active
     const patient = await this.prisma.user.findUnique({
       where: { id: patientId },
-      select: { id: true, isActive: true }
+      select: { id: true, isActive: true, hasCompletedMedicalForm: true }
     });
     if (!patient) {
       throw new NotFoundException('Patient not found');
     }
     if (!patient.isActive) {
       throw new BadRequestException('Patient account is not active');
+    }
+    if (!patient.hasCompletedMedicalForm) {
+      throw new BadRequestException('Patient must complete the medical consultation form before booking appointments. Please complete the form and try again.');
     }
 
     // Check if doctor exists and is active
@@ -168,13 +171,16 @@ export class AppointmentsService {
     // Check if patient exists and is active
     const patient = await this.prisma.user.findUnique({
       where: { id: patientId },
-      select: { id: true, isActive: true }
+      select: { id: true, isActive: true, hasCompletedMedicalForm: true }
     });
     if (!patient) {
       throw new NotFoundException('Patient not found');
     }
     if (!patient.isActive) {
       throw new BadRequestException('Patient account is not active');
+    }
+    if (!patient.hasCompletedMedicalForm) {
+      throw new BadRequestException('Patient must complete the medical consultation form before booking appointments. Please complete the form and try again.');
     }
 
     // Check if doctor exists and is active

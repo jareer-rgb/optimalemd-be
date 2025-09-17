@@ -11,6 +11,8 @@ import { DoctorsModule } from './doctors/doctors.module';
 import { ServicesModule } from './services/services.module';
 import { SchedulesModule } from './schedules/schedules.module';
 import { StripeModule } from './stripe/stripe.module';
+import { MessagesModule } from './messages/messages.module';
+import { MedicalFormModule } from './medical-form/medical-form.module';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { StripeModule } from './stripe/stripe.module';
     ServicesModule,
     SchedulesModule,
     StripeModule,
+    MessagesModule,
+    MedicalFormModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -75,6 +75,19 @@ export class AuthService {
       // Don't fail registration if email fails
     }
 
+    // Send medical form email
+    try {
+      const formLink = `${this.configService.get<string>('frontend.url')}/form`;
+      await this.mailerService.sendMedicalFormEmail(
+        userData.primaryEmail,
+        user.firstName,
+        formLink
+      );
+    } catch (error) {
+      console.error('Failed to send medical form email:', error);
+      // Don't fail registration if email fails
+    }
+
     // Return user data without password
     const { password: _, ...userWithoutPassword } = user;
 
