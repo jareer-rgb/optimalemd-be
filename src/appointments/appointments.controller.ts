@@ -1169,4 +1169,94 @@ export class AppointmentsController {
       throw error;
     }
   }
+
+  @Get('available-doctors/:appointmentId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get available doctors for appointment slot time' })
+  @ApiResponse({
+    status: 200,
+    description: 'Available doctors retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        statusCode: { type: 'number' },
+        message: { type: 'string' },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              firstName: { type: 'string' },
+              lastName: { type: 'string' },
+              specialization: { type: 'string' },
+              licenseNumber: { type: 'string' },
+              slotId: { type: 'string' },
+              slotStartTime: { type: 'string' },
+              slotEndTime: { type: 'string' }
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Appointment not found' })
+  @ApiResponse({ status: 400, description: 'Appointment already has doctor or no slot time' })
+  async getAvailableDoctorsForAppointment(@Param('appointmentId') appointmentId: string) {
+    try {
+      const availableDoctors = await this.appointmentsService.getAvailableDoctorsForAppointment(appointmentId);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Available doctors retrieved successfully',
+        data: availableDoctors
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @Post('assign-doctor')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Assign doctor and slot to appointment' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        appointmentId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+        doctorId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+        slotId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' }
+      },
+      required: ['appointmentId', 'doctorId', 'slotId']
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Doctor assigned successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        statusCode: { type: 'number' },
+        message: { type: 'string' },
+        data: { $ref: '#/components/schemas/AppointmentResponseDto' }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Appointment or slot not found' })
+  @ApiResponse({ status: 400, description: 'Appointment already has doctor or slot not available' })
+  async assignDoctorToAppointment(@Body() assignDoctorDto: any) {
+    try {
+      const updatedAppointment = await this.appointmentsService.assignDoctorToAppointment(assignDoctorDto);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Doctor assigned successfully',
+        data: updatedAppointment
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
 }

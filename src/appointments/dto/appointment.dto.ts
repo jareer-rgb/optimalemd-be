@@ -289,3 +289,53 @@ export class AppointmentWithRelationsResponseDto extends AppointmentResponseDto 
     };
   } | null;
 }
+
+export class GetAvailableDoctorsDto {
+  @ApiProperty({ description: 'Appointment ID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @IsString()
+  @IsNotEmpty()
+  appointmentId: string;
+}
+
+export class AssignDoctorDto {
+  @ApiProperty({ description: 'Appointment ID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @IsString()
+  @IsNotEmpty()
+  appointmentId: string;
+
+  @ApiProperty({ description: 'Doctor ID to assign', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @IsString()
+  @IsNotEmpty()
+  doctorId: string;
+
+  @ApiProperty({ description: 'Slot ID to assign', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @IsString()
+  @IsNotEmpty()
+  slotId: string;
+}
+
+export class AvailableDoctorDto {
+  @ApiProperty({ description: 'Doctor ID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ description: 'Doctor first name', example: 'John' })
+  firstName: string;
+
+  @ApiProperty({ description: 'Doctor last name', example: 'Doe' })
+  lastName: string;
+
+  @ApiProperty({ description: 'Doctor specialization', example: 'Cardiology' })
+  specialization: string;
+
+  @ApiProperty({ description: 'Doctor license number', example: 'MD123456' })
+  licenseNumber: string;
+
+  @ApiProperty({ description: 'Available slot ID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  slotId: string;
+
+  @ApiProperty({ description: 'Slot start time', example: '09:00' })
+  slotStartTime: string;
+
+  @ApiProperty({ description: 'Slot end time', example: '09:20' })
+  slotEndTime: string;
+}

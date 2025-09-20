@@ -1245,4 +1245,204 @@ export class AppointmentsService {
     // Convert map to array and sort by time
     return Array.from(slotMap.values()).sort((a, b) => a.startTime.localeCompare(b.startTime));
   }
+
+  /**
+   * Get available doctors for a specific appointment's slot time
+   */
+  async getAvailableDoctorsForAppointment(appointmentId: string): Promise<any[]> {
+    // Get the appointment details
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: {
+        id: true,
+        appointmentDate: true,
+        selectedSlotTime: true,
+        doctorId: true,
+        status: true
+      }
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if (appointment.doctorId) {
+      throw new BadRequestException('Appointment already has a doctor assigned');
+    }
+
+    if (!appointment.selectedSlotTime) {
+      throw new BadRequestException('Appointment does not have a selected slot time');
+    }
+
+    // Find all available slots for the appointment date and time
+    const availableSlots = await this.prisma.slot.findMany({
+      where: {
+        isAvailable: true,
+        startTime: appointment.selectedSlotTime,
+        schedule: {
+          date: appointment.appointmentDate
+        }
+      },
+      include: {
+        schedule: {
+          include: {
+            doctor: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                specialization: true,
+                licenseNumber: true,
+                isActive: true,
+                isAvailable: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Filter out inactive or unavailable doctors and format the response
+    const availableDoctors = availableSlots
+      .filter(slot => slot.schedule.doctor.isActive && slot.schedule.doctor.isAvailable)
+      .map(slot => ({
+        id: slot.schedule.doctor.id,
+        firstName: slot.schedule.doctor.firstName,
+        lastName: slot.schedule.doctor.lastName,
+        specialization: slot.schedule.doctor.specialization,
+        licenseNumber: slot.schedule.doctor.licenseNumber,
+        slotId: slot.id,
+        slotStartTime: slot.startTime,
+        slotEndTime: slot.endTime
+      }));
+
+    return availableDoctors;
+  }
+
+  /**
+   * Assign doctor and slot to an appointment
+   */
+  async assignDoctorToAppointment(assignDoctorDto: any): Promise<AppointmentResponseDto> {
+    const { appointmentId, doctorId, slotId } = assignDoctorDto;
+
+    // Get the appointment with all relations
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            primaryEmail: true
+          }
+        },
+        service: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if (appointment.doctorId) {
+      throw new BadRequestException('Appointment already has a doctor assigned');
+    }
+
+    // Verify the slot exists and is available
+    const slot = await this.prisma.slot.findUnique({
+      where: { id: slotId },
+      include: {
+        schedule: {
+          include: {
+            doctor: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                isActive: true,
+                isAvailable: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!slot) {
+      throw new NotFoundException('Slot not found');
+    }
+
+    if (!slot.isAvailable) {
+      throw new BadRequestException('Slot is not available');
+    }
+
+    if (slot.schedule.doctor.id !== doctorId) {
+      throw new BadRequestException('Slot does not belong to the specified doctor');
+    }
+
+    if (!slot.schedule.doctor.isActive || !slot.schedule.doctor.isAvailable) {
+      throw new BadRequestException('Doctor is not available');
+    }
+
+    // Update the appointment with doctor and slot
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        doctorId: doctorId,
+        slotId: slotId,
+        status: 'CONFIRMED'
+      },
+      include: {
+        patient: true,
+        doctor: true,
+        service: true,
+        slot: {
+          include: {
+            schedule: true
+          }
+        },
+        medicalForm: true
+      }
+    });
+
+    // Update slot availability to false
+    await this.prisma.slot.update({
+      where: { id: slotId },
+      data: {
+        isAvailable: false
+      }
+    });
+
+    // Send email notification to doctor only
+    try {
+      const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
+      const doctorName = `Dr. ${slot.schedule.doctor.firstName} ${slot.schedule.doctor.lastName}`;
+      const appointmentDate = appointment.appointmentDate.toISOString().split('T')[0];
+      const amount = appointment.amount.toString();
+
+      // Send notification to doctor with Google Meet link
+      await this.mailerService.sendDoctorAppointmentNotification(
+        slot.schedule.doctor.email,
+        doctorName,
+        patientName,
+        appointment.service.name,
+        appointmentDate,
+        appointment.appointmentTime,
+        amount,
+        appointment.googleMeetLink || undefined
+      );
+    } catch (error) {
+      console.error('Failed to send doctor assignment email:', error);
+      // Don't throw error to avoid breaking the assignment process
+    }
+
+    return updatedAppointment;
+  }
 }
