@@ -2,10 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean, Min, Max, MaxLength } from 'class-validator';
 
 export class CreateServiceDto {
-  @ApiProperty({ description: 'Doctor ID who is creating this service', example: '123e4567-e89b-12d3-a456-426614174000' })
-  @IsString()
-  @IsNotEmpty()
-  doctorId: string;
+  // doctorId removed - services are now global
 
   @ApiProperty({ description: 'Service name', example: 'General Consultation' })
   @IsString()
@@ -90,10 +87,7 @@ export class QueryServicesDto {
   @IsString()
   isActive?: string;
 
-  @ApiProperty({ description: 'Doctor ID filter', example: '123e4567-e89b-12d3-a456-426614174000', required: false })
-  @IsOptional()
-  @IsString()
-  doctorId?: string;
+  // doctorId filter removed - services are now global
 
   @ApiProperty({ description: 'Page number', example: 1, required: false })
   @IsOptional()
@@ -117,10 +111,10 @@ export class CreateDoctorServiceDto {
   @IsNotEmpty()
   serviceId: string;
 
-  @ApiProperty({ description: 'Price for this doctor-service combination', example: '150.00' })
+  @ApiProperty({ description: 'Custom price for this doctor-service combination', example: '150.00' })
   @IsString()
   @IsNotEmpty()
-  price: string;
+  customPrice: string;
 
   @ApiProperty({ description: 'Availability status', example: true, required: false })
   @IsOptional()
@@ -129,10 +123,10 @@ export class CreateDoctorServiceDto {
 }
 
 export class UpdateDoctorServiceDto {
-  @ApiProperty({ description: 'Price for this doctor-service combination', example: '160.00', required: false })
+  @ApiProperty({ description: 'Custom price for this doctor-service combination', example: '160.00', required: false })
   @IsOptional()
   @IsString()
-  price?: string;
+  customPrice?: string;
 
   @ApiProperty({ description: 'Availability status', example: true, required: false })
   @IsOptional()
@@ -145,8 +139,7 @@ export class ServiceResponseDto {
   @ApiProperty({ description: 'Service ID' })
   id: string;
 
-  @ApiProperty({ description: 'Doctor ID who created this service' })
-  doctorId: string;
+  // doctorId removed - services are now global
 
   @ApiProperty({ description: 'Service name' })
   name: string;
@@ -174,16 +167,7 @@ export class ServiceResponseDto {
 }
 
 export class ServiceWithDoctorPricingDto extends ServiceResponseDto {
-  @ApiProperty({
-    description: 'Doctor who created this service',
-    additionalProperties: true
-  })
-  doctor: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    specialization: string;
-  };
+  // doctor field removed - services are now global
 
   @ApiProperty({
     description: 'Doctor services with pricing',
@@ -192,7 +176,7 @@ export class ServiceWithDoctorPricingDto extends ServiceResponseDto {
   doctorServices: {
     id: string;
     doctorId: string;
-    price: string | any; // Allow both string and Decimal
+    customPrice: string | any; // Allow both string and Decimal
     isAvailable: boolean;
     doctor: {
       id: string;
@@ -213,8 +197,8 @@ export class DoctorServiceResponseDto {
   @ApiProperty({ description: 'Service ID' })
   serviceId: string;
 
-  @ApiProperty({ description: 'Price for this combination' })
-  price: string | any; // Allow both string and Decimal
+  @ApiProperty({ description: 'Custom price for this combination' })
+  customPrice: string | any; // Allow both string and Decimal
 
   @ApiProperty({ description: 'Availability status' })
   isAvailable: boolean;

@@ -13,6 +13,7 @@ import { SchedulesModule } from './schedules/schedules.module';
 import { StripeModule } from './stripe/stripe.module';
 import { MessagesModule } from './messages/messages.module';
 import { MedicalFormModule } from './medical-form/medical-form.module';
+import { IntakeModule } from './intake/intake.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { MedicalFormModule } from './medical-form/medical-form.module';
     StripeModule,
     MessagesModule,
     MedicalFormModule,
+    IntakeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

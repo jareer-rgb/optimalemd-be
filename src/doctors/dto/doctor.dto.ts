@@ -363,7 +363,7 @@ export class DoctorWithServicesResponseDto extends DoctorResponseDto {
   services: {
     id: string;
     serviceId: string;
-    price: string | any; // Allow both string and Decimal
+    customPrice: string | any; // Allow both string and Decimal
     isAvailable: boolean;
     service: {
       id: string;

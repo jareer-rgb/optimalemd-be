@@ -12,7 +12,7 @@ export class MedicalFormService {
     private configService: ConfigService
   ) {}
 
-  async createMedicalForm(patientId: string, createMedicalFormDto: CreateMedicalFormDto): Promise<MedicalFormResponseDto> {
+  async createMedicalForm(patientId: string, appointmentId: string, createMedicalFormDto: CreateMedicalFormDto): Promise<MedicalFormResponseDto> {
     // Check if patient exists
     const patient = await this.prisma.user.findUnique({
       where: { id: patientId }
@@ -22,19 +22,32 @@ export class MedicalFormService {
       throw new NotFoundException('Patient not found');
     }
 
-    // Check if medical form already exists for this patient
+    // Check if appointment exists and belongs to patient
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id: appointmentId,
+        patientId: patientId
+      }
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found or does not belong to patient');
+    }
+
+    // Check if medical form already exists for this appointment
     const existingForm = await this.prisma.medicalForm.findUnique({
-      where: { patientId }
+      where: { appointmentId }
     });
 
     if (existingForm) {
-      throw new ConflictException('Medical form already exists for this patient');
+      throw new ConflictException('Medical form already exists for this appointment');
     }
 
     // Create medical form
     const medicalForm = await this.prisma.medicalForm.create({
       data: {
         patientId,
+        appointmentId,
         ...createMedicalFormDto
       }
     });
@@ -51,9 +64,22 @@ export class MedicalFormService {
     return this.mapToResponseDto(medicalForm);
   }
 
-  async getMedicalFormByPatientId(patientId: string): Promise<MedicalFormResponseDto> {
+  async getMedicalFormByAppointmentId(appointmentId: string): Promise<MedicalFormResponseDto> {
     const medicalForm = await this.prisma.medicalForm.findUnique({
-      where: { patientId }
+      where: { appointmentId }
+    });
+
+    if (!medicalForm) {
+      throw new NotFoundException('Medical form not found for this appointment');
+    }
+
+    return this.mapToResponseDto(medicalForm);
+  }
+
+  async getMedicalFormByPatientId(patientId: string): Promise<MedicalFormResponseDto> {
+    const medicalForm = await this.prisma.medicalForm.findFirst({
+      where: { patientId },
+      orderBy: { createdAt: 'desc' }
     });
 
     if (!medicalForm) {
@@ -63,43 +89,39 @@ export class MedicalFormService {
     return this.mapToResponseDto(medicalForm);
   }
 
-  async updateMedicalForm(patientId: string, updateData: Partial<CreateMedicalFormDto>): Promise<MedicalFormResponseDto> {
+  async updateMedicalForm(appointmentId: string, updateData: Partial<CreateMedicalFormDto>): Promise<MedicalFormResponseDto> {
     const existingForm = await this.prisma.medicalForm.findUnique({
-      where: { patientId }
+      where: { appointmentId }
     });
 
     if (!existingForm) {
-      throw new NotFoundException('Medical form not found for this patient');
+      throw new NotFoundException('Medical form not found for this appointment');
     }
 
     const updatedForm = await this.prisma.medicalForm.update({
-      where: { patientId },
+      where: { appointmentId },
       data: updateData
     });
 
     return this.mapToResponseDto(updatedForm);
   }
 
-  async deleteMedicalForm(patientId: string): Promise<void> {
+  async updateMedicalFormByAppointmentId(appointmentId: string, updateData: Partial<CreateMedicalFormDto>): Promise<MedicalFormResponseDto> {
+    // This method is an alias for updateMedicalForm to match the controller method name
+    return this.updateMedicalForm(appointmentId, updateData);
+  }
+
+  async deleteMedicalForm(appointmentId: string): Promise<void> {
     const existingForm = await this.prisma.medicalForm.findUnique({
-      where: { patientId }
+      where: { appointmentId }
     });
 
     if (!existingForm) {
-      throw new NotFoundException('Medical form not found for this patient');
+      throw new NotFoundException('Medical form not found for this appointment');
     }
 
     await this.prisma.medicalForm.delete({
-      where: { patientId }
-    });
-
-    // Update user's form completion status
-    await this.prisma.user.update({
-      where: { id: patientId },
-      data: {
-        hasCompletedMedicalForm: false,
-        medicalFormCompletedAt: null
-      }
+      where: { appointmentId }
     });
   }
 
@@ -122,17 +144,79 @@ export class MedicalFormService {
     };
   }
 
-  private mapToResponseDto(medicalForm: any): MedicalFormResponseDto {
+  private mapToResponseDto(medicalForm: any): any {
     return {
       id: medicalForm.id,
       patientId: medicalForm.patientId,
+      appointmentId: medicalForm.appointmentId,
+      
+      // Screen 2 - About You
+      height: medicalForm.height,
+      weight: medicalForm.weight,
+      waist: medicalForm.waist,
+      emergencyContactName: medicalForm.emergencyContactName,
+      emergencyContactPhone: medicalForm.emergencyContactPhone,
+      
+      // Screen 3 - Your Goals
+      goalMoreEnergy: medicalForm.goalMoreEnergy,
+      goalBetterSexualPerformance: medicalForm.goalBetterSexualPerformance,
+      goalLoseWeight: medicalForm.goalLoseWeight,
+      goalHairRestoration: medicalForm.goalHairRestoration,
+      goalImproveMood: medicalForm.goalImproveMood,
+      goalLongevity: medicalForm.goalLongevity,
+      goalOther: medicalForm.goalOther,
+      goalOtherDescription: medicalForm.goalOtherDescription,
+      
+      // Screen 4 - Medical Background
+      chronicConditions: medicalForm.chronicConditions,
+      pastSurgeriesHospitalizations: medicalForm.pastSurgeriesHospitalizations,
+      currentMedications: medicalForm.currentMedications,
+      allergies: medicalForm.allergies,
+      
+      // Screen 5 - Lifestyle & Habits
+      sleepHoursPerNight: medicalForm.sleepHoursPerNight,
+      sleepQuality: medicalForm.sleepQuality,
+      exerciseFrequency: medicalForm.exerciseFrequency,
+      dietType: medicalForm.dietType,
+      alcoholUse: medicalForm.alcoholUse,
+      tobaccoUse: medicalForm.tobaccoUse,
+      cannabisOtherSubstances: medicalForm.cannabisOtherSubstances,
+      cannabisOtherSubstancesList: medicalForm.cannabisOtherSubstancesList,
+      stressLevel: medicalForm.stressLevel,
+      
+      // Screen 6 - Symptom Check
+      symptomFatigue: medicalForm.symptomFatigue,
+      symptomLowLibido: medicalForm.symptomLowLibido,
+      symptomMuscleLoss: medicalForm.symptomMuscleLoss,
+      symptomWeightGain: medicalForm.symptomWeightGain,
+      symptomGynecomastia: medicalForm.symptomGynecomastia,
+      symptomBrainFog: medicalForm.symptomBrainFog,
+      symptomMoodSwings: medicalForm.symptomMoodSwings,
+      symptomPoorSleep: medicalForm.symptomPoorSleep,
+      symptomHairThinning: medicalForm.symptomHairThinning,
+      
+      // Screen 7 - Safety Check
+      historyProstateBreastCancer: medicalForm.historyProstateBreastCancer,
+      historyBloodClotsMIStroke: medicalForm.historyBloodClotsMIStroke,
+      currentlyUsingHormonesPeptides: medicalForm.currentlyUsingHormonesPeptides,
+      planningChildrenNext12Months: medicalForm.planningChildrenNext12Months,
+      
+      // Screen 8 - Labs & Uploads
+      labUploads: medicalForm.labUploads,
+      labSchedulingNeeded: medicalForm.labSchedulingNeeded,
+      
+      // Screen 9 - Consent & Finalize
+      consentTelemedicineCare: medicalForm.consentTelemedicineCare,
+      consentElectiveOptimizationTreatment: medicalForm.consentElectiveOptimizationTreatment,
+      consentRequiredLabMonitoring: medicalForm.consentRequiredLabMonitoring,
+      digitalSignature: medicalForm.digitalSignature,
+      consentDate: medicalForm.consentDate,
+      
+      // Legacy fields (kept for backward compatibility)
       chiefComplaint: medicalForm.chiefComplaint,
       historyOfPresentIllness: medicalForm.historyOfPresentIllness,
       pastMedicalHistory: medicalForm.pastMedicalHistory,
       pastSurgicalHistory: medicalForm.pastSurgicalHistory,
-      allergies: medicalForm.allergies,
-      tobaccoUse: medicalForm.tobaccoUse,
-      alcoholUse: medicalForm.alcoholUse,
       recreationalDrugs: medicalForm.recreationalDrugs,
       otherSocialHistory: medicalForm.otherSocialHistory,
       familyHistory: medicalForm.familyHistory,
@@ -154,8 +238,6 @@ export class MedicalFormService {
       respiratoryRate: medicalForm.respiratoryRate,
       temperature: medicalForm.temperature,
       oxygenSaturation: medicalForm.oxygenSaturation,
-      weight: medicalForm.weight,
-      height: medicalForm.height,
       bmi: medicalForm.bmi,
       generalExam: medicalForm.generalExam,
       heentExam: medicalForm.heentExam,

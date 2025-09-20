@@ -11,6 +11,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -538,6 +539,60 @@ export class AppointmentsController {
     };
   }
 
+  @Put(':id/internal-notes')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update Internal Notes',
+    description: 'Update internal notes for a specific appointment (doctor only).',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Appointment ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        internalNotes: {
+          type: 'string',
+          description: 'Doctor internal notes for this appointment',
+          example: 'Patient showed improvement in symptoms. Recommended follow-up in 2 weeks.',
+        },
+      },
+      required: ['internalNotes'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'Internal notes updated successfully',
+    type: BaseApiResponse<AppointmentResponseDto>,
+  })
+  @ApiBadRequestResponse({
+    description: 'Validation error',
+  })
+  @ApiNotFoundResponse({
+    description: 'Appointment not found',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - invalid or missing JWT token',
+  })
+  async updateInternalNotes(
+    @Param('id') id: string,
+    @Body() body: { internalNotes: string },
+    @CurrentUser() user: any,
+  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
+    const data = await this.appointmentsService.updateInternalNotes(id, body.internalNotes, user.id);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Internal notes updated successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: `/api/appointments/${id}/internal-notes`,
+    };
+  }
+
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete Appointment',
@@ -1045,5 +1100,73 @@ export class AppointmentsController {
       age--;
     }
     return age;
+  }
+
+  @Get('doctor/:doctorId/slots')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get doctor slots for a specific date' })
+  @ApiParam({ name: 'doctorId', description: 'Doctor ID' })
+  @ApiQuery({ name: 'date', description: 'Date in YYYY-MM-DD format', required: true })
+  @ApiOkResponse({ description: 'Doctor slots retrieved successfully' })
+  @ApiBadRequestResponse({ description: 'Invalid date format' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  async getDoctorSlots(
+    @Param('doctorId') doctorId: string,
+    @Query('date') date: string,
+  ): Promise<BaseApiResponse<any[]>> {
+    try {
+      // Validate date format
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) {
+        throw new BadRequestException('Invalid date format. Use YYYY-MM-DD');
+      }
+
+      const slots = await this.appointmentsService.getDoctorSlots(doctorId, date);
+      
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Doctor slots retrieved successfully',
+        data: slots,
+        timestamp: new Date().toISOString(),
+        path: `/api/appointments/doctor/${doctorId}/slots`,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @Get('slots/global')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all available slots from all doctors for a specific date' })
+  @ApiQuery({ name: 'date', description: 'Date in YYYY-MM-DD format', required: true })
+  @ApiOkResponse({ description: 'Global slots retrieved successfully' })
+  @ApiBadRequestResponse({ description: 'Invalid date format' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  async getGlobalSlots(
+    @Query('date') date: string,
+  ): Promise<BaseApiResponse<any[]>> {
+    try {
+      // Validate date format
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) {
+        throw new BadRequestException('Invalid date format. Use YYYY-MM-DD');
+      }
+
+      const slots = await this.appointmentsService.getGlobalSlots(date);
+      
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Global slots retrieved successfully',
+        data: slots,
+        timestamp: new Date().toISOString(),
+        path: '/api/appointments/slots/global',
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 }

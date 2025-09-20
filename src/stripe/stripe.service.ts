@@ -58,10 +58,10 @@ export class StripeService {
       metadata: {
         appointmentId,
         patientId: appointment.patient.id,
-        doctorId: appointment.doctor.id,
+        doctorId: appointment.doctor?.id || 'to-be-assigned',
         serviceName: appointment.service.name,
       },
-      description: `Payment for appointment with Dr. ${appointment.doctor.lastName} - ${appointment.service.name}`,
+      description: `Payment for appointment with ${appointment.doctor ? `Dr. ${appointment.doctor.lastName}` : 'To be assigned'} - ${appointment.service.name}`,
     });
 
     // Create payment record
@@ -137,7 +137,7 @@ export class StripeService {
     }
 
     const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
-    const doctorName = `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`;
+    const doctorName = appointment.doctor ? `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}` : 'To be assigned';
     
     // Generate Google Meet link
     const meetResult = await this.googleCalendarService.generateMeetLink(
@@ -194,25 +194,27 @@ export class StripeService {
       }
     }
 
-    await this.prisma.slot.update({
-      where: { id: updatedAppointment.slotId },
-      data: {
-        isAvailable: false,
-      },
-    });
+    // Update slot availability (if slotId exists)
+    if (updatedAppointment.slotId) {
+      await this.prisma.slot.update({
+        where: { id: updatedAppointment.slotId },
+        data: {
+          isAvailable: false,
+        },
+      });
+    }
 
-    // Send email notifications
+    // Send email notification to patient only (no doctor assigned yet)
     try {
       const patientName = `${updatedAppointment.patient.firstName} ${updatedAppointment.patient.lastName}`;
-      const doctorName = `Dr. ${updatedAppointment.doctor.firstName} ${updatedAppointment.doctor.lastName}`;
       const appointmentDate = updatedAppointment.appointmentDate.toISOString().split('T')[0];
       const amount = updatedAppointment.amount.toString();
 
-      // Send confirmation email to patient with Google Meet link
+      // Send confirmation email to patient with Google Meet link (no doctor details)
       await this.mailerService.sendAppointmentConfirmationEmail(
         updatedAppointment.patient.primaryEmail,
         patientName,
-        doctorName,
+        'To be assigned', // No doctor assigned yet
         updatedAppointment.service.name,
         appointmentDate,
         updatedAppointment.appointmentTime,
@@ -220,19 +222,9 @@ export class StripeService {
         updatedAppointment.googleMeetLink || undefined
       );
 
-      // Send notification to doctor with Google Meet link
-      await this.mailerService.sendDoctorAppointmentNotification(
-        updatedAppointment.doctor.email,
-        doctorName,
-        patientName,
-        updatedAppointment.service.name,
-        appointmentDate,
-        updatedAppointment.appointmentTime,
-        amount,
-        updatedAppointment.googleMeetLink || undefined
-      );
+      // Note: Doctor email will be sent later when doctor is assigned to the appointment
     } catch (error) {
-      console.error('Failed to send confirmation emails:', error);
+      console.error('Failed to send confirmation email:', error);
       // Don't throw error to avoid breaking the payment confirmation process
     }
 

@@ -576,116 +576,96 @@ export class DoctorsService {
     const { search, page, limit } = query;
     const skip = (page - 1) * limit;
 
-    // First, get all unique patient IDs who have appointments with this doctor
-    const patientAppointments = await this.prisma.appointment.findMany({
-      where: { doctorId },
-      select: { patientId: true },
-      distinct: ['patientId']
-    });
-
-    const patientIds = patientAppointments.map(apt => apt.patientId);
-
-    if (patientIds.length === 0) {
-      return {
-        patients: [],
-        total: 0,
-        page,
-        limit,
-        totalPages: 0
-      };
-    }
-
-    // Build search conditions
+    // Build search conditions for appointments
     const where: any = {
-      id: { in: patientIds }
+      doctorId
     };
 
     if (search) {
       where.OR = [
         {
-          firstName: {
-            contains: search,
-            mode: 'insensitive'
+          patient: {
+            firstName: {
+              contains: search,
+              mode: 'insensitive'
+            }
           }
         },
         {
-          lastName: {
-            contains: search,
-            mode: 'insensitive'
+          patient: {
+            lastName: {
+              contains: search,
+              mode: 'insensitive'
+            }
           }
         },
         {
-          primaryEmail: {
-            contains: search,
-            mode: 'insensitive'
+          patient: {
+            primaryEmail: {
+              contains: search,
+              mode: 'insensitive'
+            }
           }
         }
       ];
     }
 
-    // Get patients with their latest appointment info
-    const [patients, total] = await Promise.all([
-      this.prisma.user.findMany({
+    // Get all appointments with patient info and medical forms
+    const [appointments, total] = await Promise.all([
+      this.prisma.appointment.findMany({
         where,
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          primaryEmail: true,
-          primaryPhone: true,
-          dateOfBirth: true,
+        include: {
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              primaryEmail: true,
+              primaryPhone: true,
+              dateOfBirth: true,
+            }
+          },
+          service: {
+            select: {
+              name: true
+            }
+          },
+          medicalForm: true // Include the medical form for this specific appointment
         },
         skip,
         take: limit,
         orderBy: [
-          { lastName: 'asc' },
-          { firstName: 'asc' }
+          { appointmentDate: 'desc' },
+          { appointmentTime: 'desc' }
         ]
       }),
-      this.prisma.user.count({ where })
+      this.prisma.appointment.count({ where })
     ]);
 
-    // Get latest appointment info for each patient
-    const patientsWithAppointments = await Promise.all(
-      patients.map(async (patient) => {
-        const latestAppointment = await this.prisma.appointment.findFirst({
-          where: {
-            doctorId,
-            patientId: patient.id
-          },
-          orderBy: {
-            appointmentDate: 'desc'
-          },
-          select: {
-            appointmentDate: true,
-            appointmentTime: true,
-            status: true,
-            service: {
-              select: {
-                name: true
-              }
-            }
-          }
-        });
+    // Transform appointments to patient entries
+    const patientsWithAppointments = appointments.map((appointment) => {
+      const patient = appointment.patient;
+      const age = patient.dateOfBirth ? this.calculateAge(patient.dateOfBirth) : 0;
 
-        // Calculate age
-        const age = patient.dateOfBirth ? this.calculateAge(patient.dateOfBirth) : 0;
-
-        return {
-          id: patient.id,
-          name: `${patient.firstName} ${patient.lastName}`,
-          age,
-          mrn: patient.id.substring(0, 8), // Use first 8 characters of ID as MRN
-          lastVisit: latestAppointment ? this.formatDate(latestAppointment.appointmentDate) : 'N/A',
-          lastVisitTime: latestAppointment?.appointmentTime || 'N/A',
-          lastVisitStatus: latestAppointment?.status || 'N/A',
-          lastVisitPurpose: latestAppointment?.service?.name || 'N/A',
-          email: patient.primaryEmail,
-          phone: patient.primaryPhone,
-          dateOfBirth: patient.dateOfBirth,
-        };
-      })
-    );
+      return {
+        id: patient.id,
+        appointmentId: appointment.id, // Include appointment ID for navigation
+        name: `${patient.firstName} ${patient.lastName}`,
+        age,
+        mrn: patient.id.substring(0, 8), // Use first 8 characters of ID as MRN
+        lastVisit: this.formatDate(appointment.appointmentDate),
+        lastVisitTime: appointment.appointmentTime || 'N/A',
+        lastVisitStatus: appointment.status || 'N/A',
+        lastVisitPurpose: appointment.service?.name || 'N/A',
+        email: patient.primaryEmail,
+        phone: patient.primaryPhone,
+        dateOfBirth: patient.dateOfBirth,
+        medicalForm: appointment.medicalForm, // Include the medical form for this specific appointment
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        appointmentStatus: appointment.status,
+      };
+    });
 
     return {
       patients: patientsWithAppointments,

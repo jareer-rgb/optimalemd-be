@@ -75,11 +75,15 @@ model User {
   // Medical form completion tracking
   hasCompletedMedicalForm Boolean @default(false)
   medicalFormCompletedAt DateTime?
+  
+  // Intake form completion tracking (for first-time users)
+  hasCompletedIntakeForm Boolean @default(false)
+  intakeFormCompletedAt DateTime?
 
   // Relations
   bookings Booking[]
   patientAppointments Appointment[]
-  medicalForm MedicalForm?
+  medicalForms MedicalForm[]
 
   @@map("users")
 }
@@ -147,17 +151,16 @@ model Doctor {
   appointments     Appointment[]
   services        DoctorService[]
   bookings        Booking[]
-  createdServices Service[] // Services created by this doctor
   workingHours    WorkingHours[]
 
   @@map("doctors")
 }
 
 // Service model for different types of medical services
+// Global Service model - independent of doctors
 model Service {
   id                String   @id @default(uuid())
-  doctorId          String   // Doctor who created this service
-  name              String   // No longer unique globally, but unique per doctor
+  name              String   @unique // Service name must be unique globally
   description       String?
   category          String   // e.g., "Consultation", "Procedure", "Test"
   duration          Int      // Duration in minutes
@@ -168,21 +171,20 @@ model Service {
   updatedAt         DateTime @updatedAt
   
   // Relations
-  doctor            Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  doctorServices    DoctorService[]
   appointments      Appointment[]
   bookings         Booking[]
+  doctorServices   DoctorService[]
   
-  @@unique([doctorId, name]) // Service name must be unique per doctor
   @@map("services")
 }
 
-// Junction table for doctor-service relationships
+// Doctor-specific service customizations (optional)
 model DoctorService {
   id                String   @id @default(uuid())
   doctorId          String
   serviceId         String
-  price             Decimal  @db.Decimal(10, 2) // Doctor's specific price for this service
+  customPrice       Decimal? @db.Decimal(10, 2) // Doctor can override base price
+  customDuration    Int?     // Doctor can override duration
   isAvailable       Boolean  @default(true)
   
   createdAt         DateTime @default(now())
@@ -192,9 +194,10 @@ model DoctorService {
   doctor            Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   service           Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   
-  @@unique([doctorId, serviceId])
+  @@unique([doctorId, serviceId]) // Each doctor can have one customization per service
   @@map("doctor_services")
 }
+
 
 // Working Hours model for doctor's weekly schedule
 model WorkingHours {
@@ -323,12 +326,13 @@ model PrimaryService {
 model Appointment {
   id                String   @id @default(uuid())
   patientId         String
-  doctorId          String
+  doctorId          String?  // Made optional - will be assigned by admin later
   serviceId         String
   primaryServiceId  String?
-  slotId            String   
+  slotId            String?  // Made optional - slots are tied to doctor schedules
   appointmentDate   DateTime @db.Date
   appointmentTime   String   // Format: "HH:MM"
+  selectedSlotTime  String?  // Store the slot time user selected (for later doctor assignment)
   duration          Int      // Duration in minutes
   
   // Status tracking
@@ -337,6 +341,9 @@ model Appointment {
   // Patient information
   patientNotes      String?
   symptoms          String?
+  
+  // Doctor internal notes
+  internalNotes     String?  // Doctor's internal notes for this appointment
   
   // Payment and billing
   amount            Decimal  @db.Decimal(10, 2)
@@ -361,11 +368,12 @@ model Appointment {
   
   // Relations
   patient           User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  doctor            Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctor            Doctor?  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   service           Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  slot              Slot     @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  slot              Slot?    @relation(fields: [slotId], references: [id], onDelete: Cascade)
   primaryService    PrimaryService? @relation(fields: [primaryServiceId], references: [id], onDelete: Cascade)
   payment           Payment?
+  medicalForm       MedicalForm?
   
   @@map("appointments")
 }
@@ -443,36 +451,84 @@ enum UrgencyLevel {
   EMERGENCY
 }
 
-// Medical Consultation Form Model
+// Medical Consultation Form Model - Based on 9-screen intake process
 model MedicalForm {
   id        String   @id @default(uuid())
-  patientId String   @unique
+  patientId String
+  appointmentId String? @unique // Optional for migration, will be required after cleanup
   
-  // Patient Information
-  chiefComplaint String
+  // Screen 1 - Welcome (handled in UI)
   
-  // History Sections
-  historyOfPresentIllness String
-  pastMedicalHistory String
-  pastSurgicalHistory String
+  // Screen 2 - About You (only additional fields not in registration)
+  // Note: fullName, dateOfBirth, gender, phone, email, address are already in User registration
+  height String? // Physical measurements
+  weight String?
+  waist String?
+  // Note: emergencyContactName and emergencyContactPhone are already in User registration
   
-  // Allergies
-  allergies String
+  // Screen 3 - Your Goals (check all that apply)
+  goalMoreEnergy Boolean @default(false)
+  goalBetterSexualPerformance Boolean @default(false)
+  goalLoseWeight Boolean @default(false)
+  goalHairRestoration Boolean @default(false)
+  goalImproveMood Boolean @default(false)
+  goalLongevity Boolean @default(false)
+  goalOther Boolean @default(false)
+  goalOtherDescription String?
   
-  // Social History
-  tobaccoUse String // Yes/No
-  alcoholUse String // Yes/No
-  recreationalDrugs String // Yes/No
-  otherSocialHistory String?
+  // Screen 4 - Medical Background
+  chronicConditions String? // List of chronic conditions
+  pastSurgeriesHospitalizations String? // Text box for past surgeries/hospitalizations
+  currentMedications String? // Auto-complete field for current medications
+  allergies String? // Text box for allergies
   
-  // Family History
-  familyHistory String
+  // Screen 5 - Lifestyle & Habits
+  sleepHoursPerNight String? // Hours/night
+  sleepQuality String? // Poor/Fair/Good
+  exerciseFrequency String? // None/1-2x/week/3-5x/week/Daily
+  dietType String? // Balanced/High protein/Low-carb/Plant-based/Other
+  alcoholUse String? // None/Social/Regular
+  tobaccoUse String? // Never/Current/Former
+  cannabisOtherSubstances String? // None/Yes
+  cannabisOtherSubstancesList String? // List if Yes
+  stressLevel String? // Low/Medium/High
   
-  // Work History
-  workHistory String
+  // Screen 6 - Symptom Check
+  symptomFatigue Boolean @default(false)
+  symptomLowLibido Boolean @default(false)
+  symptomMuscleLoss Boolean @default(false)
+  symptomWeightGain Boolean @default(false)
+  symptomGynecomastia Boolean @default(false)
+  symptomBrainFog Boolean @default(false)
+  symptomMoodSwings Boolean @default(false)
+  symptomPoorSleep Boolean @default(false)
+  symptomHairThinning Boolean @default(false)
   
-  // Medications
-  medications String
+  // Screen 7 - Safety Check
+  historyProstateBreastCancer Boolean @default(false)
+  historyBloodClotsMIStroke Boolean @default(false)
+  currentlyUsingHormonesPeptides Boolean @default(false)
+  planningChildrenNext12Months Boolean @default(false)
+  
+  // Screen 8 - Labs & Uploads
+  labUploads String? // File paths or references to uploaded labs
+  labSchedulingNeeded Boolean @default(false)
+  
+  // Screen 9 - Consent & Finalize
+  consentTelemedicineCare Boolean @default(false)
+  consentElectiveOptimizationTreatment Boolean @default(false)
+  consentRequiredLabMonitoring Boolean @default(false)
+  digitalSignature String?
+  consentDate DateTime?
+  
+  // Legacy fields for backward compatibility
+  chiefComplaint String?
+  historyOfPresentIllness String?
+  pastMedicalHistory String?
+  pastSurgicalHistory String?
+  familyHistory String?
+  workHistory String?
+  medications String?
   
   // Review of Systems (ROS)
   generalSymptoms String?
@@ -493,8 +549,6 @@ model MedicalForm {
   respiratoryRate String?
   temperature String?
   oxygenSaturation String?
-  weight String?
-  height String?
   bmi String?
   
   // System-based Examination
@@ -525,6 +579,8 @@ model MedicalForm {
   
   // Relations
   patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
   
   @@map("medical_forms")
 }
+

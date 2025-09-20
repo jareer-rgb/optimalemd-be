@@ -20,25 +20,16 @@ export class ServicesService {
    * Create a new medical service
    */
   async createService(createServiceDto: CreateServiceDto): Promise<ServiceResponseDto> {
-    const { doctorId, name, description, category, duration, basePrice } = createServiceDto;
+    const { name, description, category, duration, basePrice } = createServiceDto;
 
-    // Check if doctor exists
-    const doctor = await this.prisma.doctor.findUnique({
-      where: { id: doctorId }
-    });
-    if (!doctor) {
-      throw new NotFoundException('Doctor not found');
-    }
-
-    // Check if service name already exists for this doctor
+    // Check if service name already exists globally
     const existingService = await this.prisma.service.findFirst({
       where: { 
-        doctorId,
         name 
       }
     });
     if (existingService) {
-      throw new ConflictException('Service with this name already exists for this doctor');
+      throw new ConflictException('Service with this name already exists');
     }
 
     // Validate duration
@@ -55,7 +46,6 @@ export class ServicesService {
     // Create service
     const service = await this.prisma.service.create({
       data: {
-        doctorId,
         name,
         description,
         category,
@@ -73,17 +63,7 @@ export class ServicesService {
    */
   async findById(id: string): Promise<ServiceResponseDto> {
     const service = await this.prisma.service.findUnique({
-      where: { id },
-      include: {
-        doctor: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            specialization: true,
-          }
-        }
-      }
+      where: { id }
     });
 
     if (!service) {
@@ -100,14 +80,6 @@ export class ServicesService {
     const service = await this.prisma.service.findUnique({
       where: { id },
       include: {
-        doctor: {
-          select: {
-            id: true,
-            specialization: true,
-            firstName: true,
-            lastName: true,
-          }
-        },
         doctorServices: {
           include: {
             doctor: {
@@ -134,7 +106,7 @@ export class ServicesService {
    * Get services with filtering and pagination
    */
   async findAll(query: QueryServicesDto): Promise<{ services: ServiceResponseDto[], total: number }> {
-    const { name, category, isActive, doctorId, page = 1, limit = 10 } = query;
+    const { name, category, isActive, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -143,21 +115,23 @@ export class ServicesService {
     if (category) where.category = { contains: category, mode: 'insensitive' };
     if (isActive !== undefined) where.isActive = isActive === 'true';
 
-    // Filter by doctor if specified
-    if (doctorId) {
-      where.doctorId = doctorId;
-    }
+    // Note: doctorId filter removed since services are now global
+    // Services are no longer tied to specific doctors
 
     const [services, total] = await Promise.all([
       this.prisma.service.findMany({
         where,
         include: {
-          doctor: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              specialization: true,
+          doctorServices: {
+            include: {
+              doctor: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  specialization: true,
+                }
+              }
             }
           }
         },
@@ -176,27 +150,13 @@ export class ServicesService {
   }
 
   /**
-   * Get services by doctor ID
+   * Get services by doctor ID - DEPRECATED
+   * Services are now global, use getDoctorServices instead
    */
   async getServicesByDoctor(doctorId: string): Promise<ServiceResponseDto[]> {
-    const doctor = await this.prisma.doctor.findUnique({
-      where: { id: doctorId }
-    });
-    
-    if (!doctor) {
-      throw new NotFoundException('Doctor not found');
-    }
-
-    return this.prisma.service.findMany({
-      where: { 
-        doctorId,
-        isActive: true 
-      },
-      orderBy: [
-        { category: 'asc' },
-        { name: 'asc' }
-      ]
-    });
+    // This method is deprecated since services are now global
+    // Use getDoctorServices instead to get doctor-specific pricing
+    throw new BadRequestException('This method is deprecated. Services are now global. Use getDoctorServices instead.');
   }
 
   /**
@@ -211,17 +171,16 @@ export class ServicesService {
       throw new NotFoundException('Service not found');
     }
 
-    // Check if new name conflicts with existing service for the same doctor
+    // Check if new name conflicts with existing service globally
     if (updateServiceDto.name && updateServiceDto.name !== service.name) {
       const existingService = await this.prisma.service.findFirst({
         where: { 
           name: updateServiceDto.name,
-          doctorId: service.doctorId,
           id: { not: id }
         }
       });
       if (existingService) {
-        throw new ConflictException('Service with this name already exists for this doctor');
+        throw new ConflictException('Service with this name already exists');
       }
     }
 
@@ -250,7 +209,7 @@ export class ServicesService {
   /**
    * Delete service
    */
-  async deleteService(id: string, doctorId: string): Promise<void> {
+  async deleteService(id: string): Promise<void> {
     const service = await this.prisma.service.findUnique({
       where: { id }
     });
@@ -259,10 +218,7 @@ export class ServicesService {
       throw new NotFoundException('Service not found');
     }
 
-    // Only the doctor who created the service can delete it
-    if (service.doctorId !== doctorId) {
-      throw new BadRequestException('You can only delete services that you created');
-    }
+    // Services can now be deleted by any admin (removed doctor-specific validation)
 
     // Check if service has active appointments or bookings
     const [activeAppointments, activeBookings] = await Promise.all([
@@ -294,7 +250,7 @@ export class ServicesService {
    * Create doctor service relationship
    */
   async createDoctorService(createDoctorServiceDto: CreateDoctorServiceDto): Promise<DoctorServiceResponseDto> {
-    const { doctorId, serviceId, price } = createDoctorServiceDto;
+    const { doctorId, serviceId, customPrice } = createDoctorServiceDto;
 
     // Check if doctor exists and is active
     const doctor = await this.prisma.doctor.findUnique({
@@ -333,10 +289,10 @@ export class ServicesService {
       throw new ConflictException('Doctor already offers this service');
     }
 
-    // Validate price
-    const servicePrice = parseFloat(price);
+    // Validate custom price
+    const servicePrice = parseFloat(customPrice);
     if (isNaN(servicePrice) || servicePrice <= 0) {
-      throw new BadRequestException('Price must be a positive number');
+      throw new BadRequestException('Custom price must be a positive number');
     }
 
     // Create doctor service relationship
@@ -344,7 +300,7 @@ export class ServicesService {
       data: {
         doctorId,
         serviceId,
-        price,
+        customPrice,
         isAvailable: true
       }
     });
@@ -373,11 +329,11 @@ export class ServicesService {
       throw new NotFoundException('Doctor service relationship not found');
     }
 
-    // Validate price if provided
-    if (updateDoctorServiceDto.price) {
-      const price = parseFloat(updateDoctorServiceDto.price);
+    // Validate custom price if provided
+    if (updateDoctorServiceDto.customPrice) {
+      const price = parseFloat(updateDoctorServiceDto.customPrice);
       if (isNaN(price) || price <= 0) {
-        throw new BadRequestException('Price must be a positive number');
+        throw new BadRequestException('Custom price must be a positive number');
       }
     }
 

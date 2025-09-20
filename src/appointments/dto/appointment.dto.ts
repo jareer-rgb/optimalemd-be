@@ -8,20 +8,20 @@ export class CreateAppointmentDto {
   @IsNotEmpty()
   patientId: string;
 
-  @ApiProperty({ description: 'Doctor ID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiProperty({ description: 'Doctor ID', example: '123e4567-e89b-12d3-a456-426614174000', required: false })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  doctorId: string;
+  doctorId?: string;
 
   @ApiProperty({ description: 'Service ID', example: '123e4567-e89b-12d3-a456-426614174000' })
   @IsString()
   @IsNotEmpty()
   serviceId: string;
 
-  @ApiProperty({ description: 'Slot ID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiProperty({ description: 'Slot ID', example: '123e4567-e89b-12d3-a456-426614174000', required: false })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  slotId: string;
+  slotId?: string;
 
   @ApiProperty({ description: 'Primary Service ID', example: '123e4567-e89b-12d3-a456-426614174000' })
   @IsString()
@@ -36,6 +36,11 @@ export class CreateAppointmentDto {
   @IsString()
   @IsNotEmpty()
   appointmentTime: string;
+
+  @ApiProperty({ description: 'Selected slot time (HH:MM)', example: '09:00', required: false })
+  @IsOptional()
+  @IsString()
+  selectedSlotTime?: string;
 
   @ApiProperty({ description: 'Duration in minutes', example: 30, minimum: 15, maximum: 480 })
   @IsNumber()
@@ -165,20 +170,23 @@ export class AppointmentResponseDto {
   @ApiProperty({ description: 'Patient ID' })
   patientId: string;
 
-  @ApiProperty({ description: 'Doctor ID' })
-  doctorId: string;
+  @ApiProperty({ description: 'Doctor ID', required: false })
+  doctorId: string | null;
 
   @ApiProperty({ description: 'Service ID' })
   serviceId: string;
 
-  @ApiProperty({ description: 'Slot ID' })
-  slotId: string;
+  @ApiProperty({ description: 'Slot ID', required: false })
+  slotId: string | null;
 
   @ApiProperty({ description: 'Appointment date' })
   appointmentDate: Date;
 
   @ApiProperty({ description: 'Appointment time' })
   appointmentTime: string;
+
+  @ApiProperty({ description: 'Selected slot time', required: false })
+  selectedSlotTime: string | null;
 
   @ApiProperty({ description: 'Duration in minutes' })
   duration: number;
@@ -244,7 +252,8 @@ export class AppointmentWithRelationsResponseDto extends AppointmentResponseDto 
 
   @ApiProperty({
     description: 'Doctor information',
-    additionalProperties: true
+    additionalProperties: true,
+    required: false
   })
   doctor: {
     id: string;
@@ -253,7 +262,7 @@ export class AppointmentWithRelationsResponseDto extends AppointmentResponseDto 
     firstName: string;
     lastName: string;
     email: string;
-  };
+  } | null;
 
   @ApiProperty({
     description: 'Service information',
@@ -268,7 +277,8 @@ export class AppointmentWithRelationsResponseDto extends AppointmentResponseDto 
 
   @ApiProperty({
     description: 'Slot information',
-    additionalProperties: true
+    additionalProperties: true,
+    required: false
   })
   slot: {
     id: string;
@@ -277,5 +287,5 @@ export class AppointmentWithRelationsResponseDto extends AppointmentResponseDto 
     schedule: {
       date: Date;
     };
-  };
+  } | null;
 }

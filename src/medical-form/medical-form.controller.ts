@@ -11,7 +11,7 @@ import {
   HttpCode,
   HttpStatus
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { MedicalFormService } from './medical-form.service';
 import { CreateMedicalFormDto, MedicalFormResponseDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -21,21 +21,23 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class MedicalFormController {
   constructor(private readonly medicalFormService: MedicalFormService) {}
 
-  @Post()
+  @Post(':appointmentId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create medical consultation form' })
+  @ApiOperation({ summary: 'Create medical consultation form for appointment' })
+  @ApiParam({ name: 'appointmentId', description: 'Appointment ID' })
   @ApiResponse({ status: 201, description: 'Medical form created successfully', type: MedicalFormResponseDto })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 404, description: 'Patient not found' })
-  @ApiResponse({ status: 409, description: 'Medical form already exists for this patient' })
+  @ApiResponse({ status: 404, description: 'Patient or appointment not found' })
+  @ApiResponse({ status: 409, description: 'Medical form already exists for this appointment' })
   async createMedicalForm(
     @Request() req: any,
+    @Param('appointmentId') appointmentId: string,
     @Body() createMedicalFormDto: CreateMedicalFormDto
   ): Promise<{ success: boolean; message: string; data: MedicalFormResponseDto }> {
     const patientId = req.user.id;
     
-    const medicalForm = await this.medicalFormService.createMedicalForm(patientId, createMedicalFormDto);
+    const medicalForm = await this.medicalFormService.createMedicalForm(patientId, appointmentId, createMedicalFormDto);
     
     return {
       success: true,
@@ -75,6 +77,26 @@ export class MedicalFormController {
     const patientId = req.user.id;
     
     const medicalForm = await this.medicalFormService.updateMedicalForm(patientId, updateData);
+    
+    return {
+      success: true,
+      message: 'Medical form updated successfully',
+      data: medicalForm
+    };
+  }
+
+  @Put(':appointmentId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update medical consultation form by appointment ID' })
+  @ApiParam({ name: 'appointmentId', description: 'Appointment ID' })
+  @ApiResponse({ status: 200, description: 'Medical form updated successfully', type: MedicalFormResponseDto })
+  @ApiResponse({ status: 404, description: 'Medical form not found' })
+  async updateMedicalFormByAppointmentId(
+    @Param('appointmentId') appointmentId: string,
+    @Body() updateData: Partial<CreateMedicalFormDto>
+  ): Promise<{ success: boolean; message: string; data: MedicalFormResponseDto }> {
+    const medicalForm = await this.medicalFormService.updateMedicalFormByAppointmentId(appointmentId, updateData);
     
     return {
       success: true,

@@ -25,12 +25,12 @@ export class AppointmentsService {
    * Create a temporary appointment for payment processing
    */
   async createTemporaryAppointment(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
-    const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount, primaryServiceId } = createAppointmentDto;
+    const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount, primaryServiceId, selectedSlotTime } = createAppointmentDto;
 
     // Check if patient exists and is active
     const patient = await this.prisma.user.findUnique({
       where: { id: patientId },
-      select: { id: true, isActive: true, hasCompletedMedicalForm: true }
+      select: { id: true, isActive: true }
     });
     if (!patient) {
       throw new NotFoundException('Patient not found');
@@ -38,20 +38,21 @@ export class AppointmentsService {
     if (!patient.isActive) {
       throw new BadRequestException('Patient account is not active');
     }
-    if (!patient.hasCompletedMedicalForm) {
-      throw new BadRequestException('Patient must complete the medical consultation form before booking appointments. Please complete the form and try again.');
-    }
+    // Note: We don't check hasCompletedMedicalForm here because the patient only needs to complete Screen 2
+    // before booking. The full medical form is completed AFTER booking the first appointment.
 
-    // Check if doctor exists and is active
-    const doctor = await this.prisma.doctor.findUnique({
-      where: { id: doctorId },
-      select: { id: true, isActive: true, isAvailable: true }
-    });
-    if (!doctor) {
-      throw new NotFoundException('Doctor not found');
-    }
-    if (!doctor.isActive || !doctor.isAvailable) {
-      throw new BadRequestException('Doctor is not available');
+    // Check if doctor exists and is active (only if doctorId is provided)
+    if (doctorId) {
+      const doctor = await this.prisma.doctor.findUnique({
+        where: { id: doctorId },
+        select: { id: true, isActive: true, isAvailable: true }
+      });
+      if (!doctor) {
+        throw new NotFoundException('Doctor not found');
+      }
+      if (!doctor.isActive || !doctor.isAvailable) {
+        throw new BadRequestException('Doctor is not available');
+      }
     }
 
     // Check if service exists and is active
@@ -66,24 +67,27 @@ export class AppointmentsService {
       throw new BadRequestException('Service is not active');
     }
 
-    // Check if slot exists and is available
-    const slot = await this.prisma.slot.findUnique({
-      where: { id: slotId },
-      include: { schedule: true }
-    });
-    if (!slot) {
-      throw new NotFoundException('Slot not found');
-    }
-    if (!slot.isAvailable) {
-      throw new BadRequestException('Slot is not available');
-    }
+    // Check if slot exists and is available (only if slotId is provided)
+    let slot: any = null;
+    if (slotId) {
+      slot = await this.prisma.slot.findUnique({
+        where: { id: slotId },
+        include: { schedule: true }
+      });
+      if (!slot) {
+        throw new NotFoundException('Slot not found');
+      }
+      if (!slot.isAvailable) {
+        throw new BadRequestException('Slot is not available');
+      }
 
-    // Check if slot duration is sufficient for service
-    const slotStart = new Date(`2000-01-01T${slot.startTime}`);
-    const slotEnd = new Date(`2000-01-01T${slot.endTime}`);
-    const slotDuration = (slotEnd.getTime() - slotStart.getTime()) / (1000 * 60);
-    if (slotDuration < service.duration) {
-      throw new BadRequestException('Slot duration is insufficient for this service');
+      // Check if slot duration is sufficient for service
+      const slotStart = new Date(`2000-01-01T${slot.startTime}`);
+      const slotEnd = new Date(`2000-01-01T${slot.endTime}`);
+      const slotDuration = (slotEnd.getTime() - slotStart.getTime()) / (1000 * 60);
+      if (slotDuration < service.duration) {
+        throw new BadRequestException('Slot duration is insufficient for this service');
+      }
     }
 
     // Check if appointment date is not in the past
@@ -92,19 +96,21 @@ export class AppointmentsService {
       throw new BadRequestException('Appointment date and time cannot be in the past');
     }
 
-    // Check for double booking (doctor)
-    const existingDoctorAppointment = await this.prisma.appointment.findFirst({
-      where: {
-        doctorId,
-        appointmentDate: new Date(appointmentDate),
-        appointmentTime,
-        status: {
-          in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS]
+    // Check for double booking (doctor) - only if doctorId is provided
+    if (doctorId) {
+      const existingDoctorAppointment = await this.prisma.appointment.findFirst({
+        where: {
+          doctorId,
+          appointmentDate: new Date(appointmentDate),
+          appointmentTime,
+          status: {
+            in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS]
+          }
         }
+      });
+      if (existingDoctorAppointment) {
+        throw new ConflictException('Doctor already has an appointment at this time');
       }
-    });
-    if (existingDoctorAppointment) {
-      throw new ConflictException('Doctor already has an appointment at this time');
     }
 
     // Create temporary appointment with PENDING status
@@ -117,6 +123,7 @@ export class AppointmentsService {
         primaryServiceId,
         appointmentDate: new Date(appointmentDate),
         appointmentTime,
+        selectedSlotTime,
         duration,
         patientNotes,
         symptoms,
@@ -324,7 +331,8 @@ export class AppointmentsService {
               }
             }
           }
-        }
+        },
+        medicalForm: true // Include medical form data
       }
     });
 
@@ -454,6 +462,31 @@ export class AppointmentsService {
   }
 
   /**
+   * Update internal notes for an appointment (doctor only)
+   */
+  async updateInternalNotes(appointmentId: string, internalNotes: string, doctorId: string): Promise<AppointmentResponseDto> {
+    // Check if appointment exists and belongs to the doctor
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id: appointmentId,
+        doctorId: doctorId
+      }
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found or you do not have permission to update this appointment');
+    }
+
+    // Update the internal notes
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { internalNotes }
+    });
+
+    return updatedAppointment;
+  }
+
+  /**
    * Cancel appointment
    */
   async cancelAppointment(id: string, cancelAppointmentDto: CancelAppointmentDto): Promise<AppointmentResponseDto> {
@@ -520,19 +553,20 @@ export class AppointmentsService {
         }
       });
 
-      // Make slot available again
-      const updatedSlot = await prisma.slot.update({
-        where: { id: appointment.slotId },
-        data: { isAvailable: true }
-      });
-      
-      console.log(`✅ Slot ${appointment.slotId} made available again after cancellation`);
-      console.log(`📅 Slot details:`, {
-        id: updatedSlot.id,
-        startTime: updatedSlot.startTime,
-        endTime: updatedSlot.endTime,
-        isAvailable: updatedSlot.isAvailable
-      });
+      // Make slot available again (if slotId exists)
+      if (appointment.slotId) {
+        const updatedSlot = await prisma.slot.update({
+          where: { id: appointment.slotId },
+          data: { isAvailable: true }
+        });
+        console.log(`✅ Slot ${appointment.slotId} made available again after cancellation`);
+        console.log(`📅 Slot details:`, {
+          id: updatedSlot.id,
+          startTime: updatedSlot.startTime,
+          endTime: updatedSlot.endTime,
+          isAvailable: updatedSlot.isAvailable
+        });
+      }
 
       return cancelledAppointment;
     });
@@ -540,7 +574,7 @@ export class AppointmentsService {
     // Send email notifications
     try {
       const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
-      const doctorName = `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`;
+      const doctorName = appointment.doctor ? `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}` : 'To be assigned';
       const appointmentDate = appointment.appointmentDate.toISOString().split('T')[0];
       const amount = appointment.amount.toString();
 
@@ -554,16 +588,18 @@ export class AppointmentsService {
         amount
       );
 
-      // Send cancellation notification to doctor with refund request
-      await this.mailerService.sendDoctorCancellationNotification(
-        appointment.doctor.email,
-        doctorName,
-        patientName,
-        appointment.patient.primaryEmail,
-        appointmentDate,
-        appointment.appointmentTime,
-        amount
-      );
+      // Send cancellation notification to doctor with refund request (if doctor exists)
+      if (appointment.doctor) {
+        await this.mailerService.sendDoctorCancellationNotification(
+          appointment.doctor.email,
+          doctorName,
+          patientName,
+          appointment.patient.primaryEmail,
+          appointmentDate,
+          appointment.appointmentTime,
+          amount
+        );
+      }
     } catch (error) {
       console.error('Failed to send cancellation emails:', error);
       // Don't throw error to avoid breaking the cancellation process
@@ -650,7 +686,7 @@ export class AppointmentsService {
 
     // Generate new Google Meet link for rescheduled appointment
     const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
-    const doctorName = `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`;
+    const doctorName = appointment.doctor ? `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}` : 'To be assigned';
     
     const meetResult = await this.googleCalendarService.generateMeetLink(
       newSlot.schedule.date,
@@ -664,11 +700,13 @@ export class AppointmentsService {
 
     // Use transaction to ensure data consistency
     const result = await this.prisma.$transaction(async (prisma) => {
-      // Make old slot available again
-      await prisma.slot.update({
-        where: { id: appointment.slotId },
-        data: { isAvailable: true }
-      });
+      // Make old slot available again (if slotId exists)
+      if (appointment.slotId) {
+        await prisma.slot.update({
+          where: { id: appointment.slotId },
+          data: { isAvailable: true }
+        });
+      }
 
       // Update appointment with new slot and new Google Meet link
       const updatedAppointment = await prisma.appointment.update({
@@ -694,7 +732,7 @@ export class AppointmentsService {
     // Send email notifications
     try {
       const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
-      const doctorName = `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`;
+      const doctorName = appointment.doctor ? `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}` : 'To be assigned';
 
       // Send reschedule email to patient with new Google Meet link
       await this.mailerService.sendRescheduleEmail(
@@ -708,17 +746,19 @@ export class AppointmentsService {
         meetResult.meetLink
       );
 
-      // Send reschedule notification to doctor with new Google Meet link
-      await this.mailerService.sendDoctorRescheduleNotification(
-        appointment.doctor.email,
-        doctorName,
-        patientName,
-        oldDate,
-        oldTime,
-        newDate,
-        newTime,
-        meetResult.meetLink
-      );
+      // Send reschedule notification to doctor with new Google Meet link (only if doctor is assigned)
+      if (appointment.doctor) {
+        await this.mailerService.sendDoctorRescheduleNotification(
+          appointment.doctor.email,
+          doctorName,
+          patientName,
+          oldDate,
+          oldTime,
+          newDate,
+          newTime,
+          meetResult.meetLink
+        );
+      }
     } catch (error) {
       console.error('Failed to send reschedule emails:', error);
       // Don't throw error to avoid breaking the reschedule process
@@ -785,7 +825,8 @@ export class AppointmentsService {
                 }
               }
             }
-          }
+          },
+          medicalForm: true // Include medical form data
         },
         skip,
         take: limit,
@@ -1018,16 +1059,190 @@ export class AppointmentsService {
 
     // Use transaction to ensure data consistency
     await this.prisma.$transaction(async (prisma) => {
-      // Make slot available again
-      await prisma.slot.update({
-        where: { id: appointment.slotId },
-        data: { isAvailable: true }
-      });
+      // Make slot available again (if slotId exists)
+      if (appointment.slotId) {
+        await prisma.slot.update({
+          where: { id: appointment.slotId },
+          data: { isAvailable: true }
+        });
+      }
 
       // Delete appointment
       await prisma.appointment.delete({
         where: { id }
       });
     });
+  }
+
+  async getDoctorSlots(doctorId: string, date: string): Promise<any[]> {
+    const targetDate = new Date(date);
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // First, find schedules for the doctor on the given date
+    const schedules = await this.prisma.schedule.findMany({
+      where: {
+        doctorId,
+        date: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+      include: {
+        slots: {
+          include: {
+            appointment: {
+              include: {
+                patient: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    primaryEmail: true,
+                    primaryPhone: true,
+                  },
+                },
+                service: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            startTime: 'asc',
+          },
+        },
+      },
+    });
+
+    // Flatten all slots from all schedules
+    const allSlots = schedules.flatMap(schedule => schedule.slots);
+
+    // Create a map to deduplicate slots by time range, prioritizing booked slots
+    const slotMap = new Map<string, any>();
+
+    allSlots.forEach(slot => {
+      const timeKey = `${slot.startTime}-${slot.endTime}`;
+      const isBooked = slot.appointment && slot.appointment.length > 0;
+      
+      // If slot doesn't exist in map, or if current slot is booked and existing is not, use current slot
+      if (!slotMap.has(timeKey) || (isBooked && !slotMap.get(timeKey).isBooked)) {
+        slotMap.set(timeKey, {
+          ...slot,
+          isBooked
+        });
+      }
+    });
+
+    // Convert map back to array and sort by start time
+    return Array.from(slotMap.values())
+      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+      .map(slot => ({
+        id: slot.id,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        status: slot.isBooked ? 'booked' : slot.isAvailable ? 'available' : 'blocked',
+        appointment: slot.isBooked ? {
+          id: slot.appointment[0].id,
+          patientName: `${slot.appointment[0].patient?.firstName || ''} ${slot.appointment[0].patient?.lastName || ''}`.trim() || 'Unknown Patient',
+          patientEmail: slot.appointment[0].patient?.primaryEmail || '',
+          patientPhone: slot.appointment[0].patient?.primaryPhone || '',
+          serviceName: slot.appointment[0].service?.name || 'General Consultation',
+          notes: slot.appointment[0].patientNotes || '',
+          status: slot.appointment[0].status,
+        } : undefined,
+      }));
+  }
+
+  /**
+   * Get all available slots from all doctors for a specific date
+   */
+  async getGlobalSlots(date: string): Promise<any[]> {
+    const targetDate = new Date(date);
+    
+    // Get all slots for the specified date from all doctors
+    const slots = await this.prisma.slot.findMany({
+      where: {
+        isAvailable: true,
+        schedule: {
+          date: targetDate
+        }
+      },
+      include: {
+        schedule: {
+          include: {
+            doctor: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                specialization: true,
+                licenseNumber: true
+              }
+            }
+          }
+        },
+        appointment: {
+          include: {
+            patient: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                primaryPhone: true
+              }
+            },
+            service: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        startTime: 'asc'
+      }
+    });
+
+    // Create a map to deduplicate slots by time
+    const slotMap = new Map<string, any>();
+    
+    slots.forEach(slot => {
+      const timeKey = slot.startTime;
+      
+      // If this time slot doesn't exist or if current slot is booked (prioritize booked slots)
+      if (!slotMap.has(timeKey) || (slot.appointment.length > 0 && slotMap.get(timeKey).appointment.length === 0)) {
+        slotMap.set(timeKey, {
+          id: slot.id,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          isAvailable: slot.isAvailable,
+          doctor: {
+            id: slot.schedule.doctor.id,
+            name: `${slot.schedule.doctor.firstName} ${slot.schedule.doctor.lastName}`,
+            specialization: slot.schedule.doctor.specialization,
+            licenseNumber: slot.schedule.doctor.licenseNumber
+          },
+          appointment: slot.appointment.length > 0 ? {
+            id: slot.appointment[0].id,
+            patientName: `${slot.appointment[0].patient?.firstName || ''} ${slot.appointment[0].patient?.lastName || ''}`.trim(),
+            patientPhone: slot.appointment[0].patient?.primaryPhone || '',
+            serviceName: slot.appointment[0].service?.name || 'General Consultation',
+            notes: slot.appointment[0].patientNotes || '',
+            status: slot.appointment[0].status,
+          } : undefined,
+        });
+      }
+    });
+
+    // Convert map to array and sort by time
+    return Array.from(slotMap.values()).sort((a, b) => a.startTime.localeCompare(b.startTime));
   }
 }

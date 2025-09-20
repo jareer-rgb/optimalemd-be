@@ -60,7 +60,6 @@ export class ServicesController {
         summary: 'General Consultation',
         description: 'Create a general consultation service',
         value: {
-          doctorId: '123e4567-e89b-12d3-a456-426614174000',
           name: 'General Consultation',
           description: 'Comprehensive health assessment and consultation with a healthcare provider',
           category: 'Consultation',
@@ -72,7 +71,6 @@ export class ServicesController {
         summary: 'Specialist Consultation',
         description: 'Create a specialist consultation service',
         value: {
-          doctorId: '123e4567-e89b-12d3-a456-426614174000',
           name: 'Cardiology Consultation',
           description: 'Specialized consultation with a cardiologist',
           category: 'Specialist',
@@ -564,20 +562,7 @@ export class ServicesController {
     description: 'Service ID',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiBody({
-    description: 'Doctor ID to verify ownership',
-    schema: {
-      type: 'object',
-      properties: {
-        doctorId: {
-          type: 'string',
-          description: 'Doctor ID who created the service',
-          example: '123e4567-e89b-12d3-a456-426614174000'
-        }
-      },
-      required: ['doctorId']
-    }
-  })
+  // No body required - services can be deleted by any admin
   @ApiOkResponse({
     description: 'Service deleted successfully',
     type: SuccessApiResponse,
@@ -602,7 +587,7 @@ export class ServicesController {
         value: {
           success: false,
           statusCode: 400,
-          message: 'You can only delete services that you created',
+          message: 'Cannot delete service with active appointments or bookings',
           error: 'BadRequestError',
           timestamp: '2024-12-20T10:00:00.000Z',
           path: '/api/services/123e4567-e89b-12d3-a456-426614174000',
@@ -638,10 +623,9 @@ export class ServicesController {
     },
   })
   async deleteService(
-    @Param('id') id: string,
-    @Body('doctorId') doctorId: string
+    @Param('id') id: string
   ) {
-    await this.servicesService.deleteService(id, doctorId);
+    await this.servicesService.deleteService(id);
     return {
       success: true,
       statusCode: 204,
