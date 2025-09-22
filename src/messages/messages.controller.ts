@@ -7,7 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @ApiTags('Messages')
 @Controller('messages')
 @UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 

@@ -23,7 +23,7 @@ import { BaseApiResponse } from '../common/dto/api-response.dto';
 @ApiTags('Intake')
 @Controller('intake')
 @UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 export class IntakeController {
   constructor(private readonly intakeService: IntakeService) {}
 

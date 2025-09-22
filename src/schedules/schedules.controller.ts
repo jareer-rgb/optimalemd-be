@@ -42,7 +42,7 @@ import { PaginatedApiResponse, SuccessApiResponseWithData } from '../common/dto/
 @ApiTags('Schedules')
 @Controller('schedules')
 @UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 export class SchedulesController {
   constructor(private readonly schedulesService: SchedulesService) {}
 

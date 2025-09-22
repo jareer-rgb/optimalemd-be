@@ -36,7 +36,7 @@ import { PaginatedApiResponse, SuccessApiResponseWithData } from '../common/dto/
 @ApiTags('Working Hours')
 @Controller('working-hours')
 @UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 export class WorkingHoursController {
   constructor(private readonly workingHoursService: WorkingHoursService) {}
 

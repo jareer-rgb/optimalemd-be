@@ -1156,6 +1156,7 @@ export class AppointmentsService {
           serviceName: slot.appointment[0].service?.name || 'General Consultation',
           notes: slot.appointment[0].patientNotes || '',
           status: slot.appointment[0].status,
+          googleMeetLink: slot.appointment[0].googleMeetLink || null,
         } : undefined,
       }));
   }
@@ -1420,28 +1421,7 @@ export class AppointmentsService {
       }
     });
 
-    // Send email notification to doctor only
-    try {
-      const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
-      const doctorName = `Dr. ${slot.schedule.doctor.firstName} ${slot.schedule.doctor.lastName}`;
-      const appointmentDate = appointment.appointmentDate.toISOString().split('T')[0];
-      const amount = appointment.amount.toString();
-
-      // Send notification to doctor with Google Meet link
-      await this.mailerService.sendDoctorAppointmentNotification(
-        slot.schedule.doctor.email,
-        doctorName,
-        patientName,
-        appointment.service.name,
-        appointmentDate,
-        appointment.appointmentTime,
-        amount,
-        appointment.googleMeetLink || undefined
-      );
-    } catch (error) {
-      console.error('Failed to send doctor assignment email:', error);
-      // Don't throw error to avoid breaking the assignment process
-    }
+    // Do not send email on assignment; emails are sent after payment confirmation
 
     return updatedAppointment;
   }

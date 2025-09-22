@@ -23,7 +23,7 @@ export class MedicalFormController {
 
   @Post(':appointmentId')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create medical consultation form for appointment' })
   @ApiParam({ name: 'appointmentId', description: 'Appointment ID' })
   @ApiResponse({ status: 201, description: 'Medical form created successfully', type: MedicalFormResponseDto })
@@ -48,7 +48,7 @@ export class MedicalFormController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get medical form for current patient' })
   @ApiResponse({ status: 200, description: 'Medical form retrieved successfully', type: MedicalFormResponseDto })
   @ApiResponse({ status: 404, description: 'Medical form not found' })
@@ -66,7 +66,7 @@ export class MedicalFormController {
 
   @Put()
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update medical consultation form' })
   @ApiResponse({ status: 200, description: 'Medical form updated successfully', type: MedicalFormResponseDto })
   @ApiResponse({ status: 404, description: 'Medical form not found' })
@@ -87,7 +87,7 @@ export class MedicalFormController {
 
   @Put(':appointmentId')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update medical consultation form by appointment ID' })
   @ApiParam({ name: 'appointmentId', description: 'Appointment ID' })
   @ApiResponse({ status: 200, description: 'Medical form updated successfully', type: MedicalFormResponseDto })
@@ -107,7 +107,7 @@ export class MedicalFormController {
 
   @Delete()
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete medical consultation form' })
   @ApiResponse({ status: 204, description: 'Medical form deleted successfully' })
@@ -125,7 +125,7 @@ export class MedicalFormController {
 
   @Get('completion-status')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Check if patient has completed medical form' })
   @ApiResponse({ status: 200, description: 'Form completion status retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Patient not found' })
@@ -147,7 +147,7 @@ export class MedicalFormController {
 
   @Get('patient/:patientId')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get medical form for specific patient (Doctor access)' })
   @ApiResponse({ status: 200, description: 'Medical form retrieved successfully', type: MedicalFormResponseDto })
   @ApiResponse({ status: 404, description: 'Medical form not found' })

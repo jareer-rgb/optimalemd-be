@@ -268,7 +268,8 @@ export class GoogleCalendarService implements OnModuleInit {
     doctorName: string,
     patientName: string,
     serviceName: string,
-    patientEmail?: string
+    patientEmail?: string,
+    doctorEmail?: string
   ): Promise<{ meetLink: string; eventId?: string }> {
     try {
       // Check if credentials are valid
@@ -295,9 +296,14 @@ export class GoogleCalendarService implements OnModuleInit {
       endTime.setMinutes(endTime.getMinutes() + duration);
 
       // Prepare attendees array
-      const attendees = [
-        { email: this.configService.get<string>('DOCTOR_EMAIL') || 'doctor@optimaleMD.com' }
-      ];
+      const attendees: { email: string }[] = [];
+      
+      // Add doctor email if provided, otherwise use default
+      if (doctorEmail) {
+        attendees.push({ email: doctorEmail });
+      } else {
+        attendees.push({ email: this.configService.get<string>('DOCTOR_EMAIL') || 'doctor@optimaleMD.com' });
+      }
       
       // Add patient email if provided
       if (patientEmail) {

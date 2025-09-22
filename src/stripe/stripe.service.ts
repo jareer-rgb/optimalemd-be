@@ -147,7 +147,8 @@ export class StripeService {
       doctorName,
       patientName,
       appointment.service.name,
-      appointment.patient.primaryEmail // Pass patient email
+      appointment.patient.primaryEmail, // Pass patient email
+      appointment.doctor?.email // Pass doctor email if available
     );
 
     // Update appointment status to confirmed, mark as paid, and store Google Meet link
@@ -204,17 +205,18 @@ export class StripeService {
       });
     }
 
-    // Send email notification to patient only (no doctor assigned yet)
+    // Send email notifications to both patient and doctor (if assigned)
     try {
       const patientName = `${updatedAppointment.patient.firstName} ${updatedAppointment.patient.lastName}`;
       const appointmentDate = updatedAppointment.appointmentDate.toISOString().split('T')[0];
       const amount = updatedAppointment.amount.toString();
+      const doctorName = updatedAppointment.doctor ? `Dr. ${updatedAppointment.doctor.firstName} ${updatedAppointment.doctor.lastName}` : 'To be assigned';
 
-      // Send confirmation email to patient with Google Meet link (no doctor details)
+      // Send confirmation email to patient
       await this.mailerService.sendAppointmentConfirmationEmail(
         updatedAppointment.patient.primaryEmail,
         patientName,
-        'To be assigned', // No doctor assigned yet
+        doctorName,
         updatedAppointment.service.name,
         appointmentDate,
         updatedAppointment.appointmentTime,
@@ -222,7 +224,19 @@ export class StripeService {
         updatedAppointment.googleMeetLink || undefined
       );
 
-      // Note: Doctor email will be sent later when doctor is assigned to the appointment
+      // Send email to doctor if assigned
+      if (updatedAppointment.doctor && updatedAppointment.doctor.email) {
+        await this.mailerService.sendAppointmentConfirmationEmail(
+          updatedAppointment.doctor.email,
+          doctorName,
+          patientName, // For doctor email, patient is the "other party"
+          updatedAppointment.service.name,
+          appointmentDate,
+          updatedAppointment.appointmentTime,
+          amount,
+          updatedAppointment.googleMeetLink || undefined
+        );
+      }
     } catch (error) {
       console.error('Failed to send confirmation email:', error);
       // Don't throw error to avoid breaking the payment confirmation process
