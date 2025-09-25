@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
 import {
   CreateWorkingHoursDto,
   CreateMultipleWorkingHoursDto,
@@ -14,8 +13,7 @@ import {
 @Injectable()
 export class WorkingHoursService {
   constructor(
-    private prisma: PrismaService,
-    private googleCalendarService: GoogleCalendarService
+    private prisma: PrismaService
   ) {}
 
   /**
@@ -406,19 +404,12 @@ export class WorkingHoursService {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Sync working hours to Google Calendar
-    let calendarSyncResult: any = null;
-    try {
-      calendarSyncResult = await this.googleCalendarService.syncWorkingHoursToCalendar(
-        doctorId,
-        workingHours,
-        start,
-        end
-      );
-      console.log(`📅 Google Calendar sync: ${calendarSyncResult?.eventsCreated} events created`);
-    } catch (error) {
-      console.warn('⚠️ Google Calendar sync failed:', error.message);
-    }
+    // Google Calendar sync removed - no longer needed
+    const calendarSyncResult = {
+      success: true,
+      eventsCreated: 0,
+      errors: []
+    };
 
     return {
       doctorId,

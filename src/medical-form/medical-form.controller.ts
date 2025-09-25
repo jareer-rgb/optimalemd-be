@@ -165,6 +165,29 @@ export class MedicalFormController {
     };
   }
 
+  @Put('patient/:patientId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Update medical form for specific patient (Admin access)' })
+  @ApiResponse({ status: 200, description: 'Medical form updated successfully', type: MedicalFormResponseDto })
+  @ApiResponse({ status: 404, description: 'Medical form not found' })
+  async updateMedicalFormByPatientId(
+    @Param('patientId') patientId: string,
+    @Body() updateData: Partial<CreateMedicalFormDto>
+  ): Promise<{ 
+    success: boolean; 
+    message: string; 
+    data: MedicalFormResponseDto 
+  }> {
+    const medicalForm = await this.medicalFormService.updateMedicalFormByPatientId(patientId, updateData);
+    
+    return {
+      success: true,
+      message: 'Medical form updated successfully',
+      data: medicalForm
+    };
+  }
+
   @Post('resend-email')
   @ApiOperation({ summary: 'Resend medical form email to patient' })
   @ApiResponse({ status: 200, description: 'Medical form email sent successfully' })

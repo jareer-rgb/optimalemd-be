@@ -156,6 +156,42 @@ model Doctor {
   @@map("doctors")
 }
 
+// Admin model for super administrators
+model Admin {
+  id                String   @id @default(uuid())
+  
+  // Authentication fields
+  email             String   @unique
+  password          String
+  isActive          Boolean  @default(true)
+  
+  // Email verification fields
+  isEmailVerified           Boolean  @default(false)
+  emailVerificationToken    String?
+  emailVerificationTokenExpiry DateTime?
+  
+  // Password reset fields
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  
+  // Personal Information
+  firstName         String
+  lastName          String
+  profilePicture    String?
+  phone             String?
+  
+  // Admin specific fields
+  role              String   @default("superadmin") // superadmin, admin, etc.
+  permissions       String[] // Array of permission strings
+  lastLoginAt       DateTime?
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("admins")
+}
+
 // Service model for different types of medical services
 // Global Service model - independent of doctors
 model Service {
@@ -344,6 +380,10 @@ model Appointment {
   
   // Doctor internal notes
   internalNotes     String?  // Doctor's internal notes for this appointment
+  
+  // Prescribed medications grouped by medical service
+  // Example shape: { "Hormone Optimization / TRT": ["Testosterone injections", "Enclomiphene"], "Hair Loss Treatments": ["Oral Minoxidil"] }
+  medications       Json?
   
   // Payment and billing
   amount            Decimal  @db.Decimal(10, 2)

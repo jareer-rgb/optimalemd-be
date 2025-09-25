@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Body, UseGuards, Post } from '@nestjs/common';
+import { Controller, Get, Put, Body, UseGuards, Post, Query } from '@nestjs/common';
 import { 
   ApiTags, 
   ApiOperation, 
@@ -536,6 +536,32 @@ export class UsersController {
       },
       timestamp: new Date().toISOString(),
       path: '/api/users/update-password',
+    };
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: 'Get All Users',
+    description: 'Retrieve all users (patients) with optional filtering and pagination.',
+  })
+  @ApiOkResponse({
+    description: 'Users retrieved successfully',
+    type: BaseApiResponse<UserResponseDto[]>,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - invalid or missing JWT token',
+  })
+  async getAllUsers(
+    @Query() query: any,
+  ): Promise<BaseApiResponse<UserResponseDto[]>> {
+    const data = await this.usersService.getAllUsers(query);
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Users retrieved successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: '/api/users',
     };
   }
 }

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean, Min, Max, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateServiceDto {
   // doctorId removed - services are now global
@@ -91,11 +92,13 @@ export class QueryServicesDto {
 
   @ApiProperty({ description: 'Page number', example: 1, required: false })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   page?: number;
 
   @ApiProperty({ description: 'Items per page', example: 10, required: false })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   limit?: number;
 }

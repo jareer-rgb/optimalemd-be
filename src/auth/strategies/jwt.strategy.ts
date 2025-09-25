@@ -54,6 +54,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       const { password, ...doctorWithoutPassword } = account;
       return { ...doctorWithoutPassword, userType: 'doctor' };
       
+    } else if (userType === 'admin') {
+      // Validate admin
+      account = await this.prisma.admin.findUnique({
+        where: { id },
+      });
+      
+      if (!account || !account.isActive) {
+        throw new UnauthorizedException('Admin not found or inactive');
+      }
+      
+      // Remove password from response
+      const { password, ...adminWithoutPassword } = account;
+      return { ...adminWithoutPassword, userType: 'admin' };
+      
     } else {
       throw new UnauthorizedException('Invalid user type in token');
     }

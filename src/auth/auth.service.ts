@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailerService } from '../mailer/mailer.service';
 import { ConfigService } from '@nestjs/config';
-import { LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordDto, AuthResponseDataDto, UserResponseDto, UpdatePasswordDto } from './dto/auth.dto';
+import { LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordDto, AuthResponseDataDto, UserResponseDto, UpdatePasswordDto, AdminResponseDto } from './dto/auth.dto';
 import { DoctorResponseDto } from '../doctors/dto/doctor.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -107,8 +107,11 @@ export class AuthService {
     } else if (userType === 'doctor') {
       // Handle doctor login
       return this.loginDoctor(email, password);
+    } else if (userType === 'admin') {
+      // Handle admin login
+      return this.loginAdmin(email, password);
     } else {
-      throw new BadRequestException('Invalid user type. Must be either "user" or "doctor"');
+      throw new BadRequestException('Invalid user type. Must be either "user", "doctor", or "admin"');
     }
   }
 
@@ -193,8 +196,57 @@ export class AuthService {
 
     return {
       accessToken,
-      user: doctorWithoutPassword as DoctorResponseDto,
+      doctor: doctorWithoutPassword as DoctorResponseDto,
       userType: 'doctor' as const,
+    };
+  }
+
+  /**
+   * Login admin
+   */
+  private async loginAdmin(email: string, password: string): Promise<AuthResponseDataDto> {
+    // Find admin by email
+    const admin = await this.prisma.admin.findUnique({
+      where: { email },
+    });
+
+    if (!admin) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Check if admin is active
+    if (!admin.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Check if email is verified
+    if (!admin.isEmailVerified) {
+      throw new UnauthorizedException('Please verify your email address before logging in');
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Update last login time
+    await this.prisma.admin.update({
+      where: { id: admin.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    // Generate JWT token
+    const payload = { sub: admin.id, email: admin.email, userType: 'admin' };
+    const accessToken = this.jwtService.sign(payload);
+
+    // Return admin data without password
+    const { password: _, ...adminWithoutPassword } = admin;
+
+    return {
+      accessToken,
+      admin: adminWithoutPassword as AdminResponseDto,
+      userType: 'admin' as const,
     };
   }
 

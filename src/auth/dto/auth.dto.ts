@@ -5,13 +5,13 @@ import { DoctorResponseDto } from '../../doctors/dto/doctor.dto';
 
 export class LoginDto {
   @ApiProperty({
-    description: 'User type (user for patients, doctor for healthcare providers)',
+    description: 'User type (user for patients, doctor for healthcare providers, admin for administrators)',
     example: 'user',
-    enum: ['user', 'doctor'],
+    enum: ['user', 'doctor', 'admin'],
   })
   @IsString()
-  @IsIn(['user', 'doctor'])
-  userType: 'user' | 'doctor';
+  @IsIn(['user', 'doctor', 'admin'])
+  userType: 'user' | 'doctor' | 'admin';
 
   @ApiProperty({
     description: 'Email address (primary email for users, email for doctors)',
@@ -1026,6 +1026,48 @@ export class UserResponseDto {
   updatedAt: Date;
 }
 
+// Admin Response DTO
+export class AdminResponseDto {
+  @ApiProperty({ description: 'Admin ID', example: 'uuid-string' })
+  id: string;
+
+  @ApiProperty({ description: 'First name', example: 'Admin' })
+  firstName: string;
+
+  @ApiProperty({ description: 'Last name', example: 'User' })
+  lastName: string;
+
+  @ApiProperty({ description: 'Email', example: 'admin@example.com' })
+  email: string;
+
+  @ApiProperty({ description: 'Phone', example: '+1234567890' })
+  phone?: string;
+
+  @ApiProperty({ description: 'Profile picture URL', example: 'https://example.com/avatar.jpg' })
+  profilePicture?: string;
+
+  @ApiProperty({ description: 'Role', example: 'superadmin' })
+  role: string;
+
+  @ApiProperty({ description: 'Permissions array', example: ['manage_users', 'manage_appointments'] })
+  permissions: string[];
+
+  @ApiProperty({ description: 'Is active', example: true })
+  isActive: boolean;
+
+  @ApiProperty({ description: 'Is email verified', example: true })
+  isEmailVerified: boolean;
+
+  @ApiProperty({ description: 'Last login at', example: '2024-01-01T00:00:00.000Z' })
+  lastLoginAt?: Date;
+
+  @ApiProperty({ description: 'Created at', example: '2024-01-01T00:00:00.000Z' })
+  createdAt: Date;
+
+  @ApiProperty({ description: 'Updated at', example: '2024-01-01T00:00:00.000Z' })
+  updatedAt: Date;
+}
+
 // Authentication response data
 export class AuthResponseDataDto {
   @ApiProperty({
@@ -1035,20 +1077,32 @@ export class AuthResponseDataDto {
   accessToken: string;
 
   @ApiProperty({
-    description: 'User or Doctor information',
-    oneOf: [
-      { $ref: '#/components/schemas/UserResponseDto' },
-      { $ref: '#/components/schemas/DoctorResponseDto' }
-    ],
+    description: 'Patient information (when userType is user)',
+    type: UserResponseDto,
+    required: false,
   })
-  user: UserResponseDto | DoctorResponseDto;
+  user?: UserResponseDto;
 
   @ApiProperty({
-    description: 'Type of user (user for patients, doctor for healthcare providers)',
-    example: 'user',
-    enum: ['user', 'doctor'],
+    description: 'Doctor information (when userType is doctor)',
+    type: DoctorResponseDto,
+    required: false,
   })
-  userType: 'user' | 'doctor';
+  doctor?: DoctorResponseDto;
+
+  @ApiProperty({
+    description: 'Admin information (when userType is admin)',
+    type: AdminResponseDto,
+    required: false,
+  })
+  admin?: AdminResponseDto;
+
+  @ApiProperty({
+    description: 'Type of authenticated account',
+    example: 'user',
+    enum: ['user', 'doctor', 'admin'],
+  })
+  userType: 'user' | 'doctor' | 'admin';
 }
 
 // Authentication response wrapper
@@ -1068,6 +1122,7 @@ export class PasswordResetResponseDataDto {
   })
   email: string;
 }
+
 
 // Password reset response wrapper
 export class PasswordResetResponseDto extends BaseApiResponse<PasswordResetResponseDataDto> {}

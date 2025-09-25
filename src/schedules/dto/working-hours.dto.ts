@@ -176,15 +176,17 @@ export class QueryWorkingHoursDto {
   isActive?: boolean;
 
   @ApiProperty({ description: 'Page number', required: false, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
-  @IsOptional()
   page?: number;
 
   @ApiProperty({ description: 'Items per page', required: false, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @Max(100)
-  @IsOptional()
   limit?: number;
 }

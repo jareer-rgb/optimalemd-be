@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsUUID } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsUUID, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateMessageDto {
   @ApiProperty({ description: 'Message content', example: 'Hello, how are you feeling today?' })
@@ -68,10 +69,14 @@ export class GetMessagesDto {
 
   @ApiProperty({ description: 'Page number', example: 1, required: false })
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   page?: number = 1;
 
   @ApiProperty({ description: 'Messages per page', example: 20, required: false })
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   limit?: number = 20;
 }
 

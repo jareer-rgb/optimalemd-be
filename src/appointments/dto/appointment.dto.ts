@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum, IsNumber, IsBoolean, IsDecimal, Min, MaxLength } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 import { AppointmentStatus, UrgencyLevel } from '@prisma/client';
 
 export class CreateAppointmentDto {
@@ -117,6 +118,7 @@ export class QueryAppointmentsDto {
 
   @ApiProperty({ description: 'Status filter', enum: AppointmentStatus, required: false })
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.toUpperCase() : value)
   @IsEnum(AppointmentStatus)
   status?: AppointmentStatus;
 
@@ -132,11 +134,13 @@ export class QueryAppointmentsDto {
 
   @ApiProperty({ description: 'Page number', example: 1, required: false })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   page?: number;
 
   @ApiProperty({ description: 'Items per page', example: 10, required: false })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   limit?: number;
 }
@@ -160,6 +164,53 @@ export class RescheduleAppointmentDto {
   @IsString()
   @MaxLength(500)
   reason?: string;
+}
+
+export class AdminCreateAppointmentDto {
+  @ApiProperty({ description: 'Patient ID' })
+  @IsString()
+  @IsNotEmpty()
+  patientId: string;
+
+  @ApiProperty({ description: 'Doctor ID' })
+  @IsString()
+  @IsNotEmpty()
+  doctorId: string;
+
+  @ApiProperty({ description: 'Service ID' })
+  @IsString()
+  @IsNotEmpty()
+  serviceId: string;
+
+  @ApiProperty({ description: 'Primary Service ID (billing/main)' })
+  @IsString()
+  @IsNotEmpty()
+  primaryServiceId: string;
+
+  @ApiProperty({ description: 'Slot ID', required: false })
+  @IsOptional()
+  @IsString()
+  slotId?: string;
+
+  @ApiProperty({ description: 'Appointment date (YYYY-MM-DD)' })
+  @IsDateString()
+  appointmentDate: string;
+
+  @ApiProperty({ description: 'Appointment time (HH:MM)' })
+  @IsString()
+  @IsNotEmpty()
+  appointmentTime: string;
+
+  @ApiProperty({ description: 'Duration in minutes', example: 30 })
+  @Type(() => Number)
+  @IsNumber()
+  duration: number;
+
+  @ApiProperty({ description: 'Patient notes', required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  patientNotes?: string;
 }
 
 // Response DTOs

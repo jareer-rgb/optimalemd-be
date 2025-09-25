@@ -106,6 +106,25 @@ export class MedicalFormService {
     return this.mapToResponseDto(updatedForm);
   }
 
+  async updateMedicalFormByPatientId(patientId: string, updateData: Partial<CreateMedicalFormDto>): Promise<MedicalFormResponseDto> {
+    // Find the latest medical form for this patient
+    const existingForm = await this.prisma.medicalForm.findFirst({
+      where: { patientId },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!existingForm) {
+      throw new NotFoundException('Medical form not found for this patient');
+    }
+
+    const updatedForm = await this.prisma.medicalForm.update({
+      where: { id: existingForm.id },
+      data: updateData
+    });
+
+    return this.mapToResponseDto(updatedForm);
+  }
+
   async updateMedicalFormByAppointmentId(appointmentId: string, updateData: Partial<CreateMedicalFormDto>): Promise<MedicalFormResponseDto> {
     // This method is an alias for updateMedicalForm to match the controller method name
     return this.updateMedicalForm(appointmentId, updateData);

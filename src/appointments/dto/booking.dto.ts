@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum, IsArray, MaxLength, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer';
 import { BookingStatus, UrgencyLevel } from '@prisma/client';
 
 export class CreateBookingDto {
@@ -130,11 +131,13 @@ export class QueryBookingsDto {
 
   @ApiProperty({ description: 'Page number', example: 1, required: false })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   page?: number;
 
   @ApiProperty({ description: 'Items per page', example: 10, required: false })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   limit?: number;
 }

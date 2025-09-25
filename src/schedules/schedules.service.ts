@@ -656,6 +656,8 @@ export class SchedulesService {
   async getAvailableSlots(query: AvailableSlotsQueryDto): Promise<any> {
     const { doctorId, date, serviceId } = query;
 
+    console.log("queryyyyyyyy", query);
+
     // Check if doctor exists and is available
     const doctor = await this.prisma.doctor.findUnique({
       where: { id: doctorId },
@@ -667,6 +669,8 @@ export class SchedulesService {
     if (!doctor.isActive || !doctor.isAvailable) {
       throw new BadRequestException('Doctor is not available');
     }
+
+    console.log("query", query);
 
     // Get schedules for the specified date
     const schedules = await this.prisma.schedule.findMany({

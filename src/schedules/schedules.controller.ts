@@ -83,6 +83,40 @@ export class SchedulesController {
     };
   }
 
+   // Utility endpoints
+
+   @Get('available-slots')
+   @ApiOperation({
+     summary: 'Get available slots',
+     description: 'Get available time slots for a doctor on a specific date, optionally filtered by service duration'
+   })
+   @ApiQuery({ name: 'doctorId', required: true, description: 'Doctor ID' })
+   @ApiQuery({ name: 'date', required: true, description: 'Date (YYYY-MM-DD)' })
+   @ApiQuery({ name: 'serviceId', required: false, description: 'Service ID to filter by duration' })
+   @ApiResponse({
+     status: 200,
+     description: 'Available slots retrieved successfully',
+     type: SuccessApiResponseWithData<any>
+   })
+   @ApiResponse({
+     status: 400,
+     description: 'Doctor not available'
+   })
+   @ApiResponse({
+     status: 404,
+     description: 'Doctor not found'
+   })
+   async getAvailableSlots(
+     @Query() query: AvailableSlotsQueryDto
+   ): Promise<SuccessApiResponseWithData<any>> {
+     const result = await this.schedulesService.getAvailableSlots(query);
+     return {
+       success: true,
+       message: 'Available slots retrieved successfully',
+       data: result
+     };
+   }
+
   @Post('multiple')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -471,37 +505,5 @@ export class SchedulesController {
     await this.schedulesService.deleteSlot(id);
   }
 
-  // Utility endpoints
-
-  @Get('available-slots')
-  @ApiOperation({
-    summary: 'Get available slots',
-    description: 'Get available time slots for a doctor on a specific date, optionally filtered by service duration'
-  })
-  @ApiQuery({ name: 'doctorId', required: true, description: 'Doctor ID' })
-  @ApiQuery({ name: 'date', required: true, description: 'Date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'serviceId', required: false, description: 'Service ID to filter by duration' })
-  @ApiResponse({
-    status: 200,
-    description: 'Available slots retrieved successfully',
-    type: SuccessApiResponseWithData<any>
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Doctor not available'
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Doctor not found'
-  })
-  async getAvailableSlots(
-    @Query() query: AvailableSlotsQueryDto
-  ): Promise<SuccessApiResponseWithData<any>> {
-    const result = await this.schedulesService.getAvailableSlots(query);
-    return {
-      success: true,
-      message: 'Available slots retrieved successfully',
-      data: result
-    };
-  }
+ 
 }

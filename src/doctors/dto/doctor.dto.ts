@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsNumber, IsArray, IsJSON, Min, Max, MaxLength, IsBoolean, IsEmail, IsDateString } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateDoctorDto {
   @ApiProperty({ description: 'Email address', example: 'doctor@example.com' })
@@ -257,11 +258,13 @@ export class QueryDoctorsDto {
 
   @ApiProperty({ description: 'Page number', example: 1, required: false })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   page?: number;
 
   @ApiProperty({ description: 'Items per page', example: 10, required: false })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   limit?: number;
 }

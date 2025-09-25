@@ -569,6 +569,142 @@ export class BookingsService {
   }
 
   /**
+   * Get all bookings with optional filtering (admin only)
+   */
+  async getAllBookings(query: any): Promise<BookingWithRelationsResponseDto[]> {
+    const {
+      page = 1,
+      limit = 50,
+      status,
+      patientId,
+      doctorId,
+      serviceId,
+      startDate,
+      endDate,
+      urgency
+    } = query;
+
+    const skip = (page - 1) * limit;
+
+    // Build where clause
+    const where: any = {};
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (patientId) {
+      where.patientId = patientId;
+    }
+
+    if (doctorId) {
+      where.doctorId = doctorId;
+    }
+
+    if (serviceId) {
+      where.serviceId = serviceId;
+    }
+
+    if (startDate || endDate) {
+      where.preferredDate = {};
+      if (startDate) {
+        where.preferredDate.gte = new Date(startDate);
+      }
+      if (endDate) {
+        where.preferredDate.lte = new Date(endDate);
+      }
+    }
+
+    if (urgency) {
+      where.urgency = urgency;
+    }
+
+    const bookings = await this.prisma.booking.findMany({
+      where,
+      skip,
+      take: parseInt(limit),
+      include: {
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            primaryEmail: true,
+            primaryPhone: true,
+          },
+        },
+        doctor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            primaryPhone: true,
+            specialization: true,
+            licenseNumber: true,
+          },
+        },
+        service: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            duration: true,
+            basePrice: true,
+            category: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return bookings.map(booking => ({
+      id: booking.id,
+      patientId: booking.patientId,
+      doctorId: booking.doctorId,
+      serviceId: booking.serviceId,
+      preferredDate: booking.preferredDate,
+      preferredTime: booking.preferredTime,
+      alternativeDates: booking.alternativeDates,
+      alternativeTimes: booking.alternativeTimes,
+      patientNotes: booking.patientNotes,
+      symptoms: booking.symptoms,
+      urgency: booking.urgency,
+      status: booking.status,
+      doctorNotes: booking.doctorNotes,
+      suggestedDate: booking.suggestedDate,
+      suggestedTime: booking.suggestedTime,
+      expiresAt: booking.expiresAt,
+      requestedAt: booking.createdAt,
+      respondedAt: booking.updatedAt,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+      patient: {
+        id: booking.patient.id,
+        firstName: booking.patient.firstName,
+        lastName: booking.patient.lastName,
+        primaryEmail: booking.patient.primaryEmail,
+        primaryPhone: booking.patient.primaryPhone,
+      },
+      doctor: {
+        id: booking.doctor.id,
+        firstName: booking.doctor.firstName,
+        lastName: booking.doctor.lastName,
+        specialization: booking.doctor.specialization,
+        licenseNumber: booking.doctor.licenseNumber,
+      },
+      service: {
+        id: booking.service.id,
+        name: booking.service.name,
+        duration: booking.service.duration,
+        category: booking.service.category,
+      },
+    }));
+  }
+
+  /**
    * Delete booking (admin only)
    */
   async deleteBooking(id: string): Promise<void> {

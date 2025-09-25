@@ -40,6 +40,7 @@ import {
   RescheduleAppointmentDto,
   AppointmentResponseDto,
   AppointmentWithRelationsResponseDto,
+  AdminCreateAppointmentDto,
 } from './dto';
 import {
   CreateBookingDto,
@@ -163,6 +164,28 @@ export class AppointmentsController {
       data,
       timestamp: new Date().toISOString(),
       path: '/api/appointments',
+    };
+  }
+
+  @Get('unassigned')
+  @ApiOperation({ summary: 'Get unassigned appointments (no doctor and no slot)' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 50 })
+  @ApiQuery({ name: 'status', required: false, enum: ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'RESCHEDULED'] })
+  @ApiOkResponse({ description: 'Unassigned appointments retrieved successfully' })
+  async getUnassignedAppointments(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('status') status?: string,
+  ): Promise<BaseApiResponse<any[]>> {
+    const data = await this.appointmentsService.getUnassignedAppointments({ page, limit, status });
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Unassigned appointments retrieved successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: '/api/appointments/unassigned',
     };
   }
 
@@ -593,6 +616,56 @@ export class AppointmentsController {
     };
   }
 
+  @Put(':id/medications')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update medications JSON',
+    description: 'Merge or set medications JSON on an appointment (doctor only).',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Appointment ID',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        medications: {
+          type: 'object',
+          additionalProperties: { type: 'array', items: { type: 'string' } },
+          description: 'Key: service name, Value: array of medicine names',
+        },
+        merge: {
+          type: 'boolean',
+          description: 'If true, merge with existing; otherwise replace',
+          default: true,
+        },
+      },
+      required: ['medications'],
+    },
+  })
+  async updateMedications(
+    @Param('id') id: string,
+    @Body() body: { medications: Record<string, string[]>; merge?: boolean },
+    @CurrentUser() user: any,
+  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
+    const data = await this.appointmentsService.updateMedications(
+      id,
+      body.medications,
+      body.merge !== false,
+      user.id,
+    );
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Medications updated successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: `/api/appointments/${id}/medications`,
+    };
+  }
+
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete Appointment',
@@ -649,6 +722,65 @@ export class AppointmentsController {
       success: true,
       statusCode: HttpStatus.CREATED,
       message: 'Booking request created successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: '/api/appointments/bookings',
+    };
+  }
+
+  @Get('bookings')
+  @ApiOperation({
+    summary: 'Get All Bookings',
+    description: 'Retrieve all booking requests with optional filtering.',
+  })
+  @ApiQuery({
+    name: 'page',
+    description: 'Page number',
+    example: 1,
+    required: false,
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Items per page',
+    example: 10,
+    required: false,
+  })
+  @ApiQuery({
+    name: 'status',
+    description: 'Booking status filter',
+    enum: ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'],
+    required: false,
+  })
+  @ApiQuery({
+    name: 'patientId',
+    description: 'Patient ID filter',
+    required: false,
+  })
+  @ApiQuery({
+    name: 'doctorId',
+    description: 'Doctor ID filter',
+    required: false,
+  })
+  @ApiQuery({
+    name: 'serviceId',
+    description: 'Service ID filter',
+    required: false,
+  })
+  @ApiOkResponse({
+    description: 'Bookings retrieved successfully',
+    type: BaseApiResponse<BookingWithRelationsResponseDto[]>,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - invalid or missing JWT token',
+  })
+  async getAllBookings(
+    @Query() query: any,
+  ): Promise<BaseApiResponse<BookingWithRelationsResponseDto[]>> {
+    const data = await this.bookingsService.getAllBookings(query);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Bookings retrieved successfully',
       data,
       timestamp: new Date().toISOString(),
       path: '/api/appointments/bookings',
@@ -1137,6 +1269,25 @@ export class AppointmentsController {
     }
   }
 
+ 
+
+  @Post('admin/create-confirmed')
+  @ApiOperation({ summary: 'Admin: Create confirmed appointment' })
+  @ApiOkResponse({ description: 'Appointment created', type: BaseApiResponse<AppointmentResponseDto> })
+  async adminCreateConfirmed(
+    @Body() dto: AdminCreateAppointmentDto,
+  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
+    const data = await this.appointmentsService.adminCreateConfirmed(dto);
+    return {
+      success: true,
+      statusCode: 201,
+      message: 'Appointment created successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: '/api/appointments/admin/create-confirmed',
+    };
+  }
+
   @Get('slots/global')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -1258,5 +1409,31 @@ export class AppointmentsController {
     } catch (error) {
       throw error;
     }
+  }
+
+  @Delete('bookings/:id')
+  @ApiOperation({
+    summary: 'Delete Booking',
+    description: 'Delete a booking request (admin only).',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Booking ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiOkResponse({
+    description: 'Booking deleted successfully',
+  })
+  @ApiNotFoundResponse({
+    description: 'Booking not found',
+  })
+  @ApiBadRequestResponse({
+    description: 'Only expired or rejected bookings can be deleted',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - invalid or missing JWT token',
+  })
+  async deleteBooking(@Param('id') id: string): Promise<void> {
+    await this.bookingsService.deleteBooking(id);
   }
 }

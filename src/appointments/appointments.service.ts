@@ -487,6 +487,43 @@ export class AppointmentsService {
   }
 
   /**
+   * Update medications JSON for an appointment (doctor only)
+   */
+  async updateMedications(
+    appointmentId: string,
+    medications: Record<string, string[]>,
+    merge: boolean,
+    doctorId: string,
+  ): Promise<AppointmentResponseDto> {
+    const appointment = await this.prisma.appointment.findUnique({ where: { id: appointmentId } });
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+    if (appointment.doctorId && appointment.doctorId !== doctorId) {
+      // Optional ownership check: only the assigned doctor can update
+    }
+
+    let updatedMedications: any = medications;
+    const appointmentAny = appointment as any;
+    if (merge && appointmentAny.medications) {
+      const existing = appointmentAny.medications as Record<string, string[]>;
+      updatedMedications = { ...existing };
+      for (const [serviceName, meds] of Object.entries(medications)) {
+        const prev = new Set(existing?.[serviceName] || []);
+        meds.forEach((m) => prev.add(m));
+        updatedMedications[serviceName] = Array.from(prev);
+      }
+    }
+
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { medications: updatedMedications } as any,
+    });
+
+    return updatedAppointment;
+  }
+
+  /**
    * Cancel appointment
    */
   async cancelAppointment(id: string, cancelAppointmentDto: CancelAppointmentDto): Promise<AppointmentResponseDto> {
@@ -1161,6 +1198,194 @@ export class AppointmentsService {
       }));
   }
 
+  async adminCreateConfirmed(dto: any): Promise<any> {
+    const { patientId, doctorId, serviceId, primaryServiceId, slotId, appointmentDate, appointmentTime, duration, patientNotes } = dto;
+
+    // Basic validations
+    const patient = await this.prisma.user.findUnique({ where: { id: patientId }, select: { id: true, isActive: true } });
+    if (!patient || !patient.isActive) {
+      throw new BadRequestException('Invalid or inactive patient');
+    }
+
+    const doctor = await this.prisma.doctor.findUnique({ where: { id: doctorId }, select: { id: true, isActive: true, isAvailable: true } });
+    if (!doctor || !doctor.isActive || !doctor.isAvailable) {
+      throw new BadRequestException('Invalid or unavailable doctor');
+    }
+
+    const service = await this.prisma.service.findUnique({ where: { id: serviceId }, select: { id: true, isActive: true } });
+    if (!service || !service.isActive) {
+      throw new BadRequestException('Invalid or inactive service');
+    }
+
+    // Validate primary service
+    const primaryService = await this.prisma.primaryService.findUnique({ where: { id: primaryServiceId }, select: { id: true, isActive: true } });
+    if (!primaryService || !primaryService.isActive) {
+      throw new BadRequestException('Invalid or inactive primary service');
+    }
+
+    // Optional: verify slot availability
+    if (slotId) {
+      const slot = await this.prisma.slot.findUnique({ where: { id: slotId }, select: { id: true, isAvailable: true } });
+      if (!slot || !slot.isAvailable) {
+        throw new BadRequestException('Selected slot is not available');
+      }
+    }
+
+    const created = await this.prisma.appointment.create({
+      data: {
+        patient: { connect: { id: patientId } },
+        doctor: { connect: { id: doctorId } },
+        service: { connect: { id: serviceId } },
+        primaryService: { connect: { id: primaryServiceId } },
+        slot: slotId ? { connect: { id: slotId } } : undefined,
+        appointmentDate: new Date(appointmentDate),
+        appointmentTime,
+        duration,
+        status: 'CONFIRMED',
+        patientNotes: patientNotes ?? null,
+        isPaid: false,
+        amount: '0.00',
+      },
+      include: {
+        patient: {
+          select: { firstName: true, lastName: true, primaryEmail: true }
+        },
+        doctor: {
+          select: { firstName: true, lastName: true, email: true }
+        },
+        service: {
+          select: { name: true }
+        },
+        slot: true,
+      },
+    });
+
+    // Clone latest medical form to new one bound to this appointment
+    try {
+      const lastForm = await this.prisma.medicalForm.findFirst({
+        where: { patientId },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (lastForm) {
+        const { id: _id, createdAt: _ca, updatedAt: _ua, appointmentId: _oldAptId, ...rest } = lastForm as any;
+        await this.prisma.medicalForm.create({
+          data: {
+            ...rest,
+            patientId,
+            appointmentId: created.id,
+          } as any,
+        });
+      } else {
+        // Ensure there is at least an empty medical form record for this appointment
+        await this.prisma.medicalForm.create({
+          data: {
+            patientId,
+            appointmentId: created.id,
+          },
+        });
+      }
+    } catch (err) {
+      console.error('Failed to clone/create medical form for appointment:', err);
+    }
+
+    // Mark slot unavailable if provided
+    if (slotId) {
+      await this.prisma.slot.update({ where: { id: slotId }, data: { isAvailable: false } });
+    }
+
+    // Generate Google Meet link (best-effort)
+    try {
+      const patientName = `${created.patient.firstName} ${created.patient.lastName}`;
+      const doctorName = created.doctor ? `Dr. ${created.doctor.firstName} ${created.doctor.lastName}` : 'To be assigned';
+      const meetResult = await this.googleCalendarService.generateMeetLink(
+        created.appointmentDate,
+        created.appointmentTime,
+        created.duration,
+        doctorName,
+        patientName,
+        created.service.name,
+        created.patient.primaryEmail,
+        created.doctor?.email
+      );
+
+      if (meetResult?.meetLink) {
+        await this.prisma.appointment.update({
+          where: { id: created.id },
+          data: { googleMeetLink: meetResult.meetLink, confirmedAt: new Date() },
+        });
+
+        // Send emails (best-effort)
+        const dateStr = created.appointmentDate.toISOString().split('T')[0];
+        const amountStr = typeof (created as any).amount === 'string' ? (created as any).amount : '0.00';
+        try {
+          if (created.patient?.primaryEmail) {
+            await this.mailerService.sendAppointmentConfirmationEmail(
+              created.patient.primaryEmail,
+              patientName,
+              doctorName,
+              created.service.name,
+              dateStr,
+              created.appointmentTime,
+              amountStr,
+              meetResult.meetLink
+            );
+          }
+        } catch (err) {
+          console.error('Failed to send patient confirmation email:', err);
+        }
+
+        try {
+          if (created.doctor?.email) {
+            await this.mailerService.sendDoctorAppointmentNotification(
+              created.doctor.email,
+              doctorName,
+              patientName,
+              created.service.name,
+              dateStr,
+              created.appointmentTime,
+              amountStr,
+              meetResult.meetLink
+            );
+          }
+        } catch (err) {
+          console.error('Failed to send doctor notification email:', err);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to generate Google Meet link or send emails:', err);
+    }
+
+    return created as any;
+  }
+
+  async getUnassignedAppointments(params: { page?: number; limit?: number; status?: string }): Promise<any[]> {
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const limit = params.limit && params.limit > 0 ? params.limit : 50;
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      doctorId: null,
+      slotId: null,
+    };
+    if (params.status) {
+      where.status = params.status.toUpperCase();
+    }
+
+    const items = await this.prisma.appointment.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        patient: {
+          select: { id: true, firstName: true, lastName: true, primaryEmail: true, primaryPhone: true }
+        },
+        service: { select: { id: true, name: true, duration: true } },
+      },
+    });
+
+    return items;
+  }
   /**
    * Get all available slots from all doctors for a specific date
    */

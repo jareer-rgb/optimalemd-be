@@ -4,10 +4,9 @@ import { SchedulesService } from './schedules.service';
 import { WorkingHoursController } from './working-hours.controller';
 import { WorkingHoursService } from './working-hours.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { GoogleCalendarModule } from '../google-calendar/google-calendar.module';
 
 @Module({
-  imports: [PrismaModule, GoogleCalendarModule],
+  imports: [PrismaModule],
   controllers: [SchedulesController, WorkingHoursController],
   providers: [SchedulesService, WorkingHoursService],
   exports: [SchedulesService, WorkingHoursService],

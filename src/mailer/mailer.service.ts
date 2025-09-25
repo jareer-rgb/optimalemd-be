@@ -1643,4 +1643,232 @@ export class MailerService implements OnModuleInit {
       throw error;
     }
   }
+
+  async sendAdminCreatedPatientEmail(to: string, name: string, password: string, verificationLink: string): Promise<void> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333333;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+          }
+          .header {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+          }
+          .header p {
+            margin: 10px 0 0 0;
+            font-size: 16px;
+            opacity: 0.9;
+          }
+          .content {
+            padding: 40px 30px;
+          }
+          .content h2 {
+            color: #dc2626;
+            font-size: 24px;
+            margin-bottom: 20px;
+            font-weight: 600;
+          }
+          .content p {
+            font-size: 16px;
+            margin-bottom: 20px;
+            color: #555555;
+          }
+          .credentials-box {
+            background-color: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+            text-align: center;
+          }
+          .credentials-box h3 {
+            color: #dc2626;
+            margin: 0 0 15px 0;
+            font-size: 18px;
+          }
+          .credential-item {
+            background-color: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+          }
+          .credential-label {
+            font-weight: bold;
+            color: #495057;
+            display: block;
+            margin-bottom: 5px;
+            font-family: Arial, sans-serif;
+          }
+          .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            text-align: center;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+          }
+          .button:hover {
+            background: linear-gradient(135deg, #b91c1c, #991b1b);
+            transform: translateY(-2px);
+          }
+          .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-size: 14px;
+          }
+          .footer {
+            background-color: #f8f9fa;
+            padding: 30px 20px;
+            text-align: center;
+            color: #666666;
+            font-size: 14px;
+            border-top: 1px solid #e9ecef;
+          }
+          .footer p {
+            margin: 5px 0;
+          }
+          .logo {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 10px;
+          }
+          @media (max-width: 600px) {
+            body {
+              padding: 10px;
+            }
+            .content {
+              padding: 30px 20px;
+            }
+            .header {
+              padding: 25px 15px;
+            }
+            .header h1 {
+              font-size: 24px;
+            }
+            .button {
+              padding: 12px 25px;
+              font-size: 14px;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo">OptimalMD</div>
+            <h1>Welcome to OptimalMD!</h1>
+            <p>Your account has been created by our admin team</p>
+          </div>
+          
+          <div class="content">
+            <h2>Hello ${name}!</h2>
+            
+            <p>Great news! Your OptimalMD patient account has been successfully created by our administrative team. You can now access our platform to manage your healthcare journey.</p>
+            
+            <div class="credentials-box">
+              <h3>🔐 Your Login Credentials</h3>
+              <div class="credential-item">
+                <span class="credential-label">Email Address:</span>
+                ${to}
+              </div>
+              <div class="credential-item">
+                <span class="credential-label">Temporary Password:</span>
+                ${password}
+              </div>
+            </div>
+            
+            <div class="warning">
+              <strong>⚠️ Important Security Notice:</strong><br>
+              For your security, please change your password after your first login. This temporary password should only be used for initial access.
+            </div>
+            
+            <p><strong>Next Steps:</strong></p>
+            <ol style="color: #555555; font-size: 16px; line-height: 1.8;">
+              <li>Click the verification button below to verify your email address</li>
+              <li>Log in to your account using the credentials above</li>
+              <li>Change your password in your account settings</li>
+              <li>Complete your medical intake form</li>
+              <li>Schedule your first appointment</li>
+            </ol>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${verificationLink}" class="button">
+                ✅ Verify Email & Get Started
+              </a>
+            </div>
+            
+            <p>If you have any questions or need assistance, please don't hesitate to contact our support team. We're here to help you every step of the way!</p>
+            
+            <p style="margin-top: 30px;">
+              <strong>The OptimalMD Team</strong><br>
+              <em>Optimizing your health, one step at a time</em>
+            </p>
+          </div>
+          
+          <div class="footer">
+            <p><strong>OptimalMD</strong></p>
+            <p>This email was sent because an account was created for you by our admin team.</p>
+            <p>If you believe this was sent in error, please contact our support team immediately.</p>
+            <p style="margin-top: 20px; font-size: 12px; color: #999999;">
+              © 2024 OptimalMD. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const mailOptions = {
+      from: `"OptimalMD" <${this.configService.get<string>('SMTP_USER')}>`,
+      to,
+      subject: '🎉 Welcome to OptimalMD - Your Account is Ready!',
+      html,
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Admin-created patient welcome email sent successfully to ${to}`);
+    } catch (error) {
+      console.error('Failed to send admin-created patient welcome email:', error);
+      throw error;
+    }
+  }
 } 
