@@ -286,6 +286,15 @@ export class AppointmentResponseDto {
 
   @ApiProperty({ description: 'Updated at timestamp' })
   updatedAt: Date;
+
+  @ApiProperty({ description: 'Doctor internal notes', required: false })
+  internalNotes?: string | null;
+
+  @ApiProperty({ description: 'Prescribed medications', required: false })
+  medications?: any;
+
+  @ApiProperty({ description: 'Generated PDF report path', required: false })
+  reportPdfPath?: string | null;
 }
 
 export class AppointmentWithRelationsResponseDto extends AppointmentResponseDto {

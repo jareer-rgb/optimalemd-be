@@ -15,6 +15,7 @@ import { MessagesModule } from './messages/messages.module';
 import { MedicalFormModule } from './medical-form/medical-form.module';
 import { IntakeModule } from './intake/intake.module';
 import { AdminModule } from './admin/admin.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { AdminModule } from './admin/admin.module';
     MedicalFormModule,
     IntakeModule,
     AdminModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

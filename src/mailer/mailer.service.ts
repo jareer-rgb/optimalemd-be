@@ -30,6 +30,27 @@ export class MailerService implements OnModuleInit {
     }
   }
 
+  async sendEmailWithAttachment(
+    to: string,
+    subject: string,
+    text: string,
+    attachments: Array<{ filename: string; path: string; contentType?: string }>,
+  ): Promise<void> {
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to,
+        subject,
+        text,
+        attachments,
+      });
+      console.log(`Email with attachment sent successfully to ${to}`);
+    } catch (error) {
+      console.error('Failed to send email with attachment:', error);
+      throw error;
+    }
+  }
+
   async sendEmailVerificationEmail(to: string, name: string, verificationLink: string): Promise<void> {
     const html = `
       <!DOCTYPE html>
