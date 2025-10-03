@@ -393,6 +393,9 @@ model Appointment {
   // Video consultation
   googleMeetLink    String?  // Google Meet link for video consultation
   
+  // Report generation
+  reportPdfPath    String?  // Path to generated PDF report
+  
   // Cancellation and rescheduling
   cancellationReason String?
   rescheduledFrom   String?  // Reference to previous appointment ID

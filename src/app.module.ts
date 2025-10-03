@@ -35,7 +35,7 @@ import { ReportsModule } from './reports/reports.module';
     MedicalFormModule,
     IntakeModule,
     AdminModule,
-    ReportsModule,
+    ReportsModule
   ],
   controllers: [AppController],
   providers: [AppService],
