@@ -30,16 +30,32 @@ jobs:
       - name: Verify required dependencies
         run: node -e "require('@nestjs/websockets'); require('socket.io'); console.log('deps ok')"
 
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Verify Prisma Client generation
+        run: ls -la node_modules/@prisma/client/ && ls -la node_modules/.prisma/ || echo "Prisma client location check"
+
       - name: Build and test
         run: |
           npm run build --if-present
           npm run test --if-present
 
+      - name: Prepare deployment package
+        run: |
+          echo "Creating deployment package..."
+          mkdir -p deploy
+          cp -r dist deploy/
+          cp -r node_modules deploy/
+          cp package*.json deploy/
+          cp prisma deploy/ -r
+          ls -la deploy/
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: deploy/
 
   deploy:
     runs-on: ubuntu-latest
@@ -68,4 +84,3 @@ jobs:
           app-name: 'optimaleproduction'
           slot-name: 'Production'
           package: .
-          
