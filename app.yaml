@@ -16,19 +16,27 @@ automatic_scaling:
 env_variables:
   NODE_ENV: "production"
   # Database Configuration
-  DATABASE_URL: "postgresql://postgres:moed1234@3.86.182.96:5432/optimalemd?schema=public"
+  DATABASE_URL: "postgresql://optimale:Test@1234@optimalemain.postgres.database.azure.com:5432/optimaleMd"
   # JWT Configuration
   JWT_SECRET: "your-super-secret-jwt-key-here"
   JWT_EXPIRES_IN: "7d"
   # Stripe Configuration
   STRIPE_SECRET_KEY: "sk_test_51QFBF9Ibcr1VQY2lWe4eiSIkXs0KflET6JwOBSL4fszWNUx7lRpZqNkGxlmzWeety5jIsCctDIjJhvdszMZS4u7F00Kjijx2yl"
   STRIPE_PUBLISHABLE_KEY: "pk_test_51QFBF9Ibcr1VQY2l0rPXH40tJKpXfK3dD9xJszb1VfYEdqsc2Szd31P5P1kAkifsRxHEasTMnc4M92pIcgPHgsH800kj5r83DP"
-  # Email Configuration (Gmail)
+  # Email Configuration
   SMTP_HOST: "smtp.gmail.com"
   SMTP_PORT: "465"
-  SMTP_USER: "hassantahir3556@gmail.com"
-  SMTP_PASS: "kakshhkktpkxycsh"
-  SMTP_FROM: "hassantahir3556@gmail.com"
+  SMTP_USER: "support@optimalemd.health"
+  SMTP_PASS: "ekpmrxhircyeogxs"
+  SMTP_FROM: "support@optimalemd.health"
+  # Google Calendar API Configuration
+  GOOGLE_CLIENT_ID: "498337781985-p4248hnlt3hv5vbcvbd0i4tg0rgo26bt.apps.googleusercontent.com"
+  GOOGLE_CLIENT_SECRET: "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"
+  GOOGLE_REDIRECT_URI: "http://localhost:3000/api/google-calendar/oauth/callback"
+  GOOGLE_REFRESH_TOKEN: "1//04gFjz7J7TqC3CgYIARAAGAQSNwF-L9IrGmPEqjq4ooUdArv5mj3F9QavKPSce1oPaUpMKC6Pqbimv6v9o-ofeM5iguT1Hxectus"
+  GOOGLE_CALENDAR_ID: "primary"
+  DOCTOR_EMAIL: "hassantahir3556@gmail.com"
+  FRONTEND_URL: "https://optimalmd-mu.vercel.app"
 
 handlers:
   - url: /.*
