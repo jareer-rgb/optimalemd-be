@@ -17,4 +17,10 @@ export class AppController {
       timestamp: new Date().toISOString()
     };
   }
+
+  // Azure health probe sometimes requests a random robots*.txt
+  @Get('robots933456.txt')
+  robotsProbe(): string {
+    return 'User-agent: *\nDisallow:';
+  }
 }
