@@ -4,7 +4,13 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  console.log('🚀 Starting OptimaleMD Backend...');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('PORT:', process.env.PORT);
+  
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+  });
   
   // Global validation pipe
   app.useGlobalPipes(new ValidationPipe({
@@ -65,7 +71,13 @@ async function bootstrap() {
   
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
-  console.log(`Application is running on: http://0.0.0.0:${port}`);
-  console.log(`Swagger documentation available at: http://0.0.0.0:${port}/api/docs`);
+  console.log(`✅ Application is running on: http://0.0.0.0:${port}`);
+  console.log(`📚 Swagger documentation available at: http://0.0.0.0:${port}/api/docs`);
+  console.log(`🏥 Health check available at: http://0.0.0.0:${port}/health`);
+  console.log('🌐 CORS enabled for: ALL ORIGINS');
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  console.error('❌ Failed to start application:', error);
+  process.exit(1);
+});

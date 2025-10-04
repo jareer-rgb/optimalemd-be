@@ -5,28 +5,47 @@ import * as nodemailer from 'nodemailer';
 @Injectable()
 export class MailerService implements OnModuleInit {
   private transporter: nodemailer.Transporter;
+  private isNoopTransport = false;
 
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
-    // Create transporter
+    const host = this.configService.get<string>('SMTP_HOST');
+    const port = this.configService.get<number>('SMTP_PORT');
+    const user = this.configService.get<string>('SMTP_USER');
+    const pass = this.configService.get<string>('SMTP_PASS');
+
+    if (!user || !pass) {
+      this.transporter = nodemailer.createTransport({
+        streamTransport: true,
+        newline: 'unix',
+        buffer: true,
+      } as any);
+      this.isNoopTransport = true;
+      console.warn('Mailer running in no-op mode: missing SMTP_USER/SMTP_PASS');
+      return;
+    }
+
+    const useSecure = Number(port) === 465;
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
-      host: this.configService.get<string>('SMTP_HOST'),
-      port: this.configService.get<number>('SMTP_PORT'),
-      secure: true,
-      auth: {
-        user: this.configService.get<string>('SMTP_USER'),
-        pass: this.configService.get<string>('SMTP_PASS'),
-      },
+      host: host || 'smtp.gmail.com',
+      port: Number(port) || 587,
+      secure: useSecure,
+      auth: { user, pass },
     });
 
-    // Verify connection
     try {
       await this.transporter.verify();
       console.log('Mailer service is ready');
     } catch (error) {
-      console.error('Failed to initialize mailer service:', error);
+      console.error('Failed to initialize SMTP transport, falling back to no-op transport:', error);
+      this.transporter = nodemailer.createTransport({
+        streamTransport: true,
+        newline: 'unix',
+        buffer: true,
+      } as any);
+      this.isNoopTransport = true;
     }
   }
 
@@ -44,7 +63,8 @@ export class MailerService implements OnModuleInit {
         text,
         attachments,
       });
-      console.log(`Email with attachment sent successfully to ${to}`);
+      const note = this.isNoopTransport ? '(no-op transport)' : '';
+      console.log(`Email with attachment sent successfully to ${to} ${note}`);
     } catch (error) {
       console.error('Failed to send email with attachment:', error);
       throw error;
