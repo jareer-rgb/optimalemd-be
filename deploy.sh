@@ -32,6 +32,10 @@ echo "🔧 Enabling required APIs..."
 gcloud services enable appengine.googleapis.com
 gcloud services enable cloudbuild.googleapis.com
 
+# Run database migrations
+echo "🗄️  Running database migrations..."
+npx prisma migrate dev
+
 # Deploy to App Engine
 echo "📦 Deploying to App Engine..."
 gcloud app deploy app.yaml --quiet
