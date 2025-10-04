@@ -4,7 +4,13 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  console.log('🚀 Starting OptimaleMD Backend...');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('PORT:', process.env.PORT);
+  
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+  });
   
   // Global validation pipe
   app.useGlobalPipes(new ValidationPipe({
@@ -18,23 +24,16 @@ async function bootstrap() {
     exclude: ['/health', '/']
   });
   
-  // CORS
-  app.enableCors(
-    {
-      origin: [
-        'https://optimalmd-mu.vercel.app',
-        'http://localhost:3000', 
-        'https://www.optimalemd.health',
-        'https://optimalemd.health',
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:8080'
-      ],
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
-      credentials: true,
-    },
-  );
+  // CORS configuration - Allow all origins
+  app.enableCors({
+    origin: true, // Allow all origins
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+  });
   
   // Swagger configuration
   const config = new DocumentBuilder()
@@ -65,7 +64,13 @@ async function bootstrap() {
   
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
-  console.log(`Application is running on: http://0.0.0.0:${port}`);
-  console.log(`Swagger documentation available at: http://0.0.0.0:${port}/api/docs`);
+  console.log(`✅ Application is running on: http://0.0.0.0:${port}`);
+  console.log(`📚 Swagger documentation available at: http://0.0.0.0:${port}/api/docs`);
+  console.log(`🏥 Health check available at: http://0.0.0.0:${port}/health`);
+  console.log('🌐 CORS enabled for: ALL ORIGINS');
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  console.error('❌ Failed to start application:', error);
+  process.exit(1);
+});
