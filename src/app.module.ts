@@ -17,7 +17,7 @@ import { IntakeModule } from './intake/intake.module';
 import { AdminModule } from './admin/admin.module';
 import { ReportsModule } from './reports/reports.module';
 
-@Module({
+@Module({ 
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
