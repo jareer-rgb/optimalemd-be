@@ -63,22 +63,22 @@ export class AdminCreatePatientDto {
   @IsOptional()
   alternativePhone?: string;
 
-  @ApiProperty({ description: 'Emergency contact name', example: 'Jane Doe' })
-  @IsString()
-  emergencyContactName: string;
+  @ApiProperty({ description: 'Emergency contact name', example: 'Jane Doe', required: false })
+  @IsOptional()
+  emergencyContactName?: string;
 
   @ApiProperty({ description: 'Emergency contact relationship', example: 'Spouse', required: false })
   @IsString()
   @IsOptional()
   emergencyContactRelationship?: string;
 
-  @ApiProperty({ description: 'Emergency contact phone', example: '+1-555-456-7890' })
-  @IsString()
-  emergencyContactPhone: string;
+  @ApiProperty({ description: 'Emergency contact phone', example: '+1-555-456-7890', required: false })
 
-  @ApiProperty({ description: 'Referring source', example: 'Online' })
-  @IsString()
-  referringSource: string;
+  @IsOptional()
+  emergencyContactPhone?: string;
+
+  @IsOptional()
+  referringSource?: string;
 
   @ApiProperty({ description: 'Consent for treatment', example: 'Y' })
   @IsString()

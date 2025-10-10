@@ -28,10 +28,10 @@ model User {
   alternativeEmail String?
   primaryPhone   String
   alternativePhone String?
-  emergencyContactName String
+  emergencyContactName String?
   emergencyContactRelationship String?
-  emergencyContactPhone String
-  referringSource String // Online/Friend/Employee
+  emergencyContactPhone String?
+  referringSource String? // Online/Friend/Employee
   consentForTreatment String // Y/N
   hipaaPrivacyNoticeAcknowledgment String // Y/N
   releaseOfMedicalRecordsConsent String // Y/N

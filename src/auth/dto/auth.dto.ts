@@ -154,13 +154,13 @@ export class RegisterDto {
   @IsString()
   alternativePhone?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Emergency contact name',
     example: 'Jane Doe',
     type: String,
   })
-  @IsString()
-  emergencyContactName: string;
+  @IsOptional()
+  emergencyContactName?: string;
 
   @ApiProperty({
     description: 'Emergency contact relationship',
@@ -169,25 +169,23 @@ export class RegisterDto {
     required: false,
   })
   @IsOptional()
-  @IsString()
   emergencyContactRelationship?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Emergency contact phone number',
     example: '+1234567890',
     type: String,
   })
-  @IsString()
-  emergencyContactPhone: string;
+  @IsOptional()
+  emergencyContactPhone?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Referring source (Online/Friend/Employee)',
     example: 'Online',
     enum: ['Online', 'Friend', 'Employee'],
   })
-  @IsString()
-  @IsIn(['Online', 'Friend', 'Employee'])
-  referringSource: string;
+  @IsOptional()
+  referringSource?: string;
 
   @ApiProperty({
     description: 'Consent for treatment (Y/N)',
@@ -857,8 +855,9 @@ export class UserResponseDto {
   @ApiProperty({
     description: 'Emergency contact name',
     example: 'Jane Doe',
+    required: false,
   })
-  emergencyContactName: string;
+  emergencyContactName: string | null;
 
   @ApiProperty({
     description: 'Emergency contact relationship',
@@ -870,14 +869,16 @@ export class UserResponseDto {
   @ApiProperty({
     description: 'Emergency contact phone number',
     example: '+1234567890',
+    required: false,
   })
-  emergencyContactPhone: string;
+  emergencyContactPhone: string | null;
 
   @ApiProperty({
     description: 'Referring source',
     example: 'Online',
+    required: false,
   })
-  referringSource: string;
+  referringSource: string | null;
 
   @ApiProperty({
     description: 'Consent for treatment',
