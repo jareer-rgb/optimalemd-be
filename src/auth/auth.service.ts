@@ -39,7 +39,7 @@ export class AuthService {
     const emailVerificationTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     // Prepare user data for creation
-    const userCreateData = {
+    const userCreateData: any = {
       ...userData,
       password: hashedPassword,
       dateOfBirth: new Date(userData.dateOfBirth),
@@ -62,7 +62,7 @@ export class AuthService {
 
     // Send email verification email
     try {
-      const verificationLink = `https://optimalmd-mu.vercel.app/verify-email?token=${emailVerificationToken}`;
+      const verificationLink = `https://optimalemd.health/verify-email?token=${emailVerificationToken}`;
       console.log('Generated verification link:', verificationLink);
       
       await this.mailerService.sendEmailVerificationEmail(
@@ -76,17 +76,17 @@ export class AuthService {
     }
 
     // Send medical form email
-    try {
-      const formLink = `${this.configService.get<string>('frontend.url')}/form`;
-      await this.mailerService.sendMedicalFormEmail(
-        userData.primaryEmail,
-        user.firstName,
-        formLink
-      );
-    } catch (error) {
-      console.error('Failed to send medical form email:', error);
-      // Don't fail registration if email fails
-    }
+    // try {
+    //   const formLink = `${this.configService.get<string>('frontend.url')}/form`;
+    //   await this.mailerService.sendMedicalFormEmail(
+    //     userData.primaryEmail,
+    //     user.firstName,
+    //     formLink
+    //   );
+    // } catch (error) {
+    //   console.error('Failed to send medical form email:', error);
+    //   // Don't fail registration if email fails
+    // }
 
     // Return user data without password
     const { password: _, ...userWithoutPassword } = user;
@@ -299,7 +299,7 @@ export class AuthService {
     }
 
     // Create reset link using configuration
-    const frontendUrl = "https://optimalmd-mu.vercel.app";
+    const frontendUrl = "https://optimalemd.health";
     const resetLink = `${frontendUrl}/reset-password?token=${resetToken}&type=${accountType}`;
 
     // Send password reset email
@@ -586,7 +586,7 @@ export class AuthService {
 
     // Send new verification email
     try {
-      const verificationLink = `https://optimalmd-mu.vercel.app/verify-email?token=${emailVerificationToken}`;
+      const verificationLink = `https://optimalemd.health/verify-email?token=${emailVerificationToken}`;
       console.log('Resend - Generated verification link:', verificationLink);
       
       await this.mailerService.sendEmailVerificationEmail(

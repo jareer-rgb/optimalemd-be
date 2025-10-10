@@ -36,7 +36,7 @@ export class AdminService {
     const emailVerificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Prepare user data for creation
-    const userCreateData = {
+    const userCreateData: any = {
       ...patientData,
       password: hashedPassword,
       dateOfBirth: new Date(patientData.dateOfBirth),
@@ -60,7 +60,7 @@ export class AdminService {
     // Send welcome email with credentials if requested
     if (sendWelcomeEmail) {
       try {
-        const verificationLink = `https://optimalmd-mu.vercel.app/verify-email?token=${emailVerificationToken}`;
+        const verificationLink = `https://optimalemd.health/verify-email?token=${emailVerificationToken}`;
         
         await this.mailerService.sendAdminCreatedPatientEmail(
           patientData.primaryEmail,
