@@ -249,6 +249,99 @@ export class AdminService {
   }
 
   /**
+   * Get DOB search conditions for different date formats
+   */
+  private getDobSearchConditions(searchTerm: string): any[] {
+    const conditions: any[] = [];
+    
+    // Try to parse different date formats
+    const dateFormats = [
+      // MM-DD-YYYY or MM/DD/YYYY
+      /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/,
+      // YYYY-MM-DD
+      /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
+      // MMDDYYYY
+      /^(\d{2})(\d{2})(\d{4})$/,
+      // MMDDYY
+      /^(\d{2})(\d{2})(\d{2})$/
+    ];
+
+    for (const format of dateFormats) {
+      const match = searchTerm.match(format);
+      if (match) {
+        let month: number, day: number, year: number;
+        
+        if (format.source.includes('YYYY')) {
+          // MM-DD-YYYY or YYYY-MM-DD format
+          if (format.source.startsWith('^\\d{4}')) {
+            // YYYY-MM-DD
+            year = parseInt(match[1]);
+            month = parseInt(match[2]);
+            day = parseInt(match[3]);
+          } else {
+            // MM-DD-YYYY
+            month = parseInt(match[1]);
+            day = parseInt(match[2]);
+            year = parseInt(match[3]);
+          }
+        } else if (format.source.includes('YY')) {
+          // MMDDYY format
+          month = parseInt(match[1]);
+          day = parseInt(match[2]);
+          const twoDigitYear = parseInt(match[3]);
+          // Assume years 00-30 are 2000-2030, 31-99 are 1931-1999
+          year = twoDigitYear <= 30 ? 2000 + twoDigitYear : 1900 + twoDigitYear;
+        } else {
+          // MMDDYYYY format
+          month = parseInt(match[1]);
+          day = parseInt(match[2]);
+          year = parseInt(match[3]);
+        }
+
+        // Validate the date
+        if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+          try {
+            const searchDate = new Date(year, month - 1, day);
+            if (searchDate.getFullYear() === year && searchDate.getMonth() === month - 1 && searchDate.getDate() === day) {
+              // Create date range for the day (start and end of day)
+              const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+              const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
+              
+              conditions.push({
+                dateOfBirth: {
+                  gte: startOfDay,
+                  lte: endOfDay
+                }
+              });
+            }
+          } catch (error) {
+            // Invalid date, skip
+          }
+        }
+        break; // Only try the first matching format
+      }
+    }
+
+    // Also try searching for partial dates (just year, or month-year)
+    const yearMatch = searchTerm.match(/^(\d{4})$/);
+    if (yearMatch) {
+      const year = parseInt(yearMatch[1]);
+      if (year >= 1900 && year <= 2100) {
+        const startOfYear = new Date(year, 0, 1);
+        const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
+        conditions.push({
+          dateOfBirth: {
+            gte: startOfYear,
+            lte: endOfYear
+          }
+        });
+      }
+    }
+
+    return conditions;
+  }
+
+  /**
    * Get all patients with pagination and search
    */
   async getAllPatients(query: any): Promise<{
@@ -270,12 +363,99 @@ export class AdminService {
     const where: any = {};
 
     if (search) {
-      where.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { primaryEmail: { contains: search, mode: 'insensitive' } },
-        { primaryPhone: { contains: search, mode: 'insensitive' } },
-      ];
+      const searchTerms = search.trim().split(/\s+/).filter(term => term.length > 0);
+      
+      if (searchTerms.length === 1) {
+        // Single term search - search in all fields including DOB
+        const searchConditions = [
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { middleName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+          { primaryEmail: { contains: search, mode: 'insensitive' } },
+          { primaryPhone: { contains: search, mode: 'insensitive' } },
+        ];
+
+        // Add DOB search - try different date formats
+        const dobSearchConditions = this.getDobSearchConditions(search);
+        searchConditions.push(...dobSearchConditions);
+
+        where.OR = searchConditions;
+      } else {
+        // Multiple terms search - search for name combinations across firstName, middleName, lastName
+        const searchConditions: any[] = [];
+        
+        // Search for combinations across all name fields
+        if (searchTerms.length === 2) {
+          // Two terms: try different combinations
+          searchConditions.push({
+            AND: [
+              { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+              { lastName: { contains: searchTerms[1], mode: 'insensitive' } }
+            ]
+          });
+          searchConditions.push({
+            AND: [
+              { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+              { middleName: { contains: searchTerms[1], mode: 'insensitive' } }
+            ]
+          });
+          searchConditions.push({
+            AND: [
+              { middleName: { contains: searchTerms[0], mode: 'insensitive' } },
+              { lastName: { contains: searchTerms[1], mode: 'insensitive' } }
+            ]
+          });
+        } else if (searchTerms.length === 3) {
+          // Three terms: try different combinations
+          searchConditions.push({
+            AND: [
+              { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+              { middleName: { contains: searchTerms[1], mode: 'insensitive' } },
+              { lastName: { contains: searchTerms[2], mode: 'insensitive' } }
+            ]
+          });
+          searchConditions.push({
+            AND: [
+              { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+              { lastName: { contains: searchTerms[2], mode: 'insensitive' } }
+            ]
+          });
+        } else if (searchTerms.length > 3) {
+          // More than 3 terms: try first + last, and first + middle + last
+          searchConditions.push({
+            AND: [
+              { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+              { lastName: { contains: searchTerms[searchTerms.length - 1], mode: 'insensitive' } }
+            ]
+          });
+          if (searchTerms.length >= 3) {
+            searchConditions.push({
+              AND: [
+                { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+                { middleName: { contains: searchTerms[1], mode: 'insensitive' } },
+                { lastName: { contains: searchTerms[searchTerms.length - 1], mode: 'insensitive' } }
+              ]
+            });
+          }
+        }
+        
+        // Also include individual field searches for each term
+        searchTerms.forEach(term => {
+          searchConditions.push(
+            { firstName: { contains: term, mode: 'insensitive' } },
+            { middleName: { contains: term, mode: 'insensitive' } },
+            { lastName: { contains: term, mode: 'insensitive' } },
+            { primaryEmail: { contains: term, mode: 'insensitive' } },
+            { primaryPhone: { contains: term, mode: 'insensitive' } }
+          );
+          
+          // Add DOB search for each term
+          const dobSearchConditions = this.getDobSearchConditions(term);
+          searchConditions.push(...dobSearchConditions);
+        });
+        
+        where.OR = searchConditions;
+      }
     }
 
     if (status === 'active') {

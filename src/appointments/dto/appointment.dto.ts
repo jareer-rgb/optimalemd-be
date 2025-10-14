@@ -143,6 +143,11 @@ export class QueryAppointmentsDto {
   @Type(() => Number)
   @IsNumber()
   limit?: number;
+
+  @ApiProperty({ description: 'Search term for patient name, doctor name, or service', required: false })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
 
 export class CancelAppointmentDto {

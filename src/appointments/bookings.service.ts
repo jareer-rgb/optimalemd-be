@@ -174,7 +174,7 @@ export class BookingsService {
    * Get bookings with filtering and pagination
    */
   async findAll(query: QueryBookingsDto): Promise<{ bookings: BookingWithRelationsResponseDto[], total: number }> {
-    const { patientId, doctorId, serviceId, status, urgency, startDate, endDate, page = 1, limit = 10 } = query;
+    const { patientId, doctorId, serviceId, status, urgency, startDate, endDate, search, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -188,6 +188,134 @@ export class BookingsService {
       where.preferredDate = {};
       if (startDate) where.preferredDate.gte = new Date(startDate);
       if (endDate) where.preferredDate.lte = new Date(endDate);
+    }
+
+    // Handle search functionality
+    if (search) {
+      const searchTerms = search.trim().split(/\s+/).filter(term => term.length > 0);
+      
+      if (searchTerms.length === 1) {
+        // Single term search
+        where.OR = [
+          {
+            patient: {
+              OR: [
+                { firstName: { contains: search, mode: 'insensitive' } },
+                { middleName: { contains: search, mode: 'insensitive' } },
+                { lastName: { contains: search, mode: 'insensitive' } },
+                { primaryEmail: { contains: search, mode: 'insensitive' } }
+              ]
+            }
+          },
+          {
+            service: {
+              name: { contains: search, mode: 'insensitive' }
+            }
+          }
+        ];
+      } else {
+        // Multiple terms search
+        const searchConditions: any[] = [];
+        
+        // Search for patient name combinations
+        if (searchTerms.length === 2) {
+          // Two terms: try different combinations
+          searchConditions.push({
+            patient: {
+              AND: [
+                { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+                { lastName: { contains: searchTerms[1], mode: 'insensitive' } }
+              ]
+            }
+          });
+          searchConditions.push({
+            patient: {
+              AND: [
+                { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+                { middleName: { contains: searchTerms[1], mode: 'insensitive' } }
+              ]
+            }
+          });
+          searchConditions.push({
+            patient: {
+              AND: [
+                { middleName: { contains: searchTerms[0], mode: 'insensitive' } },
+                { lastName: { contains: searchTerms[1], mode: 'insensitive' } }
+              ]
+            }
+          });
+        } else if (searchTerms.length === 3) {
+          // Three terms: try different combinations
+          searchConditions.push({
+            patient: {
+              AND: [
+                { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+                { middleName: { contains: searchTerms[1], mode: 'insensitive' } },
+                { lastName: { contains: searchTerms[2], mode: 'insensitive' } }
+              ]
+            }
+          });
+          searchConditions.push({
+            patient: {
+              AND: [
+                { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+                { lastName: { contains: searchTerms[2], mode: 'insensitive' } }
+              ]
+            }
+          });
+        } else if (searchTerms.length > 3) {
+          // More than 3 terms: try first + last, and first + middle + last
+          searchConditions.push({
+            patient: {
+              AND: [
+                { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+                { lastName: { contains: searchTerms[searchTerms.length - 1], mode: 'insensitive' } }
+              ]
+            }
+          });
+          if (searchTerms.length >= 3) {
+            searchConditions.push({
+              patient: {
+                AND: [
+                  { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+                  { middleName: { contains: searchTerms[1], mode: 'insensitive' } },
+                  { lastName: { contains: searchTerms[searchTerms.length - 1], mode: 'insensitive' } }
+                ]
+              }
+            });
+          }
+        }
+        
+        // Search for service name
+        searchConditions.push({
+          service: {
+            name: { contains: search, mode: 'insensitive' }
+          }
+        });
+        
+        // Individual term searches
+        searchTerms.forEach(term => {
+          searchConditions.push(
+            {
+              patient: {
+                OR: [
+                  { firstName: { contains: term, mode: 'insensitive' } },
+                  { middleName: { contains: term, mode: 'insensitive' } },
+                  { lastName: { contains: term, mode: 'insensitive' } },
+                  { primaryEmail: { contains: term, mode: 'insensitive' } }
+                ]
+              }
+            },
+            {
+              service: {
+                name: { contains: term, mode: 'insensitive' }
+              }
+            }
+          );
+        });
+        
+        where.OR = searchConditions;
+      }
     }
 
     const [bookings, total] = await Promise.all([
