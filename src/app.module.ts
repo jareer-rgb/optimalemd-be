@@ -16,6 +16,7 @@ import { MedicalFormModule } from './medical-form/medical-form.module';
 import { IntakeModule } from './intake/intake.module';
 import { AdminModule } from './admin/admin.module';
 import { ReportsModule } from './reports/reports.module';
+import { AssessmentsModule } from './assessments/assessments.module';
 
 @Module({ 
   imports: [
@@ -35,7 +36,8 @@ import { ReportsModule } from './reports/reports.module';
     MedicalFormModule,
     IntakeModule,
     AdminModule,
-    ReportsModule
+    ReportsModule,
+    AssessmentsModule
   ],
   controllers: [AppController],
   providers: [AppService],

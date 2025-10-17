@@ -60,6 +60,7 @@ export class CreateAppointmentDto {
   @MaxLength(500)
   symptoms?: string;
 
+
   @ApiProperty({ description: 'Appointment amount', example: '150.00' })
   @IsDecimal()
   @IsNotEmpty()
@@ -83,6 +84,7 @@ export class UpdateAppointmentDto {
   @IsString()
   @MaxLength(500)
   symptoms?: string;
+
 
   @ApiProperty({ description: 'Appointment amount', example: '150.00', required: false })
   @IsOptional()
@@ -255,6 +257,7 @@ export class AppointmentResponseDto {
 
   @ApiProperty({ description: 'Patient symptoms', required: false })
   symptoms: string | null;
+
 
   @ApiProperty({ description: 'Appointment amount' })
   amount: string | any; // Allow both string and Decimal

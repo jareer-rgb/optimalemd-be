@@ -358,6 +358,39 @@ model PrimaryService {
   @@map("primary_services")
 }
 
+// Simple Assessment model
+model Assessment {
+  id                String   @id @default(uuid())
+  name              String   @unique // Assessment name (e.g., "Men's Hormone Replacement Therapy")
+  content           String   // Assessment content as markdown text
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  appointmentAssessments AppointmentAssessment[]
+  
+  @@map("assessments")
+}
+
+// Junction table for appointment-assessment relationship
+model AppointmentAssessment {
+  id                String   @id @default(uuid())
+  appointmentId     String
+  assessmentId      String
+  content           String?  // Custom content for this specific appointment (optional override)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  appointment       Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  assessment        Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  
+  @@unique([appointmentId, assessmentId]) // One assessment per appointment
+  @@map("appointment_assessments")
+}
+
 // Appointment model for booked appointments
 model Appointment {
   id                String   @id @default(uuid())
@@ -384,6 +417,7 @@ model Appointment {
   // Prescribed medications grouped by medical service
   // Example shape: { "Hormone Optimization / TRT": ["Testosterone injections", "Enclomiphene"], "Hair Loss Treatments": ["Oral Minoxidil"] }
   medications       Json?
+  
   
   // Payment and billing
   amount            Decimal  @db.Decimal(10, 2)
@@ -417,6 +451,7 @@ model Appointment {
   primaryService    PrimaryService? @relation(fields: [primaryServiceId], references: [id], onDelete: Cascade)
   payment           Payment?
   medicalForm       MedicalForm?
+  appointmentAssessments AppointmentAssessment[]
   
   @@map("appointments")
 }
