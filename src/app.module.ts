@@ -17,6 +17,7 @@ import { IntakeModule } from './intake/intake.module';
 import { AdminModule } from './admin/admin.module';
 import { ReportsModule } from './reports/reports.module';
 import { AssessmentsModule } from './assessments/assessments.module';
+import { ContactModule } from './contact/contact.module';
 
 @Module({ 
   imports: [
@@ -37,7 +38,8 @@ import { AssessmentsModule } from './assessments/assessments.module';
     IntakeModule,
     AdminModule,
     ReportsModule,
-    AssessmentsModule
+    AssessmentsModule,
+    ContactModule
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -49,6 +49,28 @@ export class MailerService implements OnModuleInit {
     }
   }
 
+  async sendEmail(
+    to: string,
+    subject: string,
+    text: string,
+    html?: string,
+  ): Promise<void> {
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to,
+        subject,
+        text,
+        html,
+      });
+      const note = this.isNoopTransport ? '(no-op transport)' : '';
+      console.log(`Email sent successfully to ${to} ${note}`);
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      throw error;
+    }
+  }
+
   async sendEmailWithAttachment(
     to: string,
     subject: string,

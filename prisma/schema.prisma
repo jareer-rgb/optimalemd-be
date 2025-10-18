@@ -662,3 +662,17 @@ model MedicalForm {
   @@map("medical_forms")
 }
 
+model Contact {
+  id        String   @id @default(uuid())
+  fullName  String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    String   @default("new") // new, read, replied
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("contacts")
+}
+
