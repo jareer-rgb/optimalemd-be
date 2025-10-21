@@ -312,10 +312,10 @@ export class AppointmentWithRelationsResponseDto extends AppointmentResponseDto 
   })
   patient: {
     id: string;
-    firstName: string;
-    lastName: string;
-    primaryEmail: string;
-    primaryPhone: string;
+    firstName: string | null;
+    lastName: string | null;
+    primaryEmail: string | null;
+    primaryPhone: string | null;
   };
 
   @ApiProperty({

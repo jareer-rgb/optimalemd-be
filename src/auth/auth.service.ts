@@ -67,7 +67,7 @@ export class AuthService {
       
       await this.mailerService.sendEmailVerificationEmail(
         userData.primaryEmail,
-        user.firstName,
+        user.firstName || 'User',
         verificationLink
       );
     } catch (error) {
@@ -139,7 +139,7 @@ export class AuthService {
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.password || '');
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -429,13 +429,13 @@ export class AuthService {
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password || '');
     if (!isCurrentPasswordValid) {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
     // Check if new password is different from current
-    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    const isSamePassword = await bcrypt.compare(newPassword, user.password || '');
     if (isSamePassword) {
       throw new BadRequestException('New password must be different from current password');
     }
@@ -544,7 +544,7 @@ export class AuthService {
 
     // Send welcome email
     try {
-      await this.mailerService.sendWelcomeEmail(user.primaryEmail, user.firstName);
+      await this.mailerService.sendWelcomeEmail(user.primaryEmail || '', user.firstName || 'User');
     } catch (error) {
       console.error('Failed to send welcome email:', error);
       // Don't fail verification if welcome email fails
@@ -591,7 +591,7 @@ export class AuthService {
       
       await this.mailerService.sendEmailVerificationEmail(
         email,
-        user.firstName,
+        user.firstName || 'User',
         verificationLink
       );
     } catch (error) {

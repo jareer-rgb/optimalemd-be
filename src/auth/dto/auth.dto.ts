@@ -774,8 +774,9 @@ export class UserResponseDto {
   @ApiProperty({
     description: 'User first name',
     example: 'John',
+    nullable: true,
   })
-  firstName: string;
+  firstName: string | null;
 
   @ApiProperty({
     description: 'User middle name',
@@ -787,50 +788,58 @@ export class UserResponseDto {
   @ApiProperty({
     description: 'User last name',
     example: 'Doe',
+    nullable: true,
   })
-  lastName: string;
+  lastName: string | null;
 
   @ApiProperty({
     description: 'User date of birth',
     example: '1990-01-01T00:00:00.000Z',
+    nullable: true,
   })
-  dateOfBirth: Date;
+  dateOfBirth: Date | null;
 
   @ApiProperty({
     description: 'Gender',
     example: 'Male',
+    nullable: true,
   })
-  gender: string;
+  gender: string | null;
 
   @ApiProperty({
     description: 'Complete address',
     example: '123 Main St, Apt 4B',
+    nullable: true,
   })
-  completeAddress: string;
+  completeAddress: string | null;
 
   @ApiProperty({
     description: 'City',
     example: 'New York',
+    nullable: true,
   })
-  city: string;
+  city: string | null;
 
   @ApiProperty({
     description: 'State',
     example: 'NY',
+    nullable: true,
   })
-  state: string;
+  state: string | null;
 
   @ApiProperty({
     description: 'Zipcode',
     example: '10001',
+    nullable: true,
   })
-  zipcode: string;
+  zipcode: string | null;
 
   @ApiProperty({
     description: 'Primary email address',
     example: 'john.doe@example.com',
+    nullable: true,
   })
-  primaryEmail: string;
+  primaryEmail: string | null;
 
   @ApiProperty({
     description: 'Alternative email address',
@@ -842,8 +851,9 @@ export class UserResponseDto {
   @ApiProperty({
     description: 'Primary phone number',
     example: '+1234567890',
+    nullable: true,
   })
-  primaryPhone: string;
+  primaryPhone: string | null;
 
   @ApiProperty({
     description: 'Alternative phone number',
@@ -883,26 +893,30 @@ export class UserResponseDto {
   @ApiProperty({
     description: 'Consent for treatment',
     example: 'Y',
+    nullable: true,
   })
-  consentForTreatment: string;
+  consentForTreatment: string | null;
 
   @ApiProperty({
     description: 'HIPAA Privacy Notice Acknowledgment',
     example: 'Y',
+    nullable: true,
   })
-  hipaaPrivacyNoticeAcknowledgment: string;
+  hipaaPrivacyNoticeAcknowledgment: string | null;
 
   @ApiProperty({
     description: 'Release of Medical Records Consent',
     example: 'Y',
+    nullable: true,
   })
-  releaseOfMedicalRecordsConsent: string;
+  releaseOfMedicalRecordsConsent: string | null;
 
   @ApiProperty({
     description: 'Preferred method of communication',
     example: 'Email',
+    nullable: true,
   })
-  preferredMethodOfCommunication: string;
+  preferredMethodOfCommunication: string | null;
 
   @ApiProperty({
     description: 'Disability/Accessibility needs',

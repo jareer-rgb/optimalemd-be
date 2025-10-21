@@ -28,53 +28,81 @@ export class StripeService {
   }
 
   /**
-   * Create a payment intent for an appointment
+   * Create a payment intent for an appointment or welcome order
    */
   async createPaymentIntent(createPaymentIntentDto: CreatePaymentIntentDto) {
-    const { appointmentId, amount, currency = 'usd' } = createPaymentIntentDto;
+    const { appointmentId, welcomeOrderId, amount, currency = 'usd' } = createPaymentIntentDto;
 
-    // Verify appointment exists and is not already paid
-    const appointment = await this.prisma.appointment.findUnique({
-      where: { id: appointmentId },
-      include: {
-        patient: { select: { id: true, firstName: true, lastName: true, primaryEmail: true } },
-        doctor: { select: { id: true, firstName: true, lastName: true } },
-        service: { select: { name: true } },
-      },
-    });
+    let metadata: any = {};
+    let description = '';
 
-    if (!appointment) {
-      throw new NotFoundException('Appointment not found');
-    }
+    if (appointmentId) {
+      // Handle appointment payment
+      const appointment = await this.prisma.appointment.findUnique({
+        where: { id: appointmentId },
+        include: {
+          patient: { select: { id: true, firstName: true, lastName: true, primaryEmail: true } },
+          doctor: { select: { id: true, firstName: true, lastName: true } },
+          service: { select: { name: true } },
+        },
+      });
 
-    if (appointment.isPaid) {
-      throw new BadRequestException('Appointment is already paid');
+      if (!appointment) {
+        throw new NotFoundException('Appointment not found');
+      }
+
+      if (appointment.isPaid) {
+        throw new BadRequestException('Appointment is already paid');
+      }
+
+      metadata.appointmentId = appointmentId;
+      description = `Payment for appointment with ${appointment.doctor ? `${appointment.doctor.firstName} ${appointment.doctor.lastName}` : 'To be assigned'}`;
+    } else if (welcomeOrderId) {
+      // Handle welcome order payment
+      const welcomeOrder = await this.prisma.welcomeOrder.findUnique({
+        where: { id: welcomeOrderId },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, primaryEmail: true } },
+        },
+      });
+
+      if (!welcomeOrder) {
+        throw new NotFoundException('Welcome order not found');
+      }
+
+      if (welcomeOrder.paymentStatus === 'SUCCEEDED') {
+        throw new BadRequestException('Welcome order is already paid');
+      }
+
+      metadata.welcomeOrderId = welcomeOrderId;
+      description = `Payment for welcome order - ${welcomeOrder.orderNumber}`;
+    } else {
+      throw new BadRequestException('Either appointmentId or welcomeOrderId must be provided');
     }
 
     // Create payment intent
     const paymentIntent = await this.stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents
       currency,
-      metadata: {
-        appointmentId,
-        patientId: appointment.patient.id,
-        doctorId: appointment.doctor?.id || 'to-be-assigned',
-        serviceName: appointment.service.name,
-      },
-      description: `Payment for appointment with ${appointment.doctor ? `Dr. ${appointment.doctor.lastName}` : 'To be assigned'} - ${appointment.service.name}`,
+      metadata,
+      description,
     });
 
     // Create payment record
-    await this.prisma.payment.create({
-      data: {
-        appointmentId,
-        stripePaymentId: paymentIntent.id,
-        amount,
-        currency,
-        status: 'PENDING',
-        paymentIntent: paymentIntent.id,
-      },
-    });
+    if (appointmentId) {
+      await this.prisma.payment.create({
+        data: {
+          appointmentId,
+          stripePaymentId: paymentIntent.id,
+          amount,
+          currency,
+          status: 'PENDING',
+          paymentIntent: paymentIntent.id,
+        },
+      });
+    }
+    // For welcome orders, we don't create a separate payment record
+    // The payment info is stored in the welcome order itself
 
     return {
       clientSecret: paymentIntent.client_secret,
@@ -147,7 +175,7 @@ export class StripeService {
       doctorName,
       patientName,
       appointment.service.name,
-      appointment.patient.primaryEmail, // Pass patient email
+      appointment.patient.primaryEmail || undefined, // Pass patient email
       appointment.doctor?.email // Pass doctor email if available
     );
 
@@ -188,7 +216,7 @@ export class StripeService {
       try {
         await this.googleCalendarService.updateEventWithPatientEmail(
           meetResult.eventId,
-          appointment.patient.primaryEmail
+          appointment.patient.primaryEmail || ''
         );
       } catch (error) {
         console.log('Could not update calendar event with patient email:', error.message);
@@ -214,7 +242,7 @@ export class StripeService {
 
       // Send confirmation email to patient
       await this.mailerService.sendAppointmentConfirmationEmail(
-        updatedAppointment.patient.primaryEmail,
+        updatedAppointment.patient.primaryEmail || '',
         patientName,
         doctorName,
         updatedAppointment.service.name,

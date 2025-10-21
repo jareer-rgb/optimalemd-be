@@ -13,29 +13,29 @@ datasource db {
 model User {
   id        String   @id @default(uuid())
   
-  // Mandatory Fields (Green in image)
+  // Mandatory Fields (Green in image) - Made optional for new signup flow
   title          String?   // Mr, Mrs, Ms, Dr, Other
-  firstName      String
+  firstName      String?
   middleName     String?
-  lastName       String
-  dateOfBirth    DateTime
-  gender         String   // Male/Female/Other
-  completeAddress String  // House/Apt, Street
-  city           String
-  state          String
-  zipcode        String
-  primaryEmail   String   @unique
+  lastName       String?
+  dateOfBirth    DateTime?
+  gender         String?   // Male/Female/Other
+  completeAddress String?  // House/Apt, Street
+  city           String?
+  state          String?
+  zipcode        String?
+  primaryEmail   String?   @unique
   alternativeEmail String?
-  primaryPhone   String
+  primaryPhone   String?
   alternativePhone String?
   emergencyContactName String?
   emergencyContactRelationship String?
   emergencyContactPhone String?
   referringSource String? // Online/Friend/Employee
-  consentForTreatment String // Y/N
-  hipaaPrivacyNoticeAcknowledgment String // Y/N
-  releaseOfMedicalRecordsConsent String // Y/N
-  preferredMethodOfCommunication String // Phone/Email/Mail
+  consentForTreatment String? // Y/N
+  hipaaPrivacyNoticeAcknowledgment String? // Y/N
+  releaseOfMedicalRecordsConsent String? // Y/N
+  preferredMethodOfCommunication String? // Phone/Email/Mail
   disabilityAccessibilityNeeds String?
   
   // Optional Fields (Yellow in image)
@@ -55,8 +55,8 @@ model User {
   advanceDirectives String? // Y/N
   
   // Legacy fields (keeping for backward compatibility)
-  email     String   @unique // maps to primaryEmail
-  password  String
+  email     String?   @unique // maps to primaryEmail
+  password  String?
   phone     String?  // maps to primaryPhone
   isActive  Boolean  @default(true)
   
@@ -79,6 +79,10 @@ model User {
   // Intake form completion tracking (for first-time users)
   hasCompletedIntakeForm Boolean @default(false)
   intakeFormCompletedAt DateTime?
+
+  // New signup flow tracking
+  welcomeOrders WelcomeOrder[]
+  signupSteps SignupStep[]
 
   // Relations
   bookings Booking[]
@@ -674,5 +678,82 @@ model Contact {
   updatedAt DateTime @updatedAt
   
   @@map("contacts")
+}
+
+// Welcome Order model for tracking new signup flow
+model WelcomeOrder {
+  id                String   @id @default(uuid())
+  userId            String?  // Optional until user is created
+  email             String   // Required for tracking before user creation
+  orderNumber       String   @unique // Generated order number
+  status            WelcomeOrderStatus @default(PENDING)
+  
+  // Order details
+  totalAmount       Decimal  @db.Decimal(10, 2)
+  discountAmount    Decimal  @db.Decimal(10, 2) @default(0)
+  finalAmount       Decimal  @db.Decimal(10, 2)
+  
+  // Payment tracking
+  paymentIntentId   String?
+  paymentStatus     PaymentStatus @default(PENDING)
+  paidAt            DateTime?
+  
+  // Progress tracking
+  currentStep       Int      @default(0) // 0-4 (Gender, Basic Info, Checkout, Password, Details)
+  currentSubStep    Int      @default(0) // For internal navigation within steps
+  isCompleted       Boolean  @default(false)
+  completedAt       DateTime?
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  user              User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  signupSteps       SignupStep[]
+  
+  @@map("welcome_orders")
+}
+
+// Signup Step model for tracking individual step completion
+model SignupStep {
+  id                String   @id @default(uuid())
+  welcomeOrderId    String
+  userId            String?
+  stepNumber        Int      // 0-4
+  stepName          String   // Gender, Basic Info, Checkout, Password, Details
+  subStepNumber     Int?     // For internal navigation within steps
+  subStepName       String?  // basic, state, medical, consent, etc.
+  
+  // Step data (JSON for flexibility)
+  stepData          Json?    // Store step-specific data
+  
+  // Completion tracking
+  isCompleted       Boolean  @default(false)
+  completedAt       DateTime?
+  
+  // Validation
+  isValid           Boolean  @default(false)
+  validationErrors  Json?    // Store validation errors
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  welcomeOrder      WelcomeOrder @relation(fields: [welcomeOrderId], references: [id], onDelete: Cascade)
+  user              User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([welcomeOrderId, stepNumber, subStepNumber])
+  @@map("signup_steps")
+}
+
+// Enums for new signup flow
+enum WelcomeOrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  EXPIRED
 }
 

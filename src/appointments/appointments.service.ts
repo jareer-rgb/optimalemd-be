@@ -775,7 +775,7 @@ export class AppointmentsService {
 
       // Send cancellation email to patient
       await this.mailerService.sendCancellationEmail(
-        appointment.patient.primaryEmail,
+        appointment.patient.primaryEmail || '',
         patientName,
         doctorName,
         appointmentDate,
@@ -789,7 +789,7 @@ export class AppointmentsService {
           appointment.doctor.email,
           doctorName,
           patientName,
-          appointment.patient.primaryEmail,
+          appointment.patient.primaryEmail || '',
           appointmentDate,
           appointment.appointmentTime,
           amount
@@ -890,7 +890,7 @@ export class AppointmentsService {
       doctorName,
       patientName,
       appointment.service.name,
-      appointment.patient.primaryEmail // Pass patient email
+      appointment.patient.primaryEmail || undefined // Pass patient email
     );
 
     // Use transaction to ensure data consistency
@@ -931,7 +931,7 @@ export class AppointmentsService {
 
       // Send reschedule email to patient with new Google Meet link
       await this.mailerService.sendRescheduleEmail(
-        appointment.patient.primaryEmail,
+        appointment.patient.primaryEmail || '',
         patientName,
         doctorName,
         oldDate,
@@ -1462,7 +1462,7 @@ export class AppointmentsService {
         doctorName,
         patientName,
         created.service.name,
-        created.patient.primaryEmail,
+        created.patient.primaryEmail || undefined,
         created.doctor?.email
       );
 
@@ -1478,7 +1478,7 @@ export class AppointmentsService {
         try {
           if (created.patient?.primaryEmail) {
             await this.mailerService.sendAppointmentConfirmationEmail(
-              created.patient.primaryEmail,
+              created.patient.primaryEmail || '',
               patientName,
               doctorName,
               created.service.name,

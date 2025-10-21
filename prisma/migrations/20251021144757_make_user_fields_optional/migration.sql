@@ -1,0 +1,17 @@
+-- AlterTable
+ALTER TABLE "public"."users" ALTER COLUMN "firstName" DROP NOT NULL,
+ALTER COLUMN "lastName" DROP NOT NULL,
+ALTER COLUMN "dateOfBirth" DROP NOT NULL,
+ALTER COLUMN "gender" DROP NOT NULL,
+ALTER COLUMN "completeAddress" DROP NOT NULL,
+ALTER COLUMN "city" DROP NOT NULL,
+ALTER COLUMN "state" DROP NOT NULL,
+ALTER COLUMN "zipcode" DROP NOT NULL,
+ALTER COLUMN "primaryEmail" DROP NOT NULL,
+ALTER COLUMN "primaryPhone" DROP NOT NULL,
+ALTER COLUMN "consentForTreatment" DROP NOT NULL,
+ALTER COLUMN "hipaaPrivacyNoticeAcknowledgment" DROP NOT NULL,
+ALTER COLUMN "releaseOfMedicalRecordsConsent" DROP NOT NULL,
+ALTER COLUMN "preferredMethodOfCommunication" DROP NOT NULL,
+ALTER COLUMN "email" DROP NOT NULL,
+ALTER COLUMN "password" DROP NOT NULL;
