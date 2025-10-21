@@ -1,4 +1,4 @@
-# GCP Deployment Guide for OptimaleMD Backend
+x# GCP Deployment Guide for OptimaleMD Backend
 
 This guide will help you deploy your NestJS backend to Google Cloud Platform using Google App Engine.
 
@@ -210,4 +210,4 @@ gcloud app services delete default --quiet
 2. Configure SSL certificates
 3. Set up monitoring and alerting
 4. Implement CI/CD pipeline
-5. Set up backup strategies for your database
+5. Set up backup strategie for your database
