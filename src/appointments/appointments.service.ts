@@ -299,7 +299,9 @@ export class AppointmentsService {
             firstName: true,
             lastName: true,
             primaryEmail: true,
-            primaryPhone: true
+            primaryPhone: true,
+            gender: true,
+            dateOfBirth: true,
           }
         },
         doctor: {
@@ -358,8 +360,18 @@ export class AppointmentsService {
     if (status) where.status = status;
     if (startDate || endDate) {
       where.appointmentDate = {};
-      if (startDate) where.appointmentDate.gte = new Date(startDate);
-      if (endDate) where.appointmentDate.lte = new Date(endDate);
+      if (startDate) {
+        // Ensure we're comparing dates at the start of the day
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        where.appointmentDate.gte = start;
+      }
+      if (endDate) {
+        // Ensure we're comparing dates at the end of the day
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.appointmentDate.lte = end;
+      }
     }
 
     // Handle search functionality
@@ -639,6 +651,31 @@ export class AppointmentsService {
     const updatedAppointment = await this.prisma.appointment.update({
       where: { id: appointmentId },
       data: { internalNotes }
+    });
+
+    return updatedAppointment;
+  }
+
+  /**
+   * Update subjective notes for an appointment (doctor only)
+   */
+  async updateSubjectiveNotes(appointmentId: string, subjectiveNotes: string, doctorId: string): Promise<AppointmentResponseDto> {
+    // Check if appointment exists and belongs to the doctor
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id: appointmentId,
+        doctorId: doctorId
+      }
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found or you do not have permission to update this appointment');
+    }
+
+    // Update the subjective notes
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { subjectiveNotes }
     });
 
     return updatedAppointment;
@@ -974,8 +1011,18 @@ export class AppointmentsService {
     if (status) where.status = status;
     if (startDate || endDate) {
       where.appointmentDate = {};
-      if (startDate) where.appointmentDate.gte = new Date(startDate);
-      if (endDate) where.appointmentDate.lte = new Date(endDate);
+      if (startDate) {
+        // Ensure we're comparing dates at the start of the day
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        where.appointmentDate.gte = start;
+      }
+      if (endDate) {
+        // Ensure we're comparing dates at the end of the day
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.appointmentDate.lte = end;
+      }
     }
 
     const [appointments, total] = await Promise.all([
@@ -1048,8 +1095,18 @@ export class AppointmentsService {
     if (status) where.status = status;
     if (startDate || endDate) {
       where.appointmentDate = {};
-      if (startDate) where.appointmentDate.gte = new Date(startDate);
-      if (endDate) where.appointmentDate.lte = new Date(endDate);
+      if (startDate) {
+        // Ensure we're comparing dates at the start of the day
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        where.appointmentDate.gte = start;
+      }
+      if (endDate) {
+        // Ensure we're comparing dates at the end of the day
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.appointmentDate.lte = end;
+      }
     }
 
     const [appointments, total] = await Promise.all([

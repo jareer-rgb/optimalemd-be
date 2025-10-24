@@ -616,6 +616,61 @@ export class AppointmentsController {
     };
   }
 
+  @Put(':id/subjective-notes')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update Subjective Notes',
+    description: 'Update subjective notes for a specific appointment (doctor only).',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Appointment ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiBody({
+    description: 'Subjective notes data',
+    schema: {
+      type: 'object',
+      properties: {
+        subjectiveNotes: {
+          type: 'string',
+          description: 'Doctor subjective notes for this appointment',
+          example: 'Patient reports feeling tired and having difficulty sleeping.',
+        },
+      },
+      required: ['subjectiveNotes'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'Subjective notes updated successfully',
+    type: BaseApiResponse<AppointmentResponseDto>,
+  })
+  @ApiBadRequestResponse({
+    description: 'Validation error',
+  })
+  @ApiNotFoundResponse({
+    description: 'Appointment not found',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - invalid or missing JWT token',
+  })
+  async updateSubjectiveNotes(
+    @Param('id') id: string,
+    @Body() body: { subjectiveNotes: string },
+    @CurrentUser() user: any,
+  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
+    const data = await this.appointmentsService.updateSubjectiveNotes(id, body.subjectiveNotes, user.id);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Subjective notes updated successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: `/api/appointments/${id}/subjective-notes`,
+    };
+  }
+
   @Put(':id/medications')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -1043,6 +1098,8 @@ export class AppointmentsController {
   async getDoctorSchedule(
     @Param('doctorId') doctorId: string,
     @Query('date') date?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
     @Query('status') status?: string,
     @Query('appointmentType') appointmentType?: string,
     @Query('page') page: number = 1,
@@ -1050,8 +1107,8 @@ export class AppointmentsController {
   ): Promise<PaginatedApiResponse<AppointmentWithRelationsResponseDto>> {
     const query = {
       doctorId,
-      startDate: date,
-      endDate: date,
+      startDate: startDate || date,
+      endDate: endDate || date,
       status: status as any,
       appointmentType: appointmentType as any,
       page,
