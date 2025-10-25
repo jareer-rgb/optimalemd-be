@@ -116,23 +116,36 @@ export class StripeService {
    * Confirm payment and update appointment status
    */
   async confirmPayment(confirmPaymentDto: ConfirmPaymentDto) {
-    const { paymentIntentId, appointmentId } = confirmPaymentDto;
+    const { paymentIntentId, appointmentId, isFreeAppointment } = confirmPaymentDto;
 
-    // Verify payment intent
-    const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
-    
-    if (paymentIntent.status !== 'succeeded') {
-      throw new BadRequestException('Payment not completed');
+    // Handle free appointments
+    if (isFreeAppointment) {
+      console.log('Processing free appointment - skipping payment verification');
+      
+      // For free appointments, we don't need to verify payment intent
+      // Just proceed with appointment confirmation
+    } else {
+      // Handle paid appointments
+      if (!paymentIntentId) {
+        throw new BadRequestException('Payment intent ID is required for paid appointments');
+      }
+
+      // Verify payment intent
+      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      
+      if (paymentIntent.status !== 'succeeded') {
+        throw new BadRequestException('Payment not completed');
+      }
+
+      // Update payment status
+      await this.prisma.payment.update({
+        where: { paymentIntent: paymentIntentId },
+        data: {
+          status: 'SUCCEEDED',
+          paidAt: new Date(),
+        },
+      });
     }
-
-    // Update payment status
-    await this.prisma.payment.update({
-      where: { paymentIntent: paymentIntentId },
-      data: {
-        status: 'SUCCEEDED',
-        paidAt: new Date(),
-      },
-    });
 
     // Generate Google Meet link for the appointment
     const appointment = await this.prisma.appointment.findUnique({

@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreatePaymentIntentDto {
@@ -23,13 +23,18 @@ export class CreatePaymentIntentDto {
 }
 
 export class ConfirmPaymentDto {
-  @ApiProperty({ description: 'Stripe payment intent ID' })
+  @ApiProperty({ description: 'Stripe payment intent ID (optional for free appointments)' })
+  @IsOptional()
   @IsString()
-  paymentIntentId: string;
+  paymentIntentId?: string;
 
   @ApiProperty({ description: 'Appointment ID' })
   @IsString()
   appointmentId: string;
+
+  @ApiProperty({ description: 'Is this a free appointment?', required: false })
+  @IsOptional()
+  isFreeAppointment?: boolean;
 }
 
 export class RefundPaymentDto {

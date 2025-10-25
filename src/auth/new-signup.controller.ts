@@ -9,7 +9,9 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
-  Request
+  Request,
+  Req,
+  BadRequestException
 } from '@nestjs/common';
 import { NewSignupService } from './new-signup.service';
 import { 
@@ -85,6 +87,58 @@ export class NewSignupController {
       body.paymentIntentId, 
       body.status as any
     );
+  }
+
+  // Get welcome order status by user ID
+  @Get('welcome-orders/status')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async getWelcomeOrderStatus(@Req() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User ID not found');
+    }
+    
+    const welcomeOrder = await this.newSignupService.getWelcomeOrderStatusByUserId(userId);
+    
+    return {
+      success: true,
+      data: welcomeOrder,
+      message: welcomeOrder ? 'Welcome order found' : 'No welcome order in progress'
+    };
+  }
+
+  // Complete welcome order
+  @Put('welcome-orders/:welcomeOrderId/complete')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async completeWelcomeOrder(@Param('welcomeOrderId') welcomeOrderId: string) {
+    const welcomeOrder = await this.newSignupService.completeWelcomeOrder(welcomeOrderId);
+    
+    return {
+      success: true,
+      data: welcomeOrder,
+      message: 'Welcome order completed successfully'
+    };
+  }
+
+  // Update user medical form completion status
+  @Put('update-user/:userId')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async updateUserMedicalFormCompletion(@Param('userId') userId: string) {
+    const user = await this.newSignupService.updateUserMedicalFormCompletion(userId);
+    
+    return {
+      success: true,
+      data: {
+        hasCompletedMedicalForm: user.hasCompletedMedicalForm,
+        medicalFormCompletedAt: user.medicalFormCompletedAt,
+        hasCompletedIntakeForm: user.hasCompletedIntakeForm,
+        intakeFormCompletedAt: user.intakeFormCompletedAt,
+      },
+      message: 'User medical form completion status updated successfully'
+    };
   }
 
   // Step-specific endpoints for easier frontend integration

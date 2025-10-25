@@ -308,6 +308,57 @@ export class NewSignupService {
     return welcomeOrder;
   }
 
+  // Get welcome order status by user ID
+  async getWelcomeOrderStatusByUserId(userId: string) {
+    const welcomeOrder = await this.prisma.welcomeOrder.findFirst({
+      where: { 
+        userId,
+        status: WelcomeOrderStatus.IN_PROGRESS
+      },
+      include: {
+        signupSteps: {
+          orderBy: [
+            { stepNumber: 'asc' },
+            { subStepNumber: 'asc' },
+          ],
+        },
+      },
+    });
+
+    return welcomeOrder;
+  }
+
+  // Complete welcome order (mark as COMPLETED)
+  async completeWelcomeOrder(welcomeOrderId: string) {
+    const welcomeOrder = await this.prisma.welcomeOrder.update({
+      where: { id: welcomeOrderId },
+      data: {
+        status: WelcomeOrderStatus.COMPLETED,
+        isCompleted: true,
+        completedAt: new Date(),
+      },
+    });
+
+    return welcomeOrder;
+  }
+
+  // Update user medical form completion status
+  async updateUserMedicalFormCompletion(userId: string) {
+    const currentTime = new Date();
+    
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        hasCompletedMedicalForm: true,
+        medicalFormCompletedAt: currentTime,
+        hasCompletedIntakeForm: true,
+        intakeFormCompletedAt: currentTime,
+      },
+    });
+
+    return user;
+  }
+
   // Create user step by step (for basic info step)
   async createUserStepByStep(userData: any) {
     try {
