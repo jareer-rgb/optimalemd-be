@@ -20,11 +20,12 @@ export class AuthService {
   async register(registerDto: RegisterDto): Promise<AuthResponseDataDto> {
     const { password, ...userData } = registerDto;
 
-
+    // Convert email to lowercase for case-insensitive matching
+    const normalizedEmail = userData.primaryEmail.toLowerCase();
 
     // Check if user already exists by primary email
     const existingUserByEmail = await this.prisma.user.findUnique({
-      where: { primaryEmail: userData.primaryEmail },
+      where: { primaryEmail: normalizedEmail },
     });
 
     if (existingUserByEmail) {
@@ -41,13 +42,14 @@ export class AuthService {
     // Prepare user data for creation
     const userCreateData: any = {
       ...userData,
+      primaryEmail: normalizedEmail, // Use normalized email
       password: hashedPassword,
       dateOfBirth: new Date(userData.dateOfBirth),
       dateOfFirstVisitPlanned: userData.dateOfFirstVisitPlanned ? new Date(userData.dateOfFirstVisitPlanned) : null,
       emailVerificationToken,
       emailVerificationTokenExpiry,
       // Map legacy fields for backward compatibility
-      email: userData.primaryEmail,
+      email: normalizedEmail, // Use normalized email
       phone: userData.primaryPhone,
     };
 
@@ -66,7 +68,7 @@ export class AuthService {
       console.log('Generated verification link:', verificationLink);
       
       await this.mailerService.sendEmailVerificationEmail(
-        userData.primaryEmail,
+        normalizedEmail,
         user.firstName || 'User',
         verificationLink
       );
@@ -100,16 +102,19 @@ export class AuthService {
 
   async login(loginDto: LoginDto): Promise<AuthResponseDataDto> {
     const { userType, email, password } = loginDto;
+    
+    // Convert email to lowercase for case-insensitive matching
+    const normalizedEmail = email.toLowerCase();
 
     if (userType === 'user') {
       // Handle user (patient) login
-      return this.loginUser(email, password);
+      return this.loginUser(normalizedEmail, password);
     } else if (userType === 'doctor') {
       // Handle doctor login
-      return this.loginDoctor(email, password);
+      return this.loginDoctor(normalizedEmail, password);
     } else if (userType === 'admin') {
       // Handle admin login
-      return this.loginAdmin(email, password);
+      return this.loginAdmin(normalizedEmail, password);
     } else {
       throw new BadRequestException('Invalid user type. Must be either "user", "doctor", or "admin"');
     }
@@ -252,22 +257,25 @@ export class AuthService {
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
     const { email } = forgotPasswordDto;
+    
+    // Convert email to lowercase for case-insensitive matching
+    const normalizedEmail = email.toLowerCase();
 
     // Check if user exists
     const user = await this.prisma.user.findUnique({
-      where: { primaryEmail: email },
+      where: { primaryEmail: normalizedEmail },
     });
 
     // Check if doctor exists
     const doctor = await this.prisma.doctor.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (!user && !doctor) {
       // Don't reveal if user/doctor exists or not for security
       return {
         message: 'If an account with that email exists, a password reset link has been sent.',
-        email,
+        email: normalizedEmail,
       };
     }
 
@@ -282,7 +290,7 @@ export class AuthService {
     // Save reset token to appropriate table
     if (accountType === 'user') {
       await this.prisma.user.update({
-        where: { primaryEmail: email },
+        where: { primaryEmail: normalizedEmail },
         data: {
           resetToken,
           resetTokenExpiry,
@@ -290,7 +298,7 @@ export class AuthService {
       });
     } else {
       await this.prisma.doctor.update({
-        where: { email },
+        where: { email: normalizedEmail },
         data: {
           resetToken,
           resetTokenExpiry,
@@ -306,7 +314,7 @@ export class AuthService {
     try {
       const firstName = accountType === 'user' ? (account as any).firstName : (account as any).firstName;
       await this.mailerService.sendPasswordResetEmail(
-        email,
+        normalizedEmail,
         firstName,
         resetLink
       );
@@ -315,7 +323,7 @@ export class AuthService {
       // Remove the token if email fails
       if (accountType === 'user') {
         await this.prisma.user.update({
-          where: { primaryEmail: email },
+          where: { primaryEmail: normalizedEmail },
           data: {
             resetToken: null,
             resetTokenExpiry: null,
@@ -323,7 +331,7 @@ export class AuthService {
         });
       } else {
         await this.prisma.doctor.update({
-          where: { email },
+          where: { email: normalizedEmail },
           data: {
             resetToken: null,
             resetTokenExpiry: null,
@@ -335,7 +343,7 @@ export class AuthService {
 
     return {
       message: 'If an account with that email exists, a password reset link has been sent.',
-      email,
+      email: normalizedEmail,
     };
   }
 
@@ -557,9 +565,12 @@ export class AuthService {
   }
 
   async resendVerification(email: string) {
+    // Convert email to lowercase for case-insensitive matching
+    const normalizedEmail = email.toLowerCase();
+    
     // Check if user exists
     const user = await this.prisma.user.findUnique({
-      where: { primaryEmail: email },
+      where: { primaryEmail: normalizedEmail },
     });
 
     if (!user) {
@@ -577,7 +588,7 @@ export class AuthService {
 
     // Update user with new verification token
     await this.prisma.user.update({
-      where: { primaryEmail: email },
+      where: { primaryEmail: normalizedEmail },
       data: {
         emailVerificationToken,
         emailVerificationTokenExpiry,
@@ -590,7 +601,7 @@ export class AuthService {
       console.log('Resend - Generated verification link:', verificationLink);
       
       await this.mailerService.sendEmailVerificationEmail(
-        email,
+        normalizedEmail,
         user.firstName || 'User',
         verificationLink
       );
@@ -598,7 +609,7 @@ export class AuthService {
       console.error('Failed to send email verification email:', error);
       // Remove the token if email fails
       await this.prisma.user.update({
-        where: { primaryEmail: email },
+        where: { primaryEmail: normalizedEmail },
         data: {
           emailVerificationToken: null,
           emailVerificationTokenExpiry: null,
@@ -609,14 +620,17 @@ export class AuthService {
 
     return {
       message: 'Verification email sent successfully',
-      email,
+      email: normalizedEmail,
     };
   }
 
   async getVerificationStatus(primaryEmail: string) {
+    // Convert email to lowercase for case-insensitive matching
+    const normalizedEmail = primaryEmail.toLowerCase();
+    
     // Check if user exists
     const user = await this.prisma.user.findUnique({
-      where: { primaryEmail },
+      where: { primaryEmail: normalizedEmail },
       select: {
         primaryEmail: true,
         isEmailVerified: true,
