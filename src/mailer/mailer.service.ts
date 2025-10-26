@@ -118,9 +118,22 @@ export class MailerService implements OnModuleInit {
             overflow: hidden;
           }
           .header {
-            background-color: #dc2626;
+            background-color: #000000;
             padding: 25px;
             text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
           }
           .logo {
             color: #ffffff;
@@ -147,7 +160,7 @@ export class MailerService implements OnModuleInit {
           }
           .verification-button {
             display: inline-block;
-            background-color: #dc2626;
+            background-color: #000000;
             color: #ffffff !important;
             padding: 15px 30px;
             text-decoration: none;
@@ -161,7 +174,7 @@ export class MailerService implements OnModuleInit {
             padding: 20px;
             border-radius: 5px;
             margin: 20px 0;
-            border-left: 4px solid #dc2626;
+            border-left: 4px solid #000000;
           }
           .footer {
             background-color: #f8f9fa;
@@ -181,7 +194,7 @@ export class MailerService implements OnModuleInit {
             font-size: 14px;
           }
           .link-fallback a {
-            color: #dc2626;
+            color: #000000;
             word-break: break-all;
           }
         </style>
@@ -189,7 +202,10 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimaleMD</div>
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
           </div>
           <div class="content">
             <h2 class="title">Verify Your Email</h2>
@@ -199,7 +215,7 @@ export class MailerService implements OnModuleInit {
             <a href="${verificationLink}" class="verification-button">Verify Email</a>
             
             <div class="info-box">
-              <p style="margin: 0; color: #dc2626; font-weight: bold;">⏰ This link expires in 1 hour</p>
+              <p style="margin: 0; color: #000000; font-weight: bold;">⏰ This link expires in 1 hour</p>
             </div>
             
             <div class="link-fallback">
@@ -256,9 +272,22 @@ export class MailerService implements OnModuleInit {
             overflow: hidden;
           }
           .header {
-            background-color: #dc2626;
+            background-color: #000000;
             padding: 25px;
             text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
           }
           .logo {
             color: #ffffff;
@@ -285,7 +314,7 @@ export class MailerService implements OnModuleInit {
           }
           .reset-button {
             display: inline-block;
-            background-color: #dc2626;
+            background-color: #000000;
             color: #ffffff !important;
             padding: 15px 30px;
             text-decoration: none;
@@ -299,7 +328,7 @@ export class MailerService implements OnModuleInit {
             padding: 20px;
             border-radius: 5px;
             margin: 20px 0;
-            border-left: 4px solid #dc2626;
+            border-left: 4px solid #000000;
           }
           .warning-box {
             background-color: #fff3cd;
@@ -328,7 +357,7 @@ export class MailerService implements OnModuleInit {
             font-size: 14px;
           }
           .link-fallback a {
-            color: #dc2626;
+            color: #000000;
             word-break: break-all;
           }
         </style>
@@ -336,7 +365,10 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimaleMD</div>
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
           </div>
           <div class="content">
             <h2 class="title">Reset Your Password</h2>
@@ -346,7 +378,7 @@ export class MailerService implements OnModuleInit {
             <a href="${resetLink}" class="reset-button">Reset Password</a>
             
             <div class="info-box">
-              <p style="margin: 0; color: #dc2626; font-weight: bold;">⏰ This link expires in 1 hour</p>
+              <p style="margin: 0; color: #000000; font-weight: bold;">⏰ This link expires in 1 hour</p>
             </div>
             
             <div class="warning-box">
@@ -408,9 +440,22 @@ export class MailerService implements OnModuleInit {
             overflow: hidden;
           }
           .header {
-            background-color: #dc2626;
+            background-color: #000000;
             padding: 25px;
             text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
           }
           .logo {
             color: #ffffff;
@@ -440,7 +485,7 @@ export class MailerService implements OnModuleInit {
             padding: 25px;
             border-radius: 5px;
             margin: 25px 0;
-            border-left: 4px solid #dc2626;
+            border-left: 4px solid #000000;
             color: #333333;
             font-size: 16px;
           }
@@ -468,7 +513,7 @@ export class MailerService implements OnModuleInit {
           }
           .cta-button {
             display: inline-block;
-            background-color: #dc2626;
+            background-color: #000000;
             color: #ffffff !important;
             padding: 12px 25px;
             text-decoration: none;
@@ -482,7 +527,10 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimaleMD</div>
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
           </div>
           <div class="content">
             <h2 class="title">Welcome to OptimaleMD!</h2>
@@ -491,7 +539,7 @@ export class MailerService implements OnModuleInit {
             
             <div class="welcome-message">
               <span class="welcome-icon">🎉</span>
-              <p style="margin: 0 0 10px 0; color: #dc2626; font-weight: bold; font-size: 18px;">Your account is now active!</p>
+              <p style="margin: 0 0 10px 0; color: #000000; font-weight: bold; font-size: 18px;">Your account is now active!</p>
               <p style="margin: 0;">You can now access all features of OptimaleMD.</p>
             </div>
             
@@ -560,9 +608,22 @@ export class MailerService implements OnModuleInit {
             overflow: hidden;
           }
           .header {
-            background-color: #dc2626;
+            background-color: #000000;
             padding: 25px;
             text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
           }
           .logo {
             color: #ffffff;
@@ -605,7 +666,7 @@ export class MailerService implements OnModuleInit {
           .detail-row:last-child {
             border-bottom: none;
             font-weight: bold;
-            color: #dc2626;
+            color: #000000;
             font-size: 18px;
           }
           .detail-label {
@@ -628,7 +689,10 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimaleMD</div>
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
           </div>
           <div class="content">
             <h2 class="title">Appointment Confirmed!</h2>
@@ -726,9 +790,22 @@ export class MailerService implements OnModuleInit {
             overflow: hidden;
           }
           .header {
-            background-color: #dc2626;
+            background-color: #000000;
             padding: 25px;
             text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
           }
           .logo {
             color: #ffffff;
@@ -794,7 +871,10 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimaleMD</div>
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
           </div>
           <div class="content">
             <h2 class="title">New Appointment Scheduled</h2>
@@ -889,9 +969,22 @@ export class MailerService implements OnModuleInit {
             overflow: hidden;
           }
           .header {
-            background-color: #dc2626;
+            background-color: #000000;
             padding: 25px;
             text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
           }
           .logo {
             color: #ffffff;
@@ -934,7 +1027,7 @@ export class MailerService implements OnModuleInit {
           .detail-row:last-child {
             border-bottom: none;
             font-weight: bold;
-            color: #dc2626;
+            color: #000000;
             font-size: 18px;
           }
           .detail-label {
@@ -965,7 +1058,10 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimaleMD</div>
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
           </div>
           <div class="content">
             <h2 class="title">Appointment Cancelled</h2>
@@ -1054,9 +1150,22 @@ export class MailerService implements OnModuleInit {
             overflow: hidden;
           }
           .header {
-            background-color: #dc2626;
+            background-color: #000000;
             padding: 25px;
             text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
           }
           .logo {
             color: #ffffff;
@@ -1099,7 +1208,7 @@ export class MailerService implements OnModuleInit {
           .detail-row:last-child {
             border-bottom: none;
             font-weight: bold;
-            color: #dc2626;
+            color: #000000;
             font-size: 18px;
           }
           .detail-label {
@@ -1130,7 +1239,10 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimaleMD</div>
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
           </div>
           <div class="content">
             <h2 class="title">Appointment Cancelled</h2>
@@ -1222,9 +1334,22 @@ export class MailerService implements OnModuleInit {
             overflow: hidden;
           }
           .header {
-            background-color: #dc2626;
+            background-color: #000000;
             padding: 25px;
             text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
           }
           .logo {
             color: #ffffff;
@@ -1301,7 +1426,10 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimaleMD</div>
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
           </div>
           <div class="content">
             <h2 class="title">Appointment Rescheduled</h2>
@@ -1404,9 +1532,22 @@ export class MailerService implements OnModuleInit {
             overflow: hidden;
           }
           .header {
-            background-color: #dc2626;
+            background-color: #000000;
             padding: 25px;
             text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
           }
           .logo {
             color: #ffffff;
@@ -1483,7 +1624,10 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimaleMD</div>
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
           </div>
           <div class="content">
             <h2 class="title">Appointment Rescheduled</h2>
@@ -1577,9 +1721,22 @@ export class MailerService implements OnModuleInit {
             overflow: hidden;
           }
           .header {
-            background-color: #dc2626;
+            background-color: #000000;
             padding: 25px;
             text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
           }
           .logo {
             color: #ffffff;
@@ -1606,7 +1763,7 @@ export class MailerService implements OnModuleInit {
           }
           .form-button {
             display: inline-block;
-            background-color: #dc2626;
+            background-color: #000000;
             color: #ffffff !important;
             padding: 15px 30px;
             text-decoration: none;
@@ -1620,7 +1777,7 @@ export class MailerService implements OnModuleInit {
             padding: 20px;
             border-radius: 5px;
             margin: 20px 0;
-            border-left: 4px solid #dc2626;
+            border-left: 4px solid #000000;
             text-align: left;
           }
           .important-notice {
@@ -1649,7 +1806,7 @@ export class MailerService implements OnModuleInit {
             font-size: 14px;
           }
           .link-fallback a {
-            color: #dc2626;
+            color: #000000;
             word-break: break-all;
           }
         </style>
@@ -1657,7 +1814,10 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimaleMD</div>
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
           </div>
           <div class="content">
             <h2 class="title">Complete Your Medical Consultation Form</h2>
@@ -1667,7 +1827,7 @@ export class MailerService implements OnModuleInit {
             <a href="${formLink}" class="form-button">Complete Medical Form</a>
             
             <div class="info-box">
-              <p style="margin: 0 0 10px 0; color: #dc2626; font-weight: bold;">📋 Required Information</p>
+              <p style="margin: 0 0 10px 0; color: #000000; font-weight: bold;">📋 Required Information</p>
               <p style="margin: 0;">This form includes your medical history, current medications, allergies, and other important health information that will help our doctors provide better care.</p>
             </div>
             
@@ -1732,7 +1892,7 @@ export class MailerService implements OnModuleInit {
             overflow: hidden;
           }
           .header {
-            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            background: linear-gradient(135deg, #000000, #b91c1c);
             color: white;
             padding: 30px 20px;
             text-align: center;
@@ -1751,7 +1911,7 @@ export class MailerService implements OnModuleInit {
             padding: 40px 30px;
           }
           .content h2 {
-            color: #dc2626;
+            color: #000000;
             font-size: 24px;
             margin-bottom: 20px;
             font-weight: 600;
@@ -1770,7 +1930,7 @@ export class MailerService implements OnModuleInit {
             text-align: center;
           }
           .credentials-box h3 {
-            color: #dc2626;
+            color: #000000;
             margin: 0 0 15px 0;
             font-size: 18px;
           }
@@ -1793,7 +1953,7 @@ export class MailerService implements OnModuleInit {
           }
           .button {
             display: inline-block;
-            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            background: linear-gradient(135deg, #000000, #b91c1c);
             color: white;
             text-decoration: none;
             padding: 15px 30px;
