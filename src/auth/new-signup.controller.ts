@@ -34,7 +34,17 @@ export class NewSignupController {
   @Post('welcome-order')
   @HttpCode(HttpStatus.CREATED)
   async createWelcomeOrder(@Body() createDto: CreateWelcomeOrderDto) {
-    return this.newSignupService.createWelcomeOrder(createDto);
+    try {
+      return await this.newSignupService.createWelcomeOrder(createDto);
+    } catch (error) {
+      console.error('Error in createWelcomeOrder controller:', error);
+      
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      throw new BadRequestException('Unable to create welcome order. Please try again.');
+    }
   }
 
   // Update signup step
@@ -44,7 +54,17 @@ export class NewSignupController {
     @Param('welcomeOrderId') welcomeOrderId: string,
     @Body() updateDto: UpdateSignupStepDto
   ) {
-    return this.newSignupService.updateSignupStep(welcomeOrderId, updateDto);
+    try {
+      return await this.newSignupService.updateSignupStep(welcomeOrderId, updateDto);
+    } catch (error) {
+      console.error('Error in updateSignupStep controller:', error);
+      
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      throw new BadRequestException('Unable to update signup step. Please try again.');
+    }
   }
 
   // Get signup progress
@@ -383,13 +403,23 @@ export class NewSignupController {
   // Create user step by step
   @Post('create-user-step-by-step')
   async createUserStepByStep(@Body() userData: CreateUserStepByStepDto) {
-    const result = await this.newSignupService.createUserStepByStep(userData);
-    return {
-      success: true,
-      statusCode: 201,
-      message: 'User created successfully',
-      data: result,
-    };
+    try {
+      const result = await this.newSignupService.createUserStepByStep(userData);
+      return {
+        success: true,
+        statusCode: 201,
+        message: 'User created successfully',
+        data: result,
+      };
+    } catch (error) {
+      console.error('Error in createUserStepByStep controller:', error);
+      
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      throw new BadRequestException('Unable to create user account. Please check your information and try again.');
+    }
   }
 
   // Update welcome order with user ID

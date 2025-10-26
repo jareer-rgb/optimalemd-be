@@ -364,6 +364,18 @@ export class NewSignupService {
     try {
       console.log('Creating user step by step with data:', userData);
 
+      // Convert email to lowercase for case-insensitive matching
+      const normalizedEmail = userData.primaryEmail.toLowerCase();
+
+      // Check if user already exists by primary email
+      const existingUserByEmail = await this.prisma.user.findUnique({
+        where: { primaryEmail: normalizedEmail },
+      });
+
+      if (existingUserByEmail) {
+        throw new BadRequestException('An account with this email address already exists. Please use a different email or try logging in instead.');
+      }
+
       // Hash password
       const hashedPassword = await bcrypt.hash(userData.password, 12);
 
@@ -372,8 +384,8 @@ export class NewSignupService {
         data: {
           firstName: userData.firstName,
           lastName: userData.lastName,
-          primaryEmail: userData.primaryEmail,
-          email: userData.primaryEmail, // Legacy field - keep for compatibility
+          primaryEmail: normalizedEmail, // Use normalized email
+          email: normalizedEmail, // Legacy field - keep for compatibility
           gender: userData.gender,
           password: hashedPassword,
           isActive: userData.isActive ?? true,
@@ -416,7 +428,34 @@ export class NewSignupService {
       };
     } catch (error) {
       console.error('Error creating user step by step:', error);
-      throw new BadRequestException('Failed to create user: ' + error.message);
+      
+      // Handle specific error types with user-friendly messages
+      if (error instanceof BadRequestException) {
+        throw error; // Re-throw our custom validation errors
+      }
+      
+      // Handle Prisma errors
+      if (error.code === 'P2002') {
+        if (error.meta && error.meta.target && error.meta.target.includes('primaryEmail')) {
+          throw new BadRequestException('An account with this email address already exists. Please use a different email or try logging in instead.');
+        }
+        throw new BadRequestException('This information is already in use. Please check your details and try again.');
+      }
+      
+      if (error.code === 'P2025') {
+        throw new BadRequestException('Unable to create account. Please try again.');
+      }
+      
+      // Handle validation errors
+      if (error.message && error.message.includes('Invalid value for argument')) {
+        if (error.message.includes('dateOfBirth')) {
+          throw new BadRequestException('Invalid date format. Please use MM-DD-YYYY format.');
+        }
+        throw new BadRequestException('Invalid data format. Please check your information and try again.');
+      }
+      
+      // Generic error for unexpected issues
+      throw new BadRequestException('Unable to create account. Please check your information and try again.');
     }
   }
 
