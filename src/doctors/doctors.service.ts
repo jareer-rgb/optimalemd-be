@@ -570,6 +570,155 @@ export class DoctorsService {
   }
 
   /**
+   * Helper method to get DOB search conditions - same as admin
+   */
+  private getDobSearchConditions(searchTerm: string): any[] {
+    const conditions: any[] = [];
+    
+    // Try to parse different date formats
+    const dateFormats = [
+      // MM-DD-YYYY or MM/DD/YYYY or DD-MM-YYYY or DD/MM/YYYY
+      /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/,
+      // YYYY-MM-DD
+      /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
+      // MMDDYYYY
+      /^(\d{2})(\d{2})(\d{4})$/,
+      // MMDDYY
+      /^(\d{2})(\d{2})(\d{2})$/
+    ];
+
+    for (const format of dateFormats) {
+      const match = searchTerm.match(format);
+      if (match) {
+        let month: number, day: number, year: number;
+        
+        if (format.source.includes('YYYY')) {
+          // MM-DD-YYYY or YYYY-MM-DD format
+          if (format.source.startsWith('^\\d{4}')) {
+            // YYYY-MM-DD
+            year = parseInt(match[1]);
+            month = parseInt(match[2]);
+            day = parseInt(match[3]);
+          } else {
+            // MM-DD-YYYY or DD-MM-YYYY - try both interpretations
+            const firstNum = parseInt(match[1]);
+            const secondNum = parseInt(match[2]);
+            year = parseInt(match[3]);
+            
+            // Try both MM-DD and DD-MM
+            const date1Valid = firstNum >= 1 && firstNum <= 12 && secondNum >= 1 && secondNum <= 31;
+            const date2Valid = secondNum >= 1 && secondNum <= 12 && firstNum >= 1 && firstNum <= 31;
+            
+            if (date1Valid) {
+              // Try MM-DD-YYYY
+              month = firstNum;
+              day = secondNum;
+              
+              if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+                try {
+                  const searchDate = new Date(year, month - 1, day);
+                  if (searchDate.getFullYear() === year && searchDate.getMonth() === month - 1 && searchDate.getDate() === day) {
+                    const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+                    const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
+                    
+                    conditions.push({
+                      dateOfBirth: {
+                        gte: startOfDay,
+                        lte: endOfDay
+                      }
+                    });
+                  }
+                } catch (error) {
+                  // Invalid date, try next
+                }
+              }
+            }
+            
+            if (date2Valid && firstNum !== secondNum) {
+              // Try DD-MM-YYYY
+              month = secondNum;
+              day = firstNum;
+              
+              if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+                try {
+                  const searchDate = new Date(year, month - 1, day);
+                  if (searchDate.getFullYear() === year && searchDate.getMonth() === month - 1 && searchDate.getDate() === day) {
+                    const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+                    const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
+                    
+                    conditions.push({
+                      dateOfBirth: {
+                        gte: startOfDay,
+                        lte: endOfDay
+                      }
+                    });
+                  }
+                } catch (error) {
+                  // Invalid date, skip
+                }
+              }
+            }
+            break; // Exit format loop after trying both interpretations
+          }
+        } else if (format.source.includes('YY')) {
+          // MMDDYY format
+          month = parseInt(match[1]);
+          day = parseInt(match[2]);
+          const twoDigitYear = parseInt(match[3]);
+          // Assume years 00-30 are 2000-2030, 31-99 are 1931-1999
+          year = twoDigitYear <= 30 ? 2000 + twoDigitYear : 1900 + twoDigitYear;
+        } else {
+          // MMDDYYYY format
+          month = parseInt(match[1]);
+          day = parseInt(match[2]);
+          year = parseInt(match[3]);
+        }
+
+        // Validate the date (for non-ambiguous formats)
+        if (!format.source.includes('[-/].*[-/]')) {
+          if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+            try {
+              const searchDate = new Date(year, month - 1, day);
+              if (searchDate.getFullYear() === year && searchDate.getMonth() === month - 1 && searchDate.getDate() === day) {
+                const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+                const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
+                
+                conditions.push({
+                  dateOfBirth: {
+                    gte: startOfDay,
+                    lte: endOfDay
+                  }
+                });
+              }
+            } catch (error) {
+              // Invalid date, skip
+            }
+          }
+          break; // Only try the first matching format
+        }
+      }
+    }
+
+    // Also try searching for partial dates (just year, or month-year)
+    const yearMatch = searchTerm.match(/^(\d{4})$/);
+    if (yearMatch) {
+      const year = parseInt(yearMatch[1]);
+      if (year >= 1900 && year <= 2100) {
+        const startOfYear = new Date(year, 0, 1);
+        const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
+        conditions.push({
+          dateOfBirth: {
+            gte: startOfYear,
+            lte: endOfYear
+          }
+        });
+      }
+    }
+
+    return conditions;
+  }
+
+  /**
    * Get patients for a doctor
    */
   async getDoctorPatients(doctorId: string, query: { search?: string; page: number; limit: number }): Promise<any> {
@@ -582,7 +731,7 @@ export class DoctorsService {
     };
 
     if (search) {
-      where.OR = [
+      const searchConditions = [
         {
           patient: {
             firstName: {
@@ -606,19 +755,28 @@ export class DoctorsService {
               mode: 'insensitive'
             }
           }
+        },
+        {
+          patient: {
+            primaryPhone: {
+              contains: search,
+              mode: 'insensitive'
+            }
+          }
         }
       ];
 
-      // Check if search looks like a date (contains digits and dashes/slashes)
-      if (/[\d\-\/]/.test(search)) {
-        where.OR.push({
-          patient: {
-            dateOfBirth: {
-              not: null
-            }
-          }
+      // Add DOB search conditions
+      const dobSearchConditions = this.getDobSearchConditions(search);
+      if (dobSearchConditions.length > 0) {
+        dobSearchConditions.forEach(dobCondition => {
+          searchConditions.push({
+            patient: dobCondition
+          });
         });
       }
+
+      where.OR = searchConditions;
     }
 
     // Get all appointments with patient info and medical forms
@@ -651,17 +809,6 @@ export class DoctorsService {
       this.prisma.appointment.count({ where })
     ]);
 
-    // Filter by DOB if search contains date-like patterns (client-side filtering)
-    let filteredAppointments = appointments;
-    if (search && /[\d\-\/]/.test(search)) {
-      filteredAppointments = appointments.filter(apt => {
-        if (!apt.patient.dateOfBirth) return false;
-        const dobString = apt.patient.dateOfBirth.toISOString().split('T')[0]; // YYYY-MM-DD
-        const dobDisplay = new Date(apt.patient.dateOfBirth).toLocaleDateString(); // MM/DD/YYYY
-        return dobString.includes(search) || dobDisplay.includes(search);
-      });
-    }
-
     // Helper function to check if appointment has passed
     const hasAppointmentPassed = (appointmentDate: Date, appointmentTime: string): boolean => {
       const now = new Date();
@@ -677,7 +824,7 @@ export class DoctorsService {
     // Group appointments by patient
     const patientMap = new Map<string, any>();
     
-    filteredAppointments.forEach((appointment) => {
+    appointments.forEach((appointment) => {
       const patient = appointment.patient;
       const patientId = patient.id;
 

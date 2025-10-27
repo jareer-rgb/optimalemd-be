@@ -11,28 +11,60 @@ export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
   // Helper function to parse markdown content for PDF
-  private parseMarkdownForPDF(content: string): string {
+  private async parseMarkdownForPDF(content: string): Promise<string> {
     if (!content) return '';
-    
-    // Convert markdown to plain text with basic formatting
+
+    // First, handle JSON-like content that might contain escaped newlines
     let parsed = content;
     
-    // Convert headers
-    parsed = parsed.replace(/^### (.*$)/gim, '$1');
-    parsed = parsed.replace(/^## (.*$)/gim, '$1');
-    parsed = parsed.replace(/^# (.*$)/gim, '$1');
+    // Replace escaped newlines with actual newlines
+    parsed = parsed.replace(/\\n/g, '\n');
+    parsed = parsed.replace(/\\t/g, '\t');
     
-    // Convert bold text
-    parsed = parsed.replace(/\*\*(.*?)\*\*/g, '$1');
+    // Remove JSON wrapper if present
+    parsed = parsed.replace(/^\s*\{[^}]*"assessmentContent":\s*"/, '');
+    parsed = parsed.replace(/^\s*\{[^}]*"lifestyleGuidance":\s*"/, '');
+    parsed = parsed.replace(/"\s*\}\s*$/, '');
     
-    // Convert bullet points
-    parsed = parsed.replace(/^\s*[-*]\s+(.*$)/gim, '• $1');
-    parsed = parsed.replace(/^\s*\d+\.\s+(.*$)/gim, '• $1');
+    // Convert markdown to HTML using marked
+    const html = await marked(parsed);
+
+    // Convert HTML to plain text with proper formatting for PDFKit
+    let text = html;
+
+    // Replace <p> tags with double newlines
+    text = text.replace(/<p[^>]*>(.*?)<\/p>/gim, '$1\n\n');
     
-    // Convert line breaks
-    parsed = parsed.replace(/\n\n/g, '\n');
+    // Replace headers with newlines and make them stand out
+    text = text.replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gim, '\n$1\n');
     
-    return parsed.trim();
+    // Replace <strong>/<b> tags (we'll handle bold in PDF generation)
+    text = text.replace(/<(strong|b)[^>]*>(.*?)<\/(strong|b)>/gim, '$2');
+    
+    // Replace <em>/<i> tags
+    text = text.replace(/<(em|i)[^>]*>(.*?)<\/(em|i)>/gim, '$2');
+    
+    // Replace unordered lists
+    text = text.replace(/<ul[^>]*>/gim, '\n');
+    text = text.replace(/<\/ul>/gim, '\n');
+    text = text.replace(/<li[^>]*>(.*?)<\/li>/gim, '• $1\n');
+    
+    // Replace ordered lists
+    text = text.replace(/<ol[^>]*>/gim, '\n');
+    text = text.replace(/<\/ol>/gim, '\n');
+    text = text.replace(/<li[^>]*>(.*?)<\/li>/gim, '• $1\n');
+    
+    // Replace <br> tags with newlines
+    text = text.replace(/<br[^>]*\/?>/gim, '\n');
+    
+    // Remove all other HTML tags
+    text = text.replace(/<[^>]*>/g, '');
+    
+    // Clean up excessive whitespace
+    text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
+    text = text.replace(/^\s+|\s+$/g, '');
+    
+    return text;
   }
 
   async generateReport(appointmentId: string): Promise<{ fileName: string; filePath: string }> {
@@ -113,7 +145,7 @@ export class ReportsService {
   }
 
   private async createPDF(appointment: any, assessments: any[], filePath: string): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
         const doc = new PDFDocument({ 
           margin: 50,
@@ -228,7 +260,7 @@ export class ReportsService {
           
           yPosition += 30;
 
-          Object.entries(appointment.medications).forEach(([serviceName, meds]: [string, any]) => {
+          for (const [serviceName, meds] of Object.entries(appointment.medications)) {
             console.log(`Processing medication category: ${serviceName}`, meds);
             
             doc
@@ -240,7 +272,7 @@ export class ReportsService {
             yPosition += 20;
 
             if (Array.isArray(meds)) {
-              meds.forEach((med: string) => {
+              for (const med of meds) {
                 if (yPosition > 700) {
                   doc.addPage();
                   yPosition = 50;
@@ -249,16 +281,16 @@ export class ReportsService {
                 // Add medication name
                 doc
                   .fontSize(11)
-                  .fillColor('#333333')
+                  .fillColor('#000000')
                   .font('Helvetica-Bold')
                   .text('• ' + med, 90, yPosition);
-                yPosition += 20;
+                yPosition += 15;
                 
                 // Add detailed prescription if available
                 const prescription = MEDICATION_PRESCRIPTIONS[med];
                 if (prescription) {
-                  const parsedPrescription = this.parseMarkdownForPDF(prescription);
-                  const lines = doc.heightOfString(parsedPrescription, { width: 400 });
+                  const parsedPrescription = await this.parseMarkdownForPDF(prescription);
+                  const lines = doc.heightOfString(parsedPrescription, { width: 400, lineGap: 2 });
                   
                   if (yPosition + lines > 700) {
                     doc.addPage();
@@ -267,19 +299,19 @@ export class ReportsService {
                   
                   doc
                     .fontSize(9)
-                    .fillColor('#666666')
+                    .fillColor('#000000')
                     .font('Helvetica')
-                    .text(parsedPrescription, 110, yPosition, { width: 400, align: 'justify' });
+                    .text(parsedPrescription, 110, yPosition, { width: 400, align: 'left', lineGap: 2 });
                   
-                  yPosition += lines + 15;
+                  yPosition += lines + 10;
                 } else {
-                  yPosition += 10;
+                  yPosition += 5;
                 }
-              });
+              }
             }
 
             yPosition += 10;
-          });
+          }
           
           console.log('Medications section added successfully');
         } else {
@@ -329,7 +361,7 @@ export class ReportsService {
           
           yPosition += 30;
 
-          otherAssessments.forEach((assessment) => {
+          for (const assessment of otherAssessments) {
             console.log(`Adding assessment: ${assessment.assessment.name}`);
             
             if (yPosition > 650) {
@@ -346,8 +378,8 @@ export class ReportsService {
             yPosition += 20;
 
             if (assessment.content) {
-              const parsedContent = this.parseMarkdownForPDF(assessment.content);
-              const lines = doc.heightOfString(parsedContent, { width: 470 });
+              const parsedContent = await this.parseMarkdownForPDF(assessment.content);
+              const lines = doc.heightOfString(parsedContent, { width: 470, lineGap: 2 });
               if (yPosition + lines > 700) {
                 doc.addPage();
                 yPosition = 50;
@@ -355,11 +387,11 @@ export class ReportsService {
 
               doc
                 .fontSize(10)
-                .fillColor('#666666')
+                .fillColor('#000000')
                 .font('Helvetica')
-                .text(parsedContent, 70, yPosition, { width: 470, align: 'justify' });
+                .text(parsedContent, 70, yPosition, { width: 470, align: 'left', lineGap: 2 });
               
-              yPosition += lines + 20;
+              yPosition += lines + 10;
             } else {
               doc
                 .fontSize(10)
@@ -369,7 +401,7 @@ export class ReportsService {
               
               yPosition += 30;
             }
-          });
+          }
           
           console.log('Patient assessments added successfully');
         } else {
@@ -412,8 +444,8 @@ export class ReportsService {
           
           yPosition += 30;
 
-          const parsedContent = this.parseMarkdownForPDF(lifestyleAssessment.content);
-          const lines = doc.heightOfString(parsedContent, { width: 470 });
+          const parsedContent = await this.parseMarkdownForPDF(lifestyleAssessment.content);
+          const lines = doc.heightOfString(parsedContent, { width: 470, lineGap: 2 });
           if (yPosition + lines > 700) {
             doc.addPage();
             yPosition = 50;
@@ -421,11 +453,11 @@ export class ReportsService {
 
           doc
             .fontSize(10)
-            .fillColor('#666666')
+            .fillColor('#000000')
             .font('Helvetica')
-            .text(parsedContent, 70, yPosition, { width: 470, align: 'justify' });
+            .text(parsedContent, 70, yPosition, { width: 470, align: 'left', lineGap: 2 });
           
-          yPosition += lines + 20;
+          yPosition += lines + 10;
         }
 
         // Footer on last page
