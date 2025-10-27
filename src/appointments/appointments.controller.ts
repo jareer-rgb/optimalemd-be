@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -660,6 +661,11 @@ export class AppointmentsController {
     @Body() body: { subjectiveNotes: string },
     @CurrentUser() user: any,
   ): Promise<BaseApiResponse<AppointmentResponseDto>> {
+    // Ensure only doctors can update subjective notes
+    if (user.userType !== 'doctor') {
+      throw new ForbiddenException('Only doctors can update subjective notes');
+    }
+    
     const data = await this.appointmentsService.updateSubjectiveNotes(id, body.subjectiveNotes, user.id);
     return {
       success: true,

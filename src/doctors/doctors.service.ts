@@ -608,6 +608,17 @@ export class DoctorsService {
           }
         }
       ];
+
+      // Check if search looks like a date (contains digits and dashes/slashes)
+      if (/[\d\-\/]/.test(search)) {
+        where.OR.push({
+          patient: {
+            dateOfBirth: {
+              not: null
+            }
+          }
+        });
+      }
     }
 
     // Get all appointments with patient info and medical forms
@@ -630,10 +641,8 @@ export class DoctorsService {
               name: true
             }
           },
-          medicalForm: true // Include the medical form for this specific appointment
+          medicalForm: true
         },
-        skip,
-        take: limit,
         orderBy: [
           { appointmentDate: 'desc' },
           { appointmentTime: 'desc' }
@@ -642,37 +651,112 @@ export class DoctorsService {
       this.prisma.appointment.count({ where })
     ]);
 
-    // Transform appointments to patient entries
-    const patientsWithAppointments = appointments.map((appointment) => {
-      const patient = appointment.patient;
-      const age = patient.dateOfBirth ? this.calculateAge(patient.dateOfBirth) : 0;
+    // Filter by DOB if search contains date-like patterns (client-side filtering)
+    let filteredAppointments = appointments;
+    if (search && /[\d\-\/]/.test(search)) {
+      filteredAppointments = appointments.filter(apt => {
+        if (!apt.patient.dateOfBirth) return false;
+        const dobString = apt.patient.dateOfBirth.toISOString().split('T')[0]; // YYYY-MM-DD
+        const dobDisplay = new Date(apt.patient.dateOfBirth).toLocaleDateString(); // MM/DD/YYYY
+        return dobString.includes(search) || dobDisplay.includes(search);
+      });
+    }
 
-      return {
-        id: patient.id,
-        appointmentId: appointment.id, // Include appointment ID for navigation
-        name: `${patient.firstName} ${patient.lastName}`,
-        age,
-        mrn: patient.id.substring(0, 8), // Use first 8 characters of ID as MRN
-        lastVisit: this.formatDate(appointment.appointmentDate),
-        lastVisitTime: appointment.appointmentTime || 'N/A',
-        lastVisitStatus: appointment.status || 'N/A',
-        lastVisitPurpose: appointment.service?.name || 'N/A',
-        email: patient.primaryEmail,
-        phone: patient.primaryPhone,
-        dateOfBirth: patient.dateOfBirth,
-        medicalForm: appointment.medicalForm, // Include the medical form for this specific appointment
+    // Helper function to check if appointment has passed
+    const hasAppointmentPassed = (appointmentDate: Date, appointmentTime: string): boolean => {
+      const now = new Date();
+      const aptDate = new Date(appointmentDate);
+      
+      // Parse the time (HH:MM format)
+      const [hours, minutes] = appointmentTime.split(':').map(Number);
+      aptDate.setHours(hours, minutes, 0, 0);
+      
+      return aptDate < now;
+    };
+
+    // Group appointments by patient
+    const patientMap = new Map<string, any>();
+    
+    filteredAppointments.forEach((appointment) => {
+      const patient = appointment.patient;
+      const patientId = patient.id;
+
+      if (!patientMap.has(patientId)) {
+        const age = patient.dateOfBirth ? this.calculateAge(patient.dateOfBirth) : 0;
+        
+        patientMap.set(patientId, {
+          id: patient.id,
+          name: `${patient.firstName} ${patient.lastName}`,
+          age,
+          mrn: patient.id.substring(0, 8),
+          email: patient.primaryEmail,
+          phone: patient.primaryPhone,
+          dateOfBirth: patient.dateOfBirth,
+          appointments: [],
+          totalAppointments: 0,
+          lastVisit: '-',
+          lastVisitTime: 'N/A',
+          lastVisitStatus: 'N/A',
+          lastVisitPurpose: 'N/A',
+          appointmentId: null,
+          appointmentDate: null,
+          appointmentTime: null,
+          appointmentStatus: null,
+          medicalForm: null,
+        });
+      }
+
+      const patientData = patientMap.get(patientId);
+      patientData.appointments.push({
+        id: appointment.id,
+        date: this.formatDate(appointment.appointmentDate),
+        time: appointment.appointmentTime || 'N/A',
+        status: appointment.status || 'N/A',
+        purpose: appointment.service?.name || 'N/A',
         appointmentDate: appointment.appointmentDate,
         appointmentTime: appointment.appointmentTime,
-        appointmentStatus: appointment.status,
-      };
+        medicalForm: appointment.medicalForm,
+      });
+      patientData.totalAppointments = patientData.appointments.length;
+
+      // Check if this appointment has passed and update last visit if it's the first (most recent) past appointment
+      // Since appointments are ordered DESC, the first one that has passed is the most recent past appointment
+      const appointmentHasPassed = hasAppointmentPassed(appointment.appointmentDate, appointment.appointmentTime);
+      
+      if (appointmentHasPassed && patientData.lastVisit === '-') {
+        // This is the most recent past appointment (first one in DESC order that has passed)
+        patientData.lastVisit = this.formatDate(appointment.appointmentDate);
+        patientData.lastVisitTime = appointment.appointmentTime || 'N/A';
+        patientData.lastVisitStatus = appointment.status || 'N/A';
+        patientData.lastVisitPurpose = appointment.service?.name || 'N/A';
+        patientData.appointmentId = appointment.id;
+        patientData.appointmentDate = appointment.appointmentDate;
+        patientData.appointmentTime = appointment.appointmentTime;
+        patientData.appointmentStatus = appointment.status;
+        patientData.medicalForm = appointment.medicalForm;
+        
+        console.log(`Set last visit for ${patientData.name}: ${patientData.lastVisit} at ${patientData.lastVisitTime}`);
+      }
     });
 
+    // Convert map to array and paginate
+    const allPatients = Array.from(patientMap.values());
+    const totalUniquePatients = allPatients.length;
+    const paginatedPatients = allPatients.slice(skip, skip + limit);
+
+    console.log('Total unique patients:', totalUniquePatients);
+    console.log('Patients with last visits:', paginatedPatients.map(p => ({
+      name: p.name,
+      lastVisit: p.lastVisit,
+      totalAppointments: p.totalAppointments
+    })));
+
     return {
-      patients: patientsWithAppointments,
-      total,
+      patients: paginatedPatients,
+      total: totalUniquePatients,
       page,
       limit,
-      totalPages: Math.ceil(total / limit)
+      totalPages: Math.ceil(totalUniquePatients / limit)
     };
   }
 
