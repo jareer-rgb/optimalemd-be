@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { GoogleCalendarOAuthService } from './google-calendar-oauth.service';
+import { dateTimeToUTC, toISODateString } from '../common/utils/timezone.utils';
 const { google } = require('googleapis');
 
 @Injectable()
@@ -174,19 +175,16 @@ export class GoogleCalendarService implements OnModuleInit {
 
       const currentDate = new Date(startDate);
       while (currentDate <= endDate) {
-        const dayOfWeek = currentDate.getDay();
+        const dayOfWeek = currentDate.getUTCDay(); // Use UTC day of week
         const workingHour = workingHours.find(wh => wh.dayOfWeek === dayOfWeek);
 
         if (workingHour && workingHour.isActive) {
           try {
             // Create a calendar event for the working hours
-            const startTime = new Date(currentDate);
-            const [startHour, startMinute] = workingHour.startTime.split(':').map(Number);
-            startTime.setHours(startHour, startMinute, 0, 0);
-
-            const endTime = new Date(currentDate);
-            const [endHour, endMinute] = workingHour.endTime.split(':').map(Number);
-            endTime.setHours(endHour, endMinute, 0, 0);
+            // Use UTC methods to avoid timezone shifts
+            const dateString = toISODateString(currentDate);
+            const startTime = dateTimeToUTC(dateString, workingHour.startTime);
+            const endTime = dateTimeToUTC(dateString, workingHour.endTime);
 
             const event = {
               summary: `Dr. ${doctor.firstName} ${doctor.lastName} - Working Hours`,
@@ -287,13 +285,13 @@ export class GoogleCalendarService implements OnModuleInit {
       // Parse appointment time (format: "HH:MM")
       const [hours, minutes] = appointmentTime.split(':').map(Number);
       
-      // Create start time
-      const startTime = new Date(appointmentDate);
-      startTime.setHours(hours, minutes, 0, 0);
+      // Create start time in UTC
+      // appointmentDate is already a UTC date, appointmentTime is the time component
+      const dateString = toISODateString(appointmentDate);
+      const startTime = dateTimeToUTC(dateString, appointmentTime);
       
       // Create end time based on duration
-      const endTime = new Date(startTime);
-      endTime.setMinutes(endTime.getMinutes() + duration);
+      const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
 
       // Prepare attendees array
       const attendees: { email: string }[] = [];
@@ -311,9 +309,11 @@ export class GoogleCalendarService implements OnModuleInit {
       }
 
       // Create calendar event with Meet integration
+      // Note: Google Calendar will display these times in the user's local timezone
+      // but we're sending them as UTC to ensure consistency across all timezones
       const event = {
         summary: `${serviceName} - ${doctorName} & ${patientName}`,
-        description: `OptimaleMD Telemedicine Appointment\n\nDoctor: ${doctorName}\nPatient: ${patientName}\nService: ${serviceName}\n\nPlease join this Google Meet call at your scheduled appointment time.`,
+        description: `OptimaleMD Telemedicine Appointment\n\nDoctor: ${doctorName}\nPatient: ${patientName}\nService: ${serviceName}\nDate: ${dateString}\nTime: ${appointmentTime} UTC\n\nPlease join this Google Meet call at your scheduled appointment time.\n\nNote: The meeting time will display in your local timezone in Google Calendar.`,
         start: {
           dateTime: startTime.toISOString(),
           timeZone: 'UTC',
@@ -359,6 +359,9 @@ export class GoogleCalendarService implements OnModuleInit {
 
       if (meetLink) {
         console.log('🔗 Meet link generated:', meetLink);
+        console.log(`📅 Calendar event created for ${dateString} at ${appointmentTime} UTC`);
+        console.log(`   Start time (UTC): ${startTime.toISOString()}`);
+        console.log(`   End time (UTC): ${endTime.toISOString()}`);
         return { 
           meetLink,
           eventId: response.data.id

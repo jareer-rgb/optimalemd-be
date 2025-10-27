@@ -12,6 +12,7 @@ import {
   AppointmentWithRelationsResponseDto,
 } from './dto';
 import { AppointmentStatus } from '@prisma/client';
+import { dateStringToUTC, isDateTimeInPast, getUTCMidnight, getUTCEndOfDay } from '../common/utils/timezone.utils';
 
 @Injectable()
 export class AppointmentsService {
@@ -91,8 +92,7 @@ export class AppointmentsService {
     }
 
     // Check if appointment date is not in the past
-    const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
-    if (appointmentDateTime < new Date()) {
+    if (isDateTimeInPast(appointmentDate, appointmentTime)) {
       throw new BadRequestException('Appointment date and time cannot be in the past');
     }
 
@@ -101,7 +101,7 @@ export class AppointmentsService {
       const existingDoctorAppointment = await this.prisma.appointment.findFirst({
         where: {
           doctorId,
-          appointmentDate: new Date(appointmentDate),
+          appointmentDate: dateStringToUTC(appointmentDate),
           appointmentTime,
           status: {
             in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS]
@@ -121,7 +121,7 @@ export class AppointmentsService {
         serviceId,
         slotId,
         primaryServiceId,
-        appointmentDate: new Date(appointmentDate),
+        appointmentDate: dateStringToUTC(appointmentDate),
         appointmentTime,
         selectedSlotTime,
         duration,
@@ -235,8 +235,7 @@ export class AppointmentsService {
     }
 
     // Check if appointment date is not in the past
-    const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
-    if (appointmentDateTime < new Date()) {
+    if (isDateTimeInPast(appointmentDate, appointmentTime)) {
       throw new BadRequestException('Appointment date and time cannot be in the past');
     }
 
@@ -244,7 +243,7 @@ export class AppointmentsService {
     const existingDoctorAppointment = await this.prisma.appointment.findFirst({
       where: {
         doctorId,
-        appointmentDate: new Date(appointmentDate),
+        appointmentDate: dateStringToUTC(appointmentDate),
         appointmentTime,
         status: {
           in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS]
@@ -265,7 +264,7 @@ export class AppointmentsService {
         serviceId,
         slotId,
         primaryServiceId,
-        appointmentDate: new Date(appointmentDate),
+        appointmentDate: dateStringToUTC(appointmentDate),
         appointmentTime,
         duration,
         status: AppointmentStatus.PENDING,
@@ -361,16 +360,12 @@ export class AppointmentsService {
     if (startDate || endDate) {
       where.appointmentDate = {};
       if (startDate) {
-        // Ensure we're comparing dates at the start of the day
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        where.appointmentDate.gte = start;
+        // Ensure we're comparing dates at the start of the day (UTC)
+        where.appointmentDate.gte = getUTCMidnight(dateStringToUTC(startDate));
       }
       if (endDate) {
-        // Ensure we're comparing dates at the end of the day
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        where.appointmentDate.lte = end;
+        // Ensure we're comparing dates at the end of the day (UTC)
+        where.appointmentDate.lte = getUTCEndOfDay(dateStringToUTC(endDate));
       }
     }
 
@@ -1012,16 +1007,12 @@ export class AppointmentsService {
     if (startDate || endDate) {
       where.appointmentDate = {};
       if (startDate) {
-        // Ensure we're comparing dates at the start of the day
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        where.appointmentDate.gte = start;
+        // Ensure we're comparing dates at the start of the day (UTC)
+        where.appointmentDate.gte = getUTCMidnight(dateStringToUTC(startDate));
       }
       if (endDate) {
-        // Ensure we're comparing dates at the end of the day
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        where.appointmentDate.lte = end;
+        // Ensure we're comparing dates at the end of the day (UTC)
+        where.appointmentDate.lte = getUTCEndOfDay(dateStringToUTC(endDate));
       }
     }
 
@@ -1096,16 +1087,12 @@ export class AppointmentsService {
     if (startDate || endDate) {
       where.appointmentDate = {};
       if (startDate) {
-        // Ensure we're comparing dates at the start of the day
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        where.appointmentDate.gte = start;
+        // Ensure we're comparing dates at the start of the day (UTC)
+        where.appointmentDate.gte = getUTCMidnight(dateStringToUTC(startDate));
       }
       if (endDate) {
-        // Ensure we're comparing dates at the end of the day
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        where.appointmentDate.lte = end;
+        // Ensure we're comparing dates at the end of the day (UTC)
+        where.appointmentDate.lte = getUTCEndOfDay(dateStringToUTC(endDate));
       }
     }
 
@@ -1327,12 +1314,9 @@ export class AppointmentsService {
   }
 
   async getDoctorSlots(doctorId: string, date: string): Promise<any[]> {
-    const targetDate = new Date(date);
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    const targetDate = dateStringToUTC(date);
+    const startOfDay = getUTCMidnight(targetDate);
+    const endOfDay = getUTCEndOfDay(targetDate);
 
     // First, find schedules for the doctor on the given date
     const schedules = await this.prisma.schedule.findMany({
@@ -1453,7 +1437,7 @@ export class AppointmentsService {
         service: { connect: { id: serviceId } },
         primaryService: { connect: { id: primaryServiceId } },
         slot: slotId ? { connect: { id: slotId } } : undefined,
-        appointmentDate: new Date(appointmentDate),
+        appointmentDate: dateStringToUTC(appointmentDate),
         appointmentTime,
         duration,
         status: 'CONFIRMED',
@@ -1605,7 +1589,7 @@ export class AppointmentsService {
    * Get all available slots from all doctors for a specific date
    */
   async getGlobalSlots(date: string): Promise<any[]> {
-    const targetDate = new Date(date);
+    const targetDate = dateStringToUTC(date);
     
     // Get all slots for the specified date from all doctors
     const slots = await this.prisma.slot.findMany({

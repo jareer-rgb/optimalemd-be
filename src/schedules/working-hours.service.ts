@@ -9,6 +9,7 @@ import {
   WorkingHoursWithDoctorDto,
   GenerateScheduleFromWorkingHoursDto,
 } from './dto';
+import { dateStringToUTC, isDateInPast, addDaysUTC, getUTCDayOfWeek, toISODateString } from '../common/utils/timezone.utils';
 
 @Injectable()
 export class WorkingHoursService {
@@ -309,13 +310,13 @@ export class WorkingHoursService {
     }
 
     // Validate date range
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = dateStringToUTC(startDate);
+    const end = dateStringToUTC(endDate);
     if (start >= end) {
       throw new BadRequestException('Start date must be before end date');
     }
 
-    if (start < new Date()) {
+    if (isDateInPast(startDate)) {
       throw new BadRequestException('Start date cannot be in the past');
     }
 
@@ -333,10 +334,10 @@ export class WorkingHoursService {
     }
 
     const generatedSchedules: any[] = [];
-    const currentDate = new Date(start);
+    let currentDate = new Date(start);
 
     while (currentDate <= end) {
-      const dayOfWeek = currentDate.getDay();
+      const dayOfWeek = getUTCDayOfWeek(currentDate);
       const workingHour = workingHours.find(wh => wh.dayOfWeek === dayOfWeek);
 
       if (workingHour) {
@@ -351,8 +352,8 @@ export class WorkingHoursService {
           });
 
           if (existingSchedule && !regenerateExisting) {
-            console.log(`Schedule already exists for ${currentDate.toISOString().split('T')[0]}, skipping...`);
-            currentDate.setDate(currentDate.getDate() + 1);
+            console.log(`Schedule already exists for ${toISODateString(currentDate)}, skipping...`);
+            currentDate = addDaysUTC(currentDate, 1);
             continue;
           }
 
@@ -397,11 +398,11 @@ export class WorkingHoursService {
 
           generatedSchedules.push(schedule);
         } catch (error) {
-          console.warn(`Error generating schedule for ${currentDate.toISOString().split('T')[0]}: ${error.message}`);
+          console.warn(`Error generating schedule for ${toISODateString(currentDate)}: ${error.message}`);
         }
       }
 
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDate = addDaysUTC(currentDate, 1);
     }
 
     // Google Calendar sync removed - no longer needed

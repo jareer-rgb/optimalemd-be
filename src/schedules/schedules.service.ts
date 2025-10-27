@@ -15,6 +15,7 @@ import {
   SlotWithScheduleInfoDto,
   AvailableSlotsQueryDto,
 } from './dto';
+import { dateStringToUTC, isDateInPast, addDaysUTC, getUTCDayOfWeek, toISODateString } from '../common/utils/timezone.utils';
 
 @Injectable()
 export class SchedulesService {
@@ -39,8 +40,8 @@ export class SchedulesService {
     }
 
     // Validate date is not in the past
-    const scheduleDate = new Date(date);
-    if (scheduleDate < new Date()) {
+    const scheduleDate = dateStringToUTC(date);
+    if (isDateInPast(date)) {
       throw new BadRequestException('Schedule date cannot be in the past');
     }
 
@@ -119,13 +120,13 @@ export class SchedulesService {
     }
 
     // Validate date range
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = dateStringToUTC(startDate);
+    const end = dateStringToUTC(endDate);
     if (start >= end) {
       throw new BadRequestException('Start date must be before end date');
     }
 
-    if (start < new Date()) {
+    if (isDateInPast(startDate)) {
       throw new BadRequestException('Start date cannot be in the past');
     }
 
@@ -148,16 +149,16 @@ export class SchedulesService {
     }
 
     const schedules: ScheduleResponseDto[] = [];
-    const currentDate = new Date(start);
+    let currentDate = new Date(start);
 
     while (currentDate <= end) {
-      const dayOfWeek = currentDate.getDay();
+      const dayOfWeek = getUTCDayOfWeek(currentDate);
       
       if (workingDays.includes(dayOfWeek)) {
         try {
           const schedule = await this.createSchedule({
             doctorId,
-            date: currentDate.toISOString().split('T')[0],
+            date: toISODateString(currentDate),
             startTime,
             endTime,
             maxAppointments
@@ -165,11 +166,11 @@ export class SchedulesService {
           schedules.push(schedule);
         } catch (error) {
           // Log conflict but continue with other dates
-          console.warn(`Schedule conflict for ${currentDate.toISOString().split('T')[0]}: ${error.message}`);
+          console.warn(`Schedule conflict for ${toISODateString(currentDate)}: ${error.message}`);
         }
       }
 
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDate = addDaysUTC(currentDate, 1);
     }
 
     return schedules;
@@ -248,8 +249,8 @@ export class SchedulesService {
     if (isAvailable !== undefined) where.isAvailable = isAvailable === 'true';
     if (startDate || endDate) {
       where.date = {};
-      if (startDate) where.date.gte = new Date(startDate);
-      if (endDate) where.date.lte = new Date(endDate);
+      if (startDate) where.date.gte = dateStringToUTC(startDate);
+      if (endDate) where.date.lte = dateStringToUTC(endDate);
     }
 
     const [schedules, total] = await Promise.all([
@@ -676,7 +677,7 @@ export class SchedulesService {
     const schedules = await this.prisma.schedule.findMany({
       where: {
         doctorId,
-        date: new Date(date),
+        date: dateStringToUTC(date),
         isAvailable: true
       },
       include: {
