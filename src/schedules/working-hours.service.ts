@@ -10,6 +10,7 @@ import {
   GenerateScheduleFromWorkingHoursDto,
 } from './dto';
 import { dateStringToUTC, isDateInPast, addDaysUTC, getUTCDayOfWeek, toISODateString } from '../common/utils/timezone.utils';
+import { localTimeToUTC, utcToLocalTime, isValidTimezone } from '../common/utils/timezone-converter.utils';
 
 @Injectable()
 export class WorkingHoursService {
@@ -19,9 +20,10 @@ export class WorkingHoursService {
 
   /**
    * Create working hours for a specific day
+   * Times are converted from doctor's local timezone to UTC before storing
    */
   async createWorkingHours(createWorkingHoursDto: CreateWorkingHoursDto): Promise<WorkingHoursResponseDto> {
-    const { doctorId, dayOfWeek, startTime, endTime, slotDuration, breakDuration, isActive = true } = createWorkingHoursDto;
+    const { doctorId, dayOfWeek, startTime, endTime, slotDuration, breakDuration, isActive = true, timezone } = createWorkingHoursDto;
 
     // Check if doctor exists and is active
     const doctor = await this.prisma.doctor.findUnique({
@@ -35,6 +37,12 @@ export class WorkingHoursService {
       throw new BadRequestException('Doctor is not available for scheduling');
     }
 
+    // Validate timezone if provided
+    const doctorTimezone = timezone || 'UTC';
+    if (timezone && !isValidTimezone(timezone)) {
+      throw new BadRequestException(`Invalid timezone: ${timezone}`);
+    }
+
     // Validate time format and logic
     if (!this.isValidTimeFormat(startTime) || !this.isValidTimeFormat(endTime)) {
       throw new BadRequestException('Invalid time format. Use HH:MM format');
@@ -42,6 +50,24 @@ export class WorkingHoursService {
 
     if (!this.isValidTimeRange(startTime, endTime)) {
       throw new BadRequestException('Start time must be before end time');
+    }
+
+    // Convert local time to UTC
+    let utcStartTime = startTime;
+    let utcEndTime = endTime;
+    
+    if (timezone && timezone !== 'UTC') {
+      try {
+        utcStartTime = localTimeToUTC(startTime, doctorTimezone);
+        utcEndTime = localTimeToUTC(endTime, doctorTimezone);
+        
+        console.log(`📅 Working Hours Timezone Conversion:`);
+        console.log(`   Doctor timezone: ${doctorTimezone}`);
+        console.log(`   Local time: ${startTime} - ${endTime}`);
+        console.log(`   UTC time: ${utcStartTime} - ${utcEndTime}`);
+      } catch (error) {
+        throw new BadRequestException(`Timezone conversion failed: ${error.message}`);
+      }
     }
 
     // Check if working hours already exist for this day
@@ -58,13 +84,13 @@ export class WorkingHoursService {
       throw new ConflictException('Working hours already exist for this day');
     }
 
-    // Create working hours
+    // Create working hours with UTC times
     const workingHours = await this.prisma.workingHours.create({
       data: {
         doctorId,
         dayOfWeek,
-        startTime,
-        endTime,
+        startTime: utcStartTime,  // Store UTC time
+        endTime: utcEndTime,      // Store UTC time
         slotDuration,
         breakDuration,
         isActive
@@ -232,9 +258,44 @@ export class WorkingHoursService {
       }
     }
 
+    // Convert times to UTC if timezone is provided
+    const updateData = { ...updateWorkingHoursDto };
+    const timezone = updateWorkingHoursDto.timezone;
+    
+    if (timezone && timezone !== 'UTC') {
+      // Validate timezone
+      if (!isValidTimezone(timezone)) {
+        throw new BadRequestException(`Invalid timezone: ${timezone}`);
+      }
+
+      // Convert times to UTC if they're being updated
+      if (updateWorkingHoursDto.startTime) {
+        try {
+          const utcStartTime = localTimeToUTC(updateWorkingHoursDto.startTime, timezone);
+          updateData.startTime = utcStartTime;
+          console.log(`🔄 Update: ${updateWorkingHoursDto.startTime} (${timezone}) → ${utcStartTime} (UTC)`);
+        } catch (error) {
+          throw new BadRequestException(`Failed to convert start time: ${error.message}`);
+        }
+      }
+
+      if (updateWorkingHoursDto.endTime) {
+        try {
+          const utcEndTime = localTimeToUTC(updateWorkingHoursDto.endTime, timezone);
+          updateData.endTime = utcEndTime;
+          console.log(`🔄 Update: ${updateWorkingHoursDto.endTime} (${timezone}) → ${utcEndTime} (UTC)`);
+        } catch (error) {
+          throw new BadRequestException(`Failed to convert end time: ${error.message}`);
+        }
+      }
+      
+      // Remove timezone from update data (it's not a database field)
+      delete updateData.timezone;
+    }
+
     const updatedWorkingHours = await this.prisma.workingHours.update({
       where: { id },
-      data: updateWorkingHoursDto
+      data: updateData
     });
 
     return updatedWorkingHours;
@@ -293,9 +354,11 @@ export class WorkingHoursService {
 
   /**
    * Generate schedules from working hours for a date range
+   * IMPORTANT: If timezone is provided, assumes working hours times are in LOCAL time and converts to UTC
+   * If no timezone provided, assumes working hours times are already in UTC
    */
   async generateSchedulesFromWorkingHours(generateDto: GenerateScheduleFromWorkingHoursDto): Promise<any> {
-    const { doctorId, startDate, endDate, regenerateExisting = false } = generateDto;
+    const { doctorId, startDate, endDate, regenerateExisting = false, timezone } = generateDto;
 
     // Check if doctor exists and is active
     const doctor = await this.prisma.doctor.findUnique({
@@ -307,6 +370,11 @@ export class WorkingHoursService {
     }
     if (!doctor.isActive || !doctor.isAvailable) {
       throw new BadRequestException('Doctor is not available for scheduling');
+    }
+
+    // Validate timezone if provided
+    if (timezone && !isValidTimezone(timezone)) {
+      throw new BadRequestException(`Invalid timezone: ${timezone}`);
     }
 
     // Validate date range
@@ -332,6 +400,8 @@ export class WorkingHoursService {
     if (workingHours.length === 0) {
       throw new BadRequestException('No active working hours found for this doctor');
     }
+
+    console.log(`📅 Generating schedules with timezone: ${timezone || 'UTC (no conversion)'}`);
 
     const generatedSchedules: any[] = [];
     let currentDate = new Date(start);
@@ -369,23 +439,30 @@ export class WorkingHoursService {
             });
           }
 
-          // Generate slots for this working hour
-          const slots = this.generateSlots(workingHour.startTime, workingHour.endTime, workingHour.slotDuration, workingHour.breakDuration);
+          // Working hours are already stored in UTC, so use them directly
+          // DO NOT convert again - they were converted when created
+          const startTimeUTC = workingHour.startTime;
+          const endTimeUTC = workingHour.endTime;
+          
+          console.log(`   Day ${dayOfWeek}: Using working hours times: ${startTimeUTC}-${endTimeUTC} (already in UTC)`);
 
-          // Create schedule
+          // Generate slots using UTC times
+          const slots = this.generateSlots(startTimeUTC, endTimeUTC, workingHour.slotDuration, workingHour.breakDuration);
+
+          // Create schedule with UTC times
           const schedule = await this.prisma.schedule.create({
             data: {
               doctorId,
               workingHoursId: workingHour.id,
               date: currentDate,
-              startTime: workingHour.startTime,
-              endTime: workingHour.endTime,
+              startTime: startTimeUTC,  // Already in UTC from working hours
+              endTime: endTimeUTC,      // Already in UTC from working hours
               isAvailable: true,
               maxAppointments: 10,
               isAutoGenerated: true,
               slots: {
                 create: slots.map(slot => ({
-                  startTime: slot.startTime,
+                  startTime: slot.startTime,  // Slots are already in UTC from generateSlots
                   endTime: slot.endTime,
                   isAvailable: true
                 }))

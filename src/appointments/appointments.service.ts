@@ -654,6 +654,28 @@ export class AppointmentsService {
   /**
    * Update subjective notes for an appointment (doctor only)
    */
+  async updateCarePlan(appointmentId: string, carePlan: string, doctorId: string): Promise<AppointmentResponseDto> {
+    // Check if appointment exists and belongs to the doctor
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id: appointmentId,
+        doctorId: doctorId
+      }
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found or you do not have permission to update this appointment');
+    }
+
+    // Update the care plan
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { carePlan },
+    });
+
+    return updatedAppointment;
+  }
+
   async updateSubjectiveNotes(appointmentId: string, subjectiveNotes: string, doctorId: string): Promise<AppointmentResponseDto> {
     // Check if appointment exists and belongs to the doctor
     const appointment = await this.prisma.appointment.findFirst({
@@ -1430,6 +1452,12 @@ export class AppointmentsService {
       }
     }
 
+    // Default care plan for new appointments
+    const defaultCarePlan = `1. Continue current treatment regimen as prescribed
+2. Monitor symptoms and report any changes
+3. Follow up with lab work as scheduled
+4. Maintain healthy lifestyle habits (diet, exercise, sleep)`;
+
     const created = await this.prisma.appointment.create({
       data: {
         patient: { connect: { id: patientId } },
@@ -1442,6 +1470,7 @@ export class AppointmentsService {
         duration,
         status: 'CONFIRMED',
         patientNotes: patientNotes ?? null,
+        carePlan: defaultCarePlan,
         isPaid: false,
         amount: '0.00',
       },

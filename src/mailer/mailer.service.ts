@@ -584,6 +584,25 @@ export class MailerService implements OnModuleInit {
     amount: string,
     googleMeetLink?: string
   ): Promise<void> {
+    // Convert UTC time to local time for display in email
+    const [hours, minutes] = appointmentTime.split(':').map(Number);
+    const [year, month, day] = appointmentDate.split('-').map(Number);
+    const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+    
+    // Get local time
+    const localHours = utcDate.getHours();
+    const localMinutes = String(utcDate.getMinutes()).padStart(2, '0');
+    const ampm = localHours >= 12 ? 'PM' : 'AM';
+    const displayHour = localHours > 12 ? localHours - 12 : localHours === 0 ? 12 : localHours;
+    const localTime = `${displayHour}:${localMinutes} ${ampm}`;
+    
+    // Format date
+    const localDate = utcDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
     const html = `
       <!DOCTYPE html>
       <html>
@@ -710,11 +729,11 @@ export class MailerService implements OnModuleInit {
               </div>
               <div class="detail-row">
                 <span class="detail-label">Date:</span>
-                <span class="detail-value">${appointmentDate}</span>
+                <span class="detail-value">${localDate}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Time:</span>
-                <span class="detail-value">${appointmentTime}</span>
+                <span class="detail-value">${localTime}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Amount Paid:</span>

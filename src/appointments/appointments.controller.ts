@@ -617,6 +617,65 @@ export class AppointmentsController {
     };
   }
 
+  @Put(':id/care-plan')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update Care Plan',
+    description: 'Update care plan for a specific appointment (doctor only).',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Appointment ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiBody({
+    description: 'Care plan data',
+    schema: {
+      type: 'object',
+      properties: {
+        carePlan: {
+          type: 'string',
+          description: 'Care plan for the appointment',
+          example: '1. Continue current treatment\n2. Monitor symptoms\n3. Follow up in 4 weeks\n4. Maintain lifestyle changes',
+        },
+      },
+      required: ['carePlan'],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Care plan updated successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Appointment not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Only doctors can update care plan',
+  })
+  async updateCarePlan(
+    @Param('id') id: string,
+    @Body() body: { carePlan: string },
+    @CurrentUser() user: any,
+  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
+    // Ensure only doctors can update care plan
+    if (user.userType !== 'doctor') {
+      throw new ForbiddenException('Only doctors can update care plan');
+    }
+    
+    const data = await this.appointmentsService.updateCarePlan(id, body.carePlan, user.id);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Care plan updated successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: `/api/appointments/${id}/care-plan`,
+    };
+  }
+
   @Put(':id/subjective-notes')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

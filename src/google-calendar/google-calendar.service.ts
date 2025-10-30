@@ -285,13 +285,43 @@ export class GoogleCalendarService implements OnModuleInit {
       // Parse appointment time (format: "HH:MM")
       const [hours, minutes] = appointmentTime.split(':').map(Number);
       
-      // Create start time in UTC
-      // appointmentDate is already a UTC date, appointmentTime is the time component
+      // Get date string in YYYY-MM-DD format
       const dateString = toISODateString(appointmentDate);
-      const startTime = dateTimeToUTC(dateString, appointmentTime);
       
-      // Create end time based on duration
-      const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
+      // IMPORTANT: appointmentTime is stored in UTC in the database
+      // We need to convert it to the user's LOCAL time before creating the calendar event
+      // This way the calendar shows the ACTUAL local time without timezone labels
+      
+      // Create a UTC date and convert to local time
+      const [year, month, day] = dateString.split('-').map(Number);
+      const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+      
+      // Get local time components
+      const localYear = utcDate.getFullYear();
+      const localMonth = String(utcDate.getMonth() + 1).padStart(2, '0');
+      const localDay = String(utcDate.getDate()).padStart(2, '0');
+      const localHours = String(utcDate.getHours()).padStart(2, '0');
+      const localMinutes = String(utcDate.getMinutes()).padStart(2, '0');
+      
+      const localDateString = `${localYear}-${localMonth}-${localDay}`;
+      const startDateTime = `${localDateString}T${localHours}:${localMinutes}:00`;
+      
+      // Calculate end time in local
+      const endDate = new Date(utcDate.getTime() + duration * 60000);
+      const endYear = endDate.getFullYear();
+      const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+      const endDay = String(endDate.getDate()).padStart(2, '0');
+      const endHours = String(endDate.getHours()).padStart(2, '0');
+      const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+      
+      const endDateString = `${endYear}-${endMonth}-${endDay}`;
+      const endDateTime = `${endDateString}T${endHours}:${endMinutes}:00`;
+
+      console.log(`📅 Creating Google Calendar event:`);
+      console.log(`   UTC time from DB: ${appointmentTime}`);
+      console.log(`   Converted to local: ${localHours}:${localMinutes}`);
+      console.log(`   Start: ${startDateTime}`);
+      console.log(`   End: ${endDateTime}`);
 
       // Prepare attendees array
       const attendees: { email: string }[] = [];
@@ -309,18 +339,15 @@ export class GoogleCalendarService implements OnModuleInit {
       }
 
       // Create calendar event with Meet integration
-      // Note: Google Calendar will display these times in the user's local timezone
-      // but we're sending them as UTC to ensure consistency across all timezones
+      // Using local time without timezone so it shows the actual appointment time
       const event = {
         summary: `${serviceName} - ${doctorName} & ${patientName}`,
-        description: `OptimaleMD Telemedicine Appointment\n\nDoctor: ${doctorName}\nPatient: ${patientName}\nService: ${serviceName}\nDate: ${dateString}\nTime: ${appointmentTime} UTC\n\nPlease join this Google Meet call at your scheduled appointment time.\n\nNote: The meeting time will display in your local timezone in Google Calendar.`,
+        description: `OptimaleMD Telemedicine Appointment\n\nDoctor: ${doctorName}\nPatient: ${patientName}\nService: ${serviceName}\n\nPlease join this Google Meet call at your scheduled appointment time.`,
         start: {
-          dateTime: startTime.toISOString(),
-          timeZone: 'UTC',
+          dateTime: startDateTime,
         },
         end: {
-          dateTime: endTime.toISOString(),
-          timeZone: 'UTC',
+          dateTime: endDateTime,
         },
         conferenceData: {
           createRequest: {
@@ -359,9 +386,8 @@ export class GoogleCalendarService implements OnModuleInit {
 
       if (meetLink) {
         console.log('🔗 Meet link generated:', meetLink);
-        console.log(`📅 Calendar event created for ${dateString} at ${appointmentTime} UTC`);
-        console.log(`   Start time (UTC): ${startTime.toISOString()}`);
-        console.log(`   End time (UTC): ${endTime.toISOString()}`);
+        console.log(`📅 Calendar event created for ${dateString} at ${appointmentTime}`);
+        console.log(`   Event ID: ${response.data.id}`);
         return { 
           meetLink,
           eventId: response.data.id

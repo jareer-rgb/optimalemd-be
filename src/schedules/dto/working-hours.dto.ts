@@ -14,12 +14,12 @@ export class CreateWorkingHoursDto {
   @Max(6)
   dayOfWeek: number;
 
-  @ApiProperty({ description: 'Start time (HH:MM)', example: '08:00' })
+  @ApiProperty({ description: 'Start time (HH:MM) in doctor\'s local timezone', example: '08:00' })
   @IsString()
   @IsNotEmpty()
   startTime: string;
 
-  @ApiProperty({ description: 'End time (HH:MM)', example: '16:00' })
+  @ApiProperty({ description: 'End time (HH:MM) in doctor\'s local timezone', example: '16:00' })
   @IsString()
   @IsNotEmpty()
   endTime: string;
@@ -40,6 +40,11 @@ export class CreateWorkingHoursDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty({ description: 'Doctor\'s timezone (IANA format)', example: 'Asia/Karachi', required: false })
+  @IsString()
+  @IsOptional()
+  timezone?: string;
 }
 
 export class CreateMultipleWorkingHoursDto {
@@ -63,12 +68,12 @@ export class CreateMultipleWorkingHoursDto {
 }
 
 export class UpdateWorkingHoursDto {
-  @ApiProperty({ description: 'Start time (HH:MM)', example: '09:00', required: false })
+  @ApiProperty({ description: 'Start time (HH:MM) in local timezone', example: '09:00', required: false })
   @IsString()
   @IsOptional()
   startTime?: string;
 
-  @ApiProperty({ description: 'End time (HH:MM)', example: '17:00', required: false })
+  @ApiProperty({ description: 'End time (HH:MM) in local timezone', example: '17:00', required: false })
   @IsString()
   @IsOptional()
   endTime?: string;
@@ -91,6 +96,11 @@ export class UpdateWorkingHoursDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty({ description: 'Timezone (IANA format) - required if updating times', example: 'Europe/Istanbul', required: false })
+  @IsString()
+  @IsOptional()
+  timezone?: string;
 }
 
 export class WorkingHoursResponseDto {
@@ -150,6 +160,11 @@ export class GenerateScheduleFromWorkingHoursDto {
   @IsString()
   @IsNotEmpty()
   endDate: string;
+
+  @ApiProperty({ description: 'Doctor\'s timezone (IANA format) - times in working hours will be converted from this timezone to UTC', example: 'Europe/Istanbul', required: false })
+  @IsString()
+  @IsOptional()
+  timezone?: string;
 
   @ApiProperty({ description: 'Whether to regenerate existing schedules', example: false })
   @IsBoolean()
