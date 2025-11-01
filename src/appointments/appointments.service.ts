@@ -333,7 +333,8 @@ export class AppointmentsService {
             }
           }
         },
-        medicalForm: true // Include medical form data
+        medicalForm: true, // Include medical form data
+        medicationPrescriptions: true // Include medication prescriptions
       }
     });
 
@@ -715,22 +716,39 @@ export class AppointmentsService {
       // Optional ownership check: only the assigned doctor can update
     }
 
+    console.log('=== Backend updateMedications Debug ===');
+    console.log('Appointment ID:', appointmentId);
+    console.log('Incoming medications:', JSON.stringify(medications, null, 2));
+    console.log('Merge flag:', merge);
+
     let updatedMedications: any = medications;
     const appointmentAny = appointment as any;
+    
+    console.log('Existing medications in DB:', JSON.stringify(appointmentAny.medications, null, 2));
+    
     if (merge && appointmentAny.medications) {
+      // When merging, we keep existing services and replace/add the new ones
       const existing = appointmentAny.medications as Record<string, string[]>;
       updatedMedications = { ...existing };
+      
+      console.log('After copying existing:', JSON.stringify(updatedMedications, null, 2));
+      
+      // For each service in the incoming medications, REPLACE (not merge) its medications
       for (const [serviceName, meds] of Object.entries(medications)) {
-        const prev = new Set(existing?.[serviceName] || []);
-        meds.forEach((m) => prev.add(m));
-        updatedMedications[serviceName] = Array.from(prev);
+        console.log(`Replacing service "${serviceName}" with:`, meds);
+        updatedMedications[serviceName] = meds; // Replace, not merge
       }
     }
+
+    console.log('Final medications to save:', JSON.stringify(updatedMedications, null, 2));
 
     const updatedAppointment = await this.prisma.appointment.update({
       where: { id: appointmentId },
       data: { medications: updatedMedications } as any,
     });
+
+    console.log('Saved medications:', JSON.stringify((updatedAppointment as any).medications, null, 2));
+    console.log('=== End Backend Debug ===');
 
     return updatedAppointment;
   }

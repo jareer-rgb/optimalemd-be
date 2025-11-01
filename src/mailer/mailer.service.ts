@@ -5,11 +5,21 @@ import * as nodemailer from 'nodemailer';
 @Injectable()
 export class MailerService implements OnModuleInit {
   private transporter: nodemailer.Transporter;
+  private appointmentTransporter: nodemailer.Transporter;
   private isNoopTransport = false;
+  private isAppointmentNoopTransport = false;
 
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
+    // Initialize default transporter
+    await this.initializeDefaultTransporter();
+    
+    // Initialize appointment-specific transporter
+    await this.initializeAppointmentTransporter();
+  }
+
+  private async initializeDefaultTransporter() {
     const host = this.configService.get<string>('SMTP_HOST');
     const port = this.configService.get<number>('SMTP_PORT');
     const user = this.configService.get<string>('SMTP_USER');
@@ -22,7 +32,7 @@ export class MailerService implements OnModuleInit {
         buffer: true,
       } as any);
       this.isNoopTransport = true;
-      console.warn('Mailer running in no-op mode: missing SMTP_USER/SMTP_PASS');
+      console.warn('Default mailer running in no-op mode: missing SMTP_USER/SMTP_PASS');
       return;
     }
 
@@ -37,15 +47,48 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.verify();
-      console.log('Mailer service is ready');
+      console.log('Default mailer service is ready');
     } catch (error) {
-      console.error('Failed to initialize SMTP transport, falling back to no-op transport:', error);
+      console.error('Failed to initialize default SMTP transport, falling back to no-op transport:', error);
       this.transporter = nodemailer.createTransport({
         streamTransport: true,
         newline: 'unix',
         buffer: true,
       } as any);
       this.isNoopTransport = true;
+    }
+  }
+
+  private async initializeAppointmentTransporter() {
+    const host = this.configService.get<string>('APPOINTMENT_SMTP_HOST');
+    const port = this.configService.get<number>('APPOINTMENT_SMTP_PORT');
+    const user = this.configService.get<string>('APPOINTMENT_SMTP_USER');
+    const pass = this.configService.get<string>('APPOINTMENT_SMTP_PASS');
+
+    // If appointment-specific config is not provided, use default transporter
+    if (!user || !pass) {
+      console.log('Appointment email config not found, using default transporter');
+      this.appointmentTransporter = this.transporter;
+      this.isAppointmentNoopTransport = this.isNoopTransport;
+      return;
+    }
+
+    const useSecure = Number(port) === 465;
+    this.appointmentTransporter = nodemailer.createTransport({
+      service: 'gmail',
+      host: host || 'smtp.gmail.com',
+      port: Number(port) || 587,
+      secure: useSecure,
+      auth: { user, pass },
+    });
+
+    try {
+      await this.appointmentTransporter.verify();
+      console.log('Appointment mailer service is ready');
+    } catch (error) {
+      console.error('Failed to initialize appointment SMTP transport, falling back to default:', error);
+      this.appointmentTransporter = this.transporter;
+      this.isAppointmentNoopTransport = this.isNoopTransport;
     }
   }
 
@@ -762,8 +805,9 @@ export class MailerService implements OnModuleInit {
     `;
 
     try {
-      await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+      const fromEmail = this.configService.get<string>('APPOINTMENT_SMTP_FROM') || this.configService.get<string>('SMTP_FROM');
+      await this.appointmentTransporter.sendMail({
+        from: `"OptimaleMD" <${fromEmail}>`,
         to: patientEmail,
         subject: 'Appointment Confirmed - OptimaleMD',
         html,
@@ -943,8 +987,9 @@ export class MailerService implements OnModuleInit {
     `;
 
     try {
-      await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+      const fromEmail = this.configService.get<string>('APPOINTMENT_SMTP_FROM') || this.configService.get<string>('SMTP_FROM');
+      await this.appointmentTransporter.sendMail({
+        from: `"OptimaleMD" <${fromEmail}>`,
         to: doctorEmail,
         subject: 'New Appointment Scheduled - OptimaleMD',
         html,
@@ -1123,8 +1168,9 @@ export class MailerService implements OnModuleInit {
     `;
 
     try {
-      await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+      const fromEmail = this.configService.get<string>('APPOINTMENT_SMTP_FROM') || this.configService.get<string>('SMTP_FROM');
+      await this.appointmentTransporter.sendMail({
+        from: `"OptimaleMD" <${fromEmail}>`,
         to: patientEmail,
         subject: 'Appointment Cancelled - OptimaleMD',
         html,
@@ -1306,8 +1352,9 @@ export class MailerService implements OnModuleInit {
     `;
 
     try {
-      await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+      const fromEmail = this.configService.get<string>('APPOINTMENT_SMTP_FROM') || this.configService.get<string>('SMTP_FROM');
+      await this.appointmentTransporter.sendMail({
+        from: `"OptimaleMD" <${fromEmail}>`,
         to: doctorEmail,
         subject: 'Appointment Cancelled - OptimaleMD',
         html,
@@ -1504,8 +1551,9 @@ export class MailerService implements OnModuleInit {
     `;
 
     try {
-      await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+      const fromEmail = this.configService.get<string>('APPOINTMENT_SMTP_FROM') || this.configService.get<string>('SMTP_FROM');
+      await this.appointmentTransporter.sendMail({
+        from: `"OptimaleMD" <${fromEmail}>`,
         to: patientEmail,
         subject: 'Appointment Rescheduled - OptimaleMD',
         html,
@@ -1702,8 +1750,9 @@ export class MailerService implements OnModuleInit {
     `;
 
     try {
-      await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+      const fromEmail = this.configService.get<string>('APPOINTMENT_SMTP_FROM') || this.configService.get<string>('SMTP_FROM');
+      await this.appointmentTransporter.sendMail({
+        from: `"OptimaleMD" <${fromEmail}>`,
         to: doctorEmail,
         subject: 'Appointment Rescheduled - OptimaleMD',
         html,

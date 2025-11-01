@@ -18,6 +18,7 @@ import { AdminModule } from './admin/admin.module';
 import { ReportsModule } from './reports/reports.module';
 import { AssessmentsModule } from './assessments/assessments.module';
 import { ContactModule } from './contact/contact.module';
+import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 
 @Module({ 
   imports: [
@@ -39,7 +40,8 @@ import { ContactModule } from './contact/contact.module';
     AdminModule,
     ReportsModule,
     AssessmentsModule,
-    ContactModule
+    ContactModule,
+    PrescriptionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

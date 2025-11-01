@@ -339,15 +339,19 @@ export class GoogleCalendarService implements OnModuleInit {
       }
 
       // Create calendar event with Meet integration
-      // Using local time without timezone so it shows the actual appointment time
+      // Get user's timezone (default to UTC if not available)
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      
       const event = {
         summary: `${serviceName} - ${doctorName} & ${patientName}`,
         description: `OptimaleMD Telemedicine Appointment\n\nDoctor: ${doctorName}\nPatient: ${patientName}\nService: ${serviceName}\n\nPlease join this Google Meet call at your scheduled appointment time.`,
         start: {
           dateTime: startDateTime,
+          timeZone: userTimezone,
         },
         end: {
           dateTime: endDateTime,
+          timeZone: userTimezone,
         },
         conferenceData: {
           createRequest: {

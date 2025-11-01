@@ -84,6 +84,15 @@ model User {
   welcomeOrders WelcomeOrder[]
   signupSteps SignupStep[]
 
+  // Subscription fields
+  isSubscribed Boolean @default(false)
+  stripeCustomerId String? @unique
+  stripeSubscriptionId String? @unique
+  subscriptionStatus String? // active, canceled, past_due, etc.
+  subscriptionStartDate DateTime?
+  subscriptionEndDate DateTime?
+  subscriptionCanceledAt DateTime?
+
   // Relations
   bookings Booking[]
   patientAppointments Appointment[]
@@ -458,6 +467,7 @@ model Appointment {
   payment           Payment?
   medicalForm       MedicalForm?
   appointmentAssessments AppointmentAssessment[]
+  medicationPrescriptions MedicationPrescription[]
   
   @@map("appointments")
 }
@@ -748,6 +758,21 @@ model SignupStep {
   
   @@unique([welcomeOrderId, stepNumber, subStepNumber])
   @@map("signup_steps")
+}
+
+// Medication Prescription table - stores prescription details for each medication per appointment
+model MedicationPrescription {
+  id            String   @id @default(uuid())
+  appointmentId String
+  medicationName String
+  prescription  String   @db.Text // Full prescription text with dosage, frequency, instructions
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@unique([appointmentId, medicationName])
+  @@map("medication_prescriptions")
 }
 
 // Enums for new signup flow
