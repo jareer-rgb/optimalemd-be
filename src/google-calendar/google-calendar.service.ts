@@ -463,4 +463,195 @@ export class GoogleCalendarService implements OnModuleInit {
       console.error('❌ Error updating calendar event with patient email:', error);
     }
   }
+
+  /**
+   * Find a Google Calendar event by searching for it using appointment details
+   * This is used when we don't have the eventId stored
+   */
+  async findEventByAppointmentDetails(
+    appointmentDate: Date,
+    appointmentTime: string,
+    doctorName: string,
+    patientName: string,
+    serviceName: string
+  ): Promise<string | null> {
+    try {
+      if (!this.calendar) {
+        return null;
+      }
+
+      // Search for events on the appointment date
+      const dateString = toISODateString(appointmentDate);
+      const timeMin = new Date(`${dateString}T00:00:00Z`).toISOString();
+      const timeMax = new Date(`${dateString}T23:59:59Z`).toISOString();
+
+      const response = await this.calendar.events.list({
+        calendarId: this.configService.get<string>('GOOGLE_CALENDAR_ID') || 'primary',
+        timeMin,
+        timeMax,
+        maxResults: 50,
+        singleEvents: true,
+        orderBy: 'startTime',
+      });
+
+      // Search for event matching our appointment details
+      const searchSummary = `${serviceName} - ${doctorName} & ${patientName}`;
+      const matchingEvent = response.data.items?.find(
+        (event: any) => event.summary === searchSummary
+      );
+
+      return matchingEvent?.id || null;
+    } catch (error) {
+      console.error('❌ Error finding calendar event:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update an existing Google Calendar event with new date/time
+   * Uses the same time conversion logic as generateMeetLink
+   */
+  async updateEvent(
+    eventId: string,
+    appointmentDate: Date,
+    appointmentTime: string,
+    duration: number,
+    doctorName: string,
+    patientName: string,
+    serviceName: string,
+    patientEmail?: string,
+    doctorEmail?: string
+  ): Promise<{ meetLink: string; eventId: string }> {
+    try {
+      // Check if credentials are valid
+      if (!this.credentialsValid || !this.calendar) {
+        console.log('⚠️  Google API credentials not valid, cannot update event');
+        throw new Error('Google Calendar API not available');
+      }
+
+      // Parse appointment time (format: "HH:MM") - stored in UTC
+      const [hours, minutes] = appointmentTime.split(':').map(Number);
+      
+      // Get date string in YYYY-MM-DD format
+      const dateString = toISODateString(appointmentDate);
+      
+      // IMPORTANT: appointmentTime is stored in UTC in the database
+      // We need to convert it to the user's LOCAL time before updating the calendar event
+      // This way the calendar shows the ACTUAL local time without timezone labels
+      
+      // Create a UTC date and convert to local time
+      const [year, month, day] = dateString.split('-').map(Number);
+      const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+      
+      // Get local time components
+      const localYear = utcDate.getFullYear();
+      const localMonth = String(utcDate.getMonth() + 1).padStart(2, '0');
+      const localDay = String(utcDate.getDate()).padStart(2, '0');
+      const localHours = String(utcDate.getHours()).padStart(2, '0');
+      const localMinutes = String(utcDate.getMinutes()).padStart(2, '0');
+      
+      const localDateString = `${localYear}-${localMonth}-${localDay}`;
+      const startDateTime = `${localDateString}T${localHours}:${localMinutes}:00`;
+      
+      // Calculate end time in local
+      const endDate = new Date(utcDate.getTime() + duration * 60000);
+      const endYear = endDate.getFullYear();
+      const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+      const endDay = String(endDate.getDate()).padStart(2, '0');
+      const endHours = String(endDate.getHours()).padStart(2, '0');
+      const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+      
+      const endDateString = `${endYear}-${endMonth}-${endDay}`;
+      const endDateTime = `${endDateString}T${endHours}:${endMinutes}:00`;
+
+      console.log(`📅 Updating Google Calendar event:`);
+      console.log(`   UTC time from DB: ${appointmentTime}`);
+      console.log(`   Converted to local: ${localHours}:${localMinutes}`);
+      console.log(`   Start: ${startDateTime}`);
+      console.log(`   End: ${endDateTime}`);
+
+      // Prepare attendees array
+      const attendees: { email: string }[] = [];
+      
+      // Add doctor email if provided, otherwise use default
+      if (doctorEmail) {
+        attendees.push({ email: doctorEmail });
+      } else {
+        attendees.push({ email: this.configService.get<string>('DOCTOR_EMAIL') || 'doctor@optimaleMD.com' });
+      }
+      
+      // Add patient email if provided
+      if (patientEmail) {
+        attendees.push({ email: patientEmail });
+      }
+
+      // Get user's timezone (default to UTC if not available)
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+      // Update calendar event
+      const response = await this.calendar.events.patch({
+        calendarId: this.configService.get<string>('GOOGLE_CALENDAR_ID') || 'primary',
+        eventId: eventId,
+        resource: {
+          summary: `${serviceName} - ${doctorName} & ${patientName}`,
+          description: `OptimaleMD Telemedicine Appointment\n\nDoctor: ${doctorName}\nPatient: ${patientName}\nService: ${serviceName}\n\nPlease join this Google Meet call at your scheduled appointment time.`,
+          start: {
+            dateTime: startDateTime,
+            timeZone: userTimezone,
+          },
+          end: {
+            dateTime: endDateTime,
+            timeZone: userTimezone,
+          },
+          attendees,
+          reminders: {
+            useDefault: false,
+            overrides: [
+              { method: 'email', minutes: 24 * 60 }, // 1 day before
+              { method: 'popup', minutes: 10 }, // 10 minutes before
+            ],
+          },
+        },
+        sendUpdates: 'all', // Send email notifications to attendees
+      });
+
+      console.log('✅ Google Calendar event updated successfully');
+
+      // Extract Meet link from response (should remain the same)
+      const meetLink = response.data.conferenceData?.entryPoints?.find(
+        (entry: any) => entry.entryPointType === 'video'
+      )?.uri;
+
+      if (meetLink) {
+        console.log('🔗 Meet link from updated event:', meetLink);
+        return { 
+          meetLink,
+          eventId: response.data.id
+        };
+      } else {
+        // If Meet link is not in response, try to get it from the existing event
+        const existingEvent = await this.calendar.events.get({
+          calendarId: this.configService.get<string>('GOOGLE_CALENDAR_ID') || 'primary',
+          eventId: eventId,
+        });
+        
+        const existingMeetLink = existingEvent.data.conferenceData?.entryPoints?.find(
+          (entry: any) => entry.entryPointType === 'video'
+        )?.uri;
+        
+        if (existingMeetLink) {
+          console.log('🔗 Using existing Meet link:', existingMeetLink);
+          return { 
+            meetLink: existingMeetLink,
+            eventId: response.data.id
+          };
+        } else {
+          throw new Error('Failed to retrieve Meet link from updated event');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error updating Google Calendar event:', error);
+      throw error;
+    }
+  }
 }

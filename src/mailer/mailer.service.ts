@@ -1376,6 +1376,46 @@ export class MailerService implements OnModuleInit {
     newTime: string,
     googleMeetLink?: string
   ): Promise<void> {
+    // Convert UTC times to local time for display in email (old appointment)
+    const [oldHours, oldMinutes] = oldTime.split(':').map(Number);
+    const [oldYear, oldMonth, oldDay] = oldDate.split('-').map(Number);
+    const oldUtcDate = new Date(Date.UTC(oldYear, oldMonth - 1, oldDay, oldHours, oldMinutes, 0));
+    
+    // Get local time for old appointment
+    const oldLocalHours = oldUtcDate.getHours();
+    const oldLocalMinutes = String(oldUtcDate.getMinutes()).padStart(2, '0');
+    const oldAmpm = oldLocalHours >= 12 ? 'PM' : 'AM';
+    const oldDisplayHour = oldLocalHours > 12 ? oldLocalHours - 12 : oldLocalHours === 0 ? 12 : oldLocalHours;
+    const oldLocalTime = `${oldDisplayHour}:${oldLocalMinutes} ${oldAmpm}`;
+    
+    // Format old date
+    const oldLocalDate = oldUtcDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // Convert UTC times to local time for display in email (new appointment)
+    const [newHours, newMinutes] = newTime.split(':').map(Number);
+    const [newYear, newMonth, newDay] = newDate.split('-').map(Number);
+    const newUtcDate = new Date(Date.UTC(newYear, newMonth - 1, newDay, newHours, newMinutes, 0));
+    
+    // Get local time for new appointment
+    const newLocalHours = newUtcDate.getHours();
+    const newLocalMinutes = String(newUtcDate.getMinutes()).padStart(2, '0');
+    const newAmpm = newLocalHours >= 12 ? 'PM' : 'AM';
+    const newDisplayHour = newLocalHours > 12 ? newLocalHours - 12 : newLocalHours === 0 ? 12 : newLocalHours;
+    const newLocalTime = `${newDisplayHour}:${newLocalMinutes} ${newAmpm}`;
+    
+    // Format new date
+    const newLocalDate = newUtcDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -1511,22 +1551,22 @@ export class MailerService implements OnModuleInit {
               <div class="old-appointment">
                 <div class="detail-row">
                   <span class="detail-label">Previous Date:</span>
-                  <span class="detail-value">${oldDate}</span>
+                  <span class="detail-value">${oldLocalDate}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Previous Time:</span>
-                  <span class="detail-value">${oldTime}</span>
+                  <span class="detail-value">${oldLocalTime}</span>
                 </div>
               </div>
               
               <div class="new-appointment">
                 <div class="detail-row">
                   <span class="detail-label">New Date:</span>
-                  <span class="detail-value">${newDate}</span>
+                  <span class="detail-value">${newLocalDate}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">New Time:</span>
-                  <span class="detail-value">${newTime}</span>
+                  <span class="detail-value">${newLocalTime}</span>
                 </div>
               </div>
             </div>
@@ -1575,6 +1615,46 @@ export class MailerService implements OnModuleInit {
     newTime: string,
     googleMeetLink?: string
   ): Promise<void> {
+    // Convert UTC times to local time for display in email (old appointment)
+    const [oldHours, oldMinutes] = oldTime.split(':').map(Number);
+    const [oldYear, oldMonth, oldDay] = oldDate.split('-').map(Number);
+    const oldUtcDate = new Date(Date.UTC(oldYear, oldMonth - 1, oldDay, oldHours, oldMinutes, 0));
+    
+    // Get local time for old appointment
+    const oldLocalHours = oldUtcDate.getHours();
+    const oldLocalMinutes = String(oldUtcDate.getMinutes()).padStart(2, '0');
+    const oldAmpm = oldLocalHours >= 12 ? 'PM' : 'AM';
+    const oldDisplayHour = oldLocalHours > 12 ? oldLocalHours - 12 : oldLocalHours === 0 ? 12 : oldLocalHours;
+    const oldLocalTime = `${oldDisplayHour}:${oldLocalMinutes} ${oldAmpm}`;
+    
+    // Format old date
+    const oldLocalDate = oldUtcDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // Convert UTC times to local time for display in email (new appointment)
+    const [newHours, newMinutes] = newTime.split(':').map(Number);
+    const [newYear, newMonth, newDay] = newDate.split('-').map(Number);
+    const newUtcDate = new Date(Date.UTC(newYear, newMonth - 1, newDay, newHours, newMinutes, 0));
+    
+    // Get local time for new appointment
+    const newLocalHours = newUtcDate.getHours();
+    const newLocalMinutes = String(newUtcDate.getMinutes()).padStart(2, '0');
+    const newAmpm = newLocalHours >= 12 ? 'PM' : 'AM';
+    const newDisplayHour = newLocalHours > 12 ? newLocalHours - 12 : newLocalHours === 0 ? 12 : newLocalHours;
+    const newLocalTime = `${newDisplayHour}:${newLocalMinutes} ${newAmpm}`;
+    
+    // Format new date
+    const newLocalDate = newUtcDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -1710,22 +1790,22 @@ export class MailerService implements OnModuleInit {
               <div class="old-appointment">
                 <div class="detail-row">
                   <span class="detail-label">Previous Date:</span>
-                  <span class="detail-value">${oldDate}</span>
+                  <span class="detail-value">${oldLocalDate}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Previous Time:</span>
-                  <span class="detail-value">${oldTime}</span>
+                  <span class="detail-value">${oldLocalTime}</span>
                 </div>
               </div>
               
               <div class="new-appointment">
                 <div class="detail-row">
                   <span class="detail-label">New Date:</span>
-                  <span class="detail-value">${newDate}</span>
+                  <span class="detail-value">${newLocalDate}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">New Time:</span>
-                  <span class="detail-value">${newTime}</span>
+                  <span class="detail-value">${newLocalTime}</span>
                 </div>
               </div>
             </div>
@@ -2159,6 +2239,384 @@ export class MailerService implements OnModuleInit {
       console.log(`Admin-created patient welcome email sent successfully to ${to}`);
     } catch (error) {
       console.error('Failed to send admin-created patient welcome email:', error);
+      throw error;
+    }
+  }
+
+  async sendSubscriptionConfirmationEmail(to: string, name: string, subscriptionStartDate: Date, subscriptionEndDate: Date, monthlyAmount: number): Promise<void> {
+    const formattedStartDate = subscriptionStartDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const formattedEndDate = subscriptionEndDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333333;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .header {
+            background-color: #000000;
+            padding: 25px;
+            text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+          }
+          .logo {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+          }
+          .content {
+            padding: 30px;
+            text-align: center;
+          }
+          .title {
+            color: #333333;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+          }
+          .description {
+            color: #666666;
+            font-size: 16px;
+            margin-bottom: 25px;
+            line-height: 1.6;
+          }
+          .success-message {
+            background-color: #d4edda;
+            padding: 25px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #28a745;
+            color: #155724;
+          }
+          .subscription-details {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #000000;
+            text-align: left;
+          }
+          .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+          }
+          .detail-row:last-child {
+            border-bottom: none;
+            font-weight: bold;
+            color: #000000;
+            font-size: 18px;
+          }
+          .detail-label {
+            font-weight: bold;
+            color: #333333;
+          }
+          .detail-value {
+            color: #666666;
+          }
+          .info-box {
+            background-color: #e7f3ff;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+            color: #004085;
+            font-size: 14px;
+          }
+          .footer {
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 20px;
+            color: #666666;
+            font-size: 14px;
+            border-top: 1px solid #e9ecef;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
+          </div>
+          <div class="content">
+            <h2 class="title">Subscription Confirmed!</h2>
+            <p class="description">Hi ${name},</p>
+            <p class="description">Thank you for subscribing to OptimaleMD! Your subscription has been successfully activated.</p>
+            
+            <div class="success-message">
+              <span style="font-size: 32px; display: block; margin-bottom: 10px;">🎉</span>
+              <p style="margin: 0; color: #155724; font-weight: bold; font-size: 18px;">Your subscription is now active!</p>
+            </div>
+            
+            <div class="subscription-details">
+              <div class="detail-row">
+                <span class="detail-label">Subscription Period:</span>
+                <span class="detail-value">${formattedStartDate} - ${formattedEndDate}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Monthly Cost:</span>
+                <span class="detail-value">$${monthlyAmount.toFixed(2)}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Billing Cycle:</span>
+                <span class="detail-value">Monthly</span>
+              </div>
+            </div>
+            
+            <div class="info-box">
+              <p style="margin: 0;"><strong>ℹ️ Important Information:</strong></p>
+              <ul style="text-align: left; margin: 10px 0 0 20px; padding: 0;">
+                <li>Your subscription will automatically renew each month</li>
+                <li>You can manage or cancel your subscription anytime from your account settings</li>
+                <li>You'll receive email notifications for each renewal</li>
+              </ul>
+            </div>
+            
+            <p class="description">You now have access to all premium features and benefits. We're excited to help you on your health journey!</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email, please do not reply.</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to,
+        subject: 'Subscription Confirmed - OptimaleMD',
+        html,
+      });
+      console.log(`Subscription confirmation email sent successfully to ${to}`);
+    } catch (error) {
+      console.error('Failed to send subscription confirmation email:', error);
+      throw error;
+    }
+  }
+
+  async sendSubscriptionCancellationEmail(to: string, name: string, subscriptionEndDate: Date, monthlyAmount: number): Promise<void> {
+    const formattedEndDate = subscriptionEndDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333333;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .header {
+            background-color: #000000;
+            padding: 25px;
+            text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+          }
+          .logo {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+          }
+          .content {
+            padding: 30px;
+            text-align: center;
+          }
+          .title {
+            color: #333333;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+          }
+          .description {
+            color: #666666;
+            font-size: 16px;
+            margin-bottom: 25px;
+            line-height: 1.6;
+          }
+          .cancellation-message {
+            background-color: #fff3cd;
+            padding: 25px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+          }
+          .subscription-details {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #000000;
+            text-align: left;
+          }
+          .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+          }
+          .detail-row:last-child {
+            border-bottom: none;
+          }
+          .detail-label {
+            font-weight: bold;
+            color: #333333;
+          }
+          .detail-value {
+            color: #666666;
+          }
+          .info-box {
+            background-color: #e7f3ff;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+            color: #004085;
+            font-size: 14px;
+          }
+          .footer {
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 20px;
+            color: #666666;
+            font-size: 14px;
+            border-top: 1px solid #e9ecef;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
+          </div>
+          <div class="content">
+            <h2 class="title">Subscription Cancellation Request</h2>
+            <p class="description">Hi ${name},</p>
+            <p class="description">We've received your request to cancel your recurring subscription payment.</p>
+            
+            <div class="cancellation-message">
+              <span style="font-size: 32px; display: block; margin-bottom: 10px;">⚠️</span>
+              <p style="margin: 0; color: #856404; font-weight: bold; font-size: 18px;">Your subscription will remain active until the end of your current billing period.</p>
+            </div>
+            
+            <div class="subscription-details">
+              <div class="detail-row">
+                <span class="detail-label">Subscription End Date:</span>
+                <span class="detail-value">${formattedEndDate}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Monthly Cost:</span>
+                <span class="detail-value">$${monthlyAmount.toFixed(2)}</span>
+              </div>
+            </div>
+            
+            <p class="description">We're sorry to see you go! If you have any feedback or concerns, please don't hesitate to contact our support team. We'd love to help improve your experience.</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email, please do not reply.</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to,
+        subject: 'Subscription Cancellation Confirmation - OptimaleMD',
+        html,
+      });
+      console.log(`Subscription cancellation email sent successfully to ${to}`);
+    } catch (error) {
+      console.error('Failed to send subscription cancellation email:', error);
       throw error;
     }
   }

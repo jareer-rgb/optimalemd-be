@@ -31,9 +31,9 @@ export class StripeService {
     }
     
     try {
-      this.stripe = new Stripe(stripeKey, {
+    this.stripe = new Stripe(stripeKey, {
         apiVersion: '2025-10-29.clover' as any, // Latest stable Stripe API version
-      });
+    });
       console.log('Stripe initialized successfully with key:', stripeKey.substring(0, 12) + '...');
     } catch (error: any) {
       console.error('Failed to initialize Stripe:', error);
@@ -103,11 +103,11 @@ export class StripeService {
     let paymentIntent;
     try {
       paymentIntent = await this.stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Convert to cents
-        currency,
-        metadata,
-        description,
-      });
+      amount: Math.round(amount * 100), // Convert to cents
+      currency,
+      metadata,
+      description,
+    });
     } catch (stripeError: any) {
       console.error('Stripe API Error:', stripeError);
       throw new BadRequestException(
@@ -162,21 +162,21 @@ export class StripeService {
         throw new BadRequestException('Payment intent ID is required for paid appointments');
       }
 
-      // Verify payment intent
-      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
-      
-      if (paymentIntent.status !== 'succeeded') {
-        throw new BadRequestException('Payment not completed');
-      }
+    // Verify payment intent
+    const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+    
+    if (paymentIntent.status !== 'succeeded') {
+      throw new BadRequestException('Payment not completed');
+    }
 
-      // Update payment status
-      await this.prisma.payment.update({
-        where: { paymentIntent: paymentIntentId },
-        data: {
-          status: 'SUCCEEDED',
-          paidAt: new Date(),
-        },
-      });
+    // Update payment status
+    await this.prisma.payment.update({
+      where: { paymentIntent: paymentIntentId },
+      data: {
+        status: 'SUCCEEDED',
+        paidAt: new Date(),
+      },
+    });
     }
 
     // Generate Google Meet link for the appointment
@@ -224,7 +224,7 @@ export class StripeService {
       appointment.doctor?.email // Pass doctor email if available
     );
 
-    // Update appointment status to confirmed, mark as paid, and store Google Meet link
+    // Update appointment status to confirmed, mark as paid, and store Google Meet link and event ID
     const updatedAppointment = await this.prisma.appointment.update({
       where: { id: appointmentId },
       data: {
@@ -232,6 +232,7 @@ export class StripeService {
         isPaid: true,
         confirmedAt: new Date(),
         googleMeetLink: meetResult.meetLink,
+        googleEventId: meetResult.eventId || null,
       },
       include: {
         patient: {
@@ -743,6 +744,40 @@ export class StripeService {
 
     console.log(`✅ User subscription updated successfully in database`);
 
+    // Send subscription confirmation email
+    try {
+      // Fetch updated user with subscription dates from database to ensure we have correct dates
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          firstName: true,
+          lastName: true,
+          primaryEmail: true,
+          subscriptionStartDate: true,
+          subscriptionEndDate: true,
+        },
+      });
+
+      if (user && user.primaryEmail && user.subscriptionStartDate && user.subscriptionEndDate) {
+        const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Valued Customer';
+        const monthlyAmount = 175; // $175 per month
+
+        await this.mailerService.sendSubscriptionConfirmationEmail(
+          user.primaryEmail,
+          userName,
+          user.subscriptionStartDate,
+          user.subscriptionEndDate,
+          monthlyAmount
+        );
+        console.log(`✅ Subscription confirmation email sent to ${user.primaryEmail}`);
+      } else if (user && user.primaryEmail) {
+        console.warn('⚠️  Subscription dates not available in database, skipping confirmation email');
+      }
+    } catch (emailError: any) {
+      console.error('Failed to send subscription confirmation email:', emailError);
+      // Don't throw - subscription is already confirmed, email failure shouldn't block the response
+    }
+
     return {
       success: true,
       subscriptionId: subscription.id,
@@ -757,7 +792,14 @@ export class StripeService {
   async cancelSubscription(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { stripeSubscriptionId: true, isSubscribed: true },
+      select: {
+        stripeSubscriptionId: true,
+        isSubscribed: true,
+        firstName: true,
+        lastName: true,
+        primaryEmail: true,
+        subscriptionEndDate: true,
+      },
     });
 
     if (!user || !user.stripeSubscriptionId) {
@@ -772,19 +814,57 @@ export class StripeService {
       }
     );
 
+    // Get subscription end date
+    const subscriptionEndDate = (subscription as any).current_period_end
+      ? new Date((subscription as any).current_period_end * 1000)
+      : user.subscriptionEndDate || new Date();
+
     // Update user
     await this.prisma.user.update({
       where: { id: userId },
       data: {
         subscriptionCanceledAt: new Date(),
         subscriptionStatus: 'canceling',
+        subscriptionEndDate: subscriptionEndDate,
       },
     });
+
+    // Send subscription cancellation email
+    try {
+      // Fetch updated user with subscription end date from database to ensure we have correct date
+      const updatedUser = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          firstName: true,
+          lastName: true,
+          primaryEmail: true,
+          subscriptionEndDate: true,
+        },
+      });
+
+      if (updatedUser && updatedUser.primaryEmail && updatedUser.subscriptionEndDate) {
+        const userName = `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || 'Valued Customer';
+        const monthlyAmount = 175; // $175 per month
+
+        await this.mailerService.sendSubscriptionCancellationEmail(
+          updatedUser.primaryEmail,
+          userName,
+          updatedUser.subscriptionEndDate,
+          monthlyAmount
+        );
+        console.log(`✅ Subscription cancellation email sent to ${updatedUser.primaryEmail}`);
+      } else if (updatedUser && updatedUser.primaryEmail) {
+        console.warn('⚠️  Subscription end date not available in database, skipping cancellation email');
+      }
+    } catch (emailError: any) {
+      console.error('Failed to send subscription cancellation email:', emailError);
+      // Don't throw - cancellation is already processed, email failure shouldn't block the response
+    }
 
     return {
       success: true,
       message: 'Subscription will be canceled at the end of the billing period',
-      endsAt: new Date((subscription as any).current_period_end * 1000),
+      endsAt: subscriptionEndDate,
     };
   }
 
@@ -796,6 +876,9 @@ export class StripeService {
    * 3. Creating new subscription if expired
    */
   async renewSubscription(userId: string) {
+    console.log(`🔄 [RENEW] ========================================`);
+    console.log(`🔄 [RENEW] Starting renewSubscription for user ${userId}`);
+    
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -808,16 +891,32 @@ export class StripeService {
     });
 
     if (!user) {
+      console.error(`❌ [RENEW] User not found: ${userId}`);
       throw new NotFoundException('User not found');
     }
 
+    console.log(`🔄 [RENEW] User data retrieved:`, {
+      hasSubscriptionId: !!user.stripeSubscriptionId,
+      subscriptionStatus: user.subscriptionStatus,
+      isSubscribed: user.isSubscribed,
+      hasCustomerId: !!user.stripeCustomerId,
+    });
+
     // Case 1: User has an active subscription that's canceling - reactivate it
     if (user.stripeSubscriptionId && (user.subscriptionStatus === 'canceling' || user.subscriptionStatus === 'active')) {
+      console.log(`🔄 [RENEW] User has active subscription, checking subscription details...`);
       try {
         const subscription = await this.stripe.subscriptions.retrieve(user.stripeSubscriptionId);
         
+        console.log(`🔄 [RENEW] Subscription retrieved:`, {
+          id: subscription.id,
+          status: subscription.status,
+          cancel_at_period_end: subscription.cancel_at_period_end,
+        });
+
         // If subscription is canceling, reactivate it
         if (subscription.cancel_at_period_end) {
+          console.log(`🔄 [RENEW] Subscription is canceling - reactivating...`);
           const updatedSubscription = await this.stripe.subscriptions.update(
             user.stripeSubscriptionId,
             {
@@ -826,8 +925,44 @@ export class StripeService {
           );
 
           const sub = updatedSubscription as any;
-          const periodStart = sub.current_period_start ? new Date(sub.current_period_start * 1000) : null;
-          const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+          
+          // Extract dates with robust fallback logic (same as getSubscriptionStatus)
+          let periodStart: number | null = sub.current_period_start || null;
+          let periodEnd: number | null = sub.current_period_end || null;
+
+          // If subscription doesn't have dates, try to get from latest invoice
+          if ((!periodStart || !periodEnd) && sub.latest_invoice) {
+            try {
+              const invoiceId = typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice?.id;
+              if (invoiceId) {
+                const invoice = await this.stripe.invoices.retrieve(invoiceId);
+                const inv = invoice as any;
+                if (inv.period_start) periodStart = inv.period_start;
+                if (inv.period_end) periodEnd = inv.period_end;
+                console.log(`📅 [REACTIVATION] Using invoice dates - start: ${periodStart}, end: ${periodEnd}`);
+              }
+            } catch (invError: any) {
+              console.log(`⚠️ [REACTIVATION] Could not retrieve invoice for period dates: ${invError.message}`);
+            }
+          }
+
+          // Convert to Date objects
+          let subscriptionStartDate: Date | null = periodStart ? new Date(periodStart * 1000) : null;
+          let subscriptionEndDate: Date | null = periodEnd ? new Date(periodEnd * 1000) : null;
+
+          // If start and end dates are the same, calculate end as start + 1 month
+          if (subscriptionStartDate && subscriptionEndDate && 
+              subscriptionStartDate.getTime() === subscriptionEndDate.getTime()) {
+            console.log(`⚠️ [REACTIVATION] Start and end dates are identical. Calculating end date as start + 1 month.`);
+            subscriptionEndDate = new Date(subscriptionStartDate);
+            subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
+            console.log(`📅 [REACTIVATION] Calculated end date: ${subscriptionEndDate.toISOString()}`);
+          }
+
+          console.log(`📅 [REACTIVATION] Final dates to save:`, {
+            start: subscriptionStartDate?.toISOString(),
+            end: subscriptionEndDate?.toISOString(),
+          });
 
           await this.prisma.user.update({
             where: { id: userId },
@@ -835,10 +970,69 @@ export class StripeService {
               subscriptionStatus: 'active',
               isSubscribed: true,
               subscriptionCanceledAt: null,
-              subscriptionStartDate: periodStart,
-              subscriptionEndDate: periodEnd,
+              subscriptionStartDate: subscriptionStartDate,
+              subscriptionEndDate: subscriptionEndDate,
             },
           });
+
+          // Send subscription reactivation email
+          console.log(`📧 [REACTIVATION] Starting email send process for user ${userId}`);
+          try {
+            // Fetch user email and name
+            const userForEmail = await this.prisma.user.findUnique({
+              where: { id: userId },
+              select: {
+                firstName: true,
+                lastName: true,
+                primaryEmail: true,
+              },
+            });
+
+            console.log(`📧 [REACTIVATION] User data fetched:`, {
+              found: !!userForEmail,
+              hasEmail: !!userForEmail?.primaryEmail,
+              email: userForEmail?.primaryEmail,
+              // Use the dates we just calculated and saved
+              startDate: subscriptionStartDate?.toISOString(),
+              endDate: subscriptionEndDate?.toISOString(),
+            });
+
+            if (userForEmail && userForEmail.primaryEmail && subscriptionStartDate && subscriptionEndDate) {
+              const userName = `${userForEmail.firstName || ''} ${userForEmail.lastName || ''}`.trim() || 'Valued Customer';
+              const monthlyAmount = 175; // $175 per month
+
+              console.log(`📧 [REACTIVATION] Calling sendSubscriptionConfirmationEmail with:`, {
+                email: userForEmail.primaryEmail,
+                name: userName,
+                startDate: subscriptionStartDate.toISOString(),
+                endDate: subscriptionEndDate.toISOString(),
+                amount: monthlyAmount,
+              });
+
+              await this.mailerService.sendSubscriptionConfirmationEmail(
+                userForEmail.primaryEmail,
+                userName,
+                subscriptionStartDate,
+                subscriptionEndDate,
+                monthlyAmount
+              );
+              console.log(`✅ [REACTIVATION] Subscription reactivation email sent successfully to ${userForEmail.primaryEmail}`);
+            } else {
+              console.warn(`⚠️ [REACTIVATION] Email not sent - missing required data:`, {
+                hasUser: !!userForEmail,
+                hasEmail: !!userForEmail?.primaryEmail,
+                hasStartDate: !!subscriptionStartDate,
+                hasEndDate: !!subscriptionEndDate,
+              });
+            }
+          } catch (emailError: any) {
+            console.error(`❌ [REACTIVATION] Failed to send subscription reactivation email:`, {
+              error: emailError.message,
+              stack: emailError.stack,
+              name: emailError.name,
+            });
+            // Don't throw - reactivation is already processed, email failure shouldn't block the response
+          }
 
           return {
             success: true,
@@ -853,6 +1047,7 @@ export class StripeService {
         // If subscription is active and user wants early renewal
         // Create invoice for immediate payment
         if (subscription.status === 'active' && !subscription.cancel_at_period_end) {
+          console.log(`🔄 [RENEW] Subscription is active - processing early renewal...`);
           // Create an invoice for the next billing period
           const invoice = await this.stripe.invoices.create({
             customer: subscription.customer as string,
@@ -886,8 +1081,44 @@ export class StripeService {
           // Retrieve updated subscription to get new period dates
           const updatedSubscription = await this.stripe.subscriptions.retrieve(subscription.id);
           const sub = updatedSubscription as any;
-          const periodStart = sub.current_period_start ? new Date(sub.current_period_start * 1000) : null;
-          const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+          
+          // Extract dates with robust fallback logic (same as getSubscriptionStatus)
+          let periodStart: number | null = sub.current_period_start || null;
+          let periodEnd: number | null = sub.current_period_end || null;
+
+          // If subscription doesn't have dates, try to get from latest invoice
+          if ((!periodStart || !periodEnd) && sub.latest_invoice) {
+            try {
+              const invoiceId = typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice?.id;
+              if (invoiceId) {
+                const invoice = await this.stripe.invoices.retrieve(invoiceId);
+                const inv = invoice as any;
+                if (inv.period_start) periodStart = inv.period_start;
+                if (inv.period_end) periodEnd = inv.period_end;
+                console.log(`📅 [EARLY RENEWAL] Using invoice dates - start: ${periodStart}, end: ${periodEnd}`);
+              }
+            } catch (invError: any) {
+              console.log(`⚠️ [EARLY RENEWAL] Could not retrieve invoice for period dates: ${invError.message}`);
+            }
+          }
+
+          // Convert to Date objects
+          let subscriptionStartDate: Date | null = periodStart ? new Date(periodStart * 1000) : null;
+          let subscriptionEndDate: Date | null = periodEnd ? new Date(periodEnd * 1000) : null;
+
+          // If start and end dates are the same, calculate end as start + 1 month
+          if (subscriptionStartDate && subscriptionEndDate && 
+              subscriptionStartDate.getTime() === subscriptionEndDate.getTime()) {
+            console.log(`⚠️ [EARLY RENEWAL] Start and end dates are identical. Calculating end date as start + 1 month.`);
+            subscriptionEndDate = new Date(subscriptionStartDate);
+            subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
+            console.log(`📅 [EARLY RENEWAL] Calculated end date: ${subscriptionEndDate.toISOString()}`);
+          }
+
+          console.log(`📅 [EARLY RENEWAL] Final dates to save:`, {
+            start: subscriptionStartDate?.toISOString(),
+            end: subscriptionEndDate?.toISOString(),
+          });
 
           await this.prisma.user.update({
             where: { id: userId },
@@ -895,10 +1126,69 @@ export class StripeService {
               subscriptionStatus: 'active',
               isSubscribed: true,
               subscriptionCanceledAt: null, // Clear canceled date on renewal
-              subscriptionStartDate: periodStart,
-              subscriptionEndDate: periodEnd,
+              subscriptionStartDate: subscriptionStartDate,
+              subscriptionEndDate: subscriptionEndDate,
             },
           });
+
+          // Send subscription renewal email
+          console.log(`📧 [EARLY RENEWAL] Starting email send process for user ${userId}`);
+          try {
+            // Fetch user email and name
+            const userForEmail = await this.prisma.user.findUnique({
+              where: { id: userId },
+              select: {
+                firstName: true,
+                lastName: true,
+                primaryEmail: true,
+              },
+            });
+
+            console.log(`📧 [EARLY RENEWAL] User data fetched:`, {
+              found: !!userForEmail,
+              hasEmail: !!userForEmail?.primaryEmail,
+              email: userForEmail?.primaryEmail,
+              // Use the dates we just calculated and saved
+              startDate: subscriptionStartDate?.toISOString(),
+              endDate: subscriptionEndDate?.toISOString(),
+            });
+
+            if (userForEmail && userForEmail.primaryEmail && subscriptionStartDate && subscriptionEndDate) {
+              const userName = `${userForEmail.firstName || ''} ${userForEmail.lastName || ''}`.trim() || 'Valued Customer';
+              const monthlyAmount = 175; // $175 per month
+
+              console.log(`📧 [EARLY RENEWAL] Calling sendSubscriptionConfirmationEmail with:`, {
+                email: userForEmail.primaryEmail,
+                name: userName,
+                startDate: subscriptionStartDate.toISOString(),
+                endDate: subscriptionEndDate.toISOString(),
+                amount: monthlyAmount,
+              });
+
+              await this.mailerService.sendSubscriptionConfirmationEmail(
+                userForEmail.primaryEmail,
+                userName,
+                subscriptionStartDate,
+                subscriptionEndDate,
+                monthlyAmount
+              );
+              console.log(`✅ [EARLY RENEWAL] Subscription renewal email sent successfully to ${userForEmail.primaryEmail}`);
+            } else {
+              console.warn(`⚠️ [EARLY RENEWAL] Email not sent - missing required data:`, {
+                hasUser: !!userForEmail,
+                hasEmail: !!userForEmail?.primaryEmail,
+                hasStartDate: !!subscriptionStartDate,
+                hasEndDate: !!subscriptionEndDate,
+              });
+            }
+          } catch (emailError: any) {
+            console.error(`❌ [EARLY RENEWAL] Failed to send subscription renewal email:`, {
+              error: emailError.message,
+              stack: emailError.stack,
+              name: emailError.name,
+            });
+            // Don't throw - renewal is already processed, email failure shouldn't block the response
+          }
 
           return {
             success: true,
@@ -919,12 +1209,16 @@ export class StripeService {
     }
 
     // Case 2: No subscription or expired - create new subscription
+    console.log(`🔄 [RENEW] Checking if new subscription needs to be created...`);
     if (!user.stripeCustomerId) {
+      console.error(`❌ [RENEW] No Stripe customer found for user ${userId}`);
       throw new BadRequestException('No Stripe customer found. Please create a subscription first.');
     }
 
+    console.log(`🔄 [RENEW] Creating new subscription for user ${userId}...`);
     // Create new subscription
     const subscription = await this.createSubscription(userId);
+    console.log(`✅ [RENEW] New subscription created successfully`);
     
     return {
       success: true,
@@ -1139,30 +1433,43 @@ export class StripeService {
           console.log(`📊 Subscription ${event.type.split('.').pop()}: ${subscription.id}`);
           console.log(`   User: ${userId}, Status: ${subscription.status}, Active: ${isActive}`);
           
-          // Get period dates with fallback to invoice dates
-          let invoicePeriodStart: number | null = null;
-          let invoicePeriodEnd: number | null = null;
-          
-          // Try to get dates from latest invoice if subscription doesn't have them
-          if ((!sub.current_period_start || !sub.current_period_end) && sub.latest_invoice) {
+          // Extract dates with robust fallback logic (same as renewSubscription)
+          let periodStart: number | null = sub.current_period_start || null;
+          let periodEnd: number | null = sub.current_period_end || null;
+
+          // If subscription doesn't have dates, try to get from latest invoice
+          if ((!periodStart || !periodEnd) && sub.latest_invoice) {
             try {
               const invoiceId = typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice?.id;
               if (invoiceId) {
                 const invoice = await this.stripe.invoices.retrieve(invoiceId);
                 const inv = invoice as any;
-                if (inv.period_start) invoicePeriodStart = inv.period_start;
-                if (inv.period_end) invoicePeriodEnd = inv.period_end;
-                console.log(`📅 Retrieved period from invoice - start: ${invoicePeriodStart}, end: ${invoicePeriodEnd}`);
+                if (inv.period_start) periodStart = inv.period_start;
+                if (inv.period_end) periodEnd = inv.period_end;
+                console.log(`📅 [WEBHOOK] Using invoice dates - start: ${periodStart}, end: ${periodEnd}`);
               }
             } catch (invError: any) {
-              console.log(`⚠️  Could not retrieve invoice for period dates: ${invError.message}`);
+              console.log(`⚠️ [WEBHOOK] Could not retrieve invoice for period dates: ${invError.message}`);
             }
           }
-          
-          const periodStart = sub.current_period_start ?? invoicePeriodStart;
-          const periodEnd = sub.current_period_end ?? invoicePeriodEnd;
-          
-          console.log(`   Period timestamps: ${periodStart} to ${periodEnd}`);
+
+          // Convert to Date objects
+          let subscriptionStartDate: Date | null = periodStart ? new Date(periodStart * 1000) : null;
+          let subscriptionEndDate: Date | null = periodEnd ? new Date(periodEnd * 1000) : null;
+
+          // If start and end dates are the same, calculate end as start + 1 month
+          if (subscriptionStartDate && subscriptionEndDate && 
+              subscriptionStartDate.getTime() === subscriptionEndDate.getTime()) {
+            console.log(`⚠️ [WEBHOOK] Start and end dates are identical. Calculating end date as start + 1 month.`);
+            subscriptionEndDate = new Date(subscriptionStartDate);
+            subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
+            console.log(`📅 [WEBHOOK] Calculated end date: ${subscriptionEndDate.toISOString()}`);
+          }
+
+          console.log(`📅 [WEBHOOK] Final dates:`, {
+            start: subscriptionStartDate?.toISOString(),
+            end: subscriptionEndDate?.toISOString(),
+          });
           
           const updateData: any = {
             subscriptionStatus: subscription.status,
@@ -1171,15 +1478,13 @@ export class StripeService {
             subscriptionCanceledAt: isActive ? null : undefined,
           };
           
-          // Only set dates if they are valid numbers
-          if (periodStart !== undefined && periodStart !== null && typeof periodStart === 'number') {
-            updateData.subscriptionStartDate = new Date(periodStart * 1000);
-            console.log(`   Start date: ${updateData.subscriptionStartDate.toISOString()}`);
+          // Set dates if they are valid
+          if (subscriptionStartDate) {
+            updateData.subscriptionStartDate = subscriptionStartDate;
           }
           
-          if (periodEnd !== undefined && periodEnd !== null && typeof periodEnd === 'number') {
-            updateData.subscriptionEndDate = new Date(periodEnd * 1000);
-            console.log(`   End date: ${updateData.subscriptionEndDate.toISOString()}`);
+          if (subscriptionEndDate) {
+            updateData.subscriptionEndDate = subscriptionEndDate;
           }
 
           await this.prisma.user.update({
@@ -1239,24 +1544,34 @@ export class StripeService {
 
           console.log(`✅ Activating subscription for user ${userId}`);
           
-          // Get period dates with fallback to invoice dates (same logic as confirmSubscriptionPayment)
-          let invoicePeriodStart: number | null = null;
-          let invoicePeriodEnd: number | null = null;
-          
-          // Use invoice period dates if subscription doesn't have them
-          if (invoice.period_start) {
-            invoicePeriodStart = invoice.period_start;
-            console.log(`📅 Invoice period_start: ${invoicePeriodStart}`);
+          // Extract dates with robust fallback logic (same as renewSubscription)
+          let periodStart: number | null = sub.current_period_start || null;
+          let periodEnd: number | null = sub.current_period_end || null;
+
+          // If subscription doesn't have dates, try to get from invoice
+          if ((!periodStart || !periodEnd) && invoice.period_start) {
+            if (invoice.period_start) periodStart = invoice.period_start;
+            if (invoice.period_end) periodEnd = invoice.period_end;
+            console.log(`📅 [WEBHOOK] Using invoice dates - start: ${periodStart}, end: ${periodEnd}`);
           }
-          if (invoice.period_end) {
-            invoicePeriodEnd = invoice.period_end;
-            console.log(`📅 Invoice period_end: ${invoicePeriodEnd}`);
+
+          // Convert to Date objects
+          let subscriptionStartDate: Date | null = periodStart ? new Date(periodStart * 1000) : null;
+          let subscriptionEndDate: Date | null = periodEnd ? new Date(periodEnd * 1000) : null;
+
+          // If start and end dates are the same, calculate end as start + 1 month
+          if (subscriptionStartDate && subscriptionEndDate && 
+              subscriptionStartDate.getTime() === subscriptionEndDate.getTime()) {
+            console.log(`⚠️ [WEBHOOK] Start and end dates are identical. Calculating end date as start + 1 month.`);
+            subscriptionEndDate = new Date(subscriptionStartDate);
+            subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
+            console.log(`📅 [WEBHOOK] Calculated end date: ${subscriptionEndDate.toISOString()}`);
           }
-          
-          const periodStart = sub.current_period_start ?? invoicePeriodStart;
-          const periodEnd = sub.current_period_end ?? invoicePeriodEnd;
-          
-          console.log(`🔍 Final period values - start: ${periodStart}, end: ${periodEnd}`);
+
+          console.log(`📅 [WEBHOOK] Final dates:`, {
+            start: subscriptionStartDate?.toISOString(),
+            end: subscriptionEndDate?.toISOString(),
+          });
           
           const updateData: any = {
             subscriptionStatus: 'active',
@@ -1264,19 +1579,13 @@ export class StripeService {
             subscriptionCanceledAt: null, // Clear any previous cancellation
           };
           
-          // Only set dates if they are valid numbers
-          if (periodStart !== undefined && periodStart !== null && typeof periodStart === 'number') {
-            updateData.subscriptionStartDate = new Date(periodStart * 1000);
-            console.log(`   Start date: ${updateData.subscriptionStartDate.toISOString()}`);
-          } else {
-            console.warn(`⚠️  No valid period_start found (value: ${periodStart})`);
+          // Set dates if they are valid
+          if (subscriptionStartDate) {
+            updateData.subscriptionStartDate = subscriptionStartDate;
           }
           
-          if (periodEnd !== undefined && periodEnd !== null && typeof periodEnd === 'number') {
-            updateData.subscriptionEndDate = new Date(periodEnd * 1000);
-            console.log(`   End date: ${updateData.subscriptionEndDate.toISOString()}`);
-          } else {
-            console.warn(`⚠️  No valid period_end found (value: ${periodEnd})`);
+          if (subscriptionEndDate) {
+            updateData.subscriptionEndDate = subscriptionEndDate;
           }
 
           await this.prisma.user.update({

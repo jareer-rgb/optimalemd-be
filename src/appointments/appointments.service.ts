@@ -951,19 +951,58 @@ export class AppointmentsService {
     const newDate = newSlot.schedule.date.toISOString().split('T')[0];
     const newTime = newSlot.startTime;
 
-    // Generate new Google Meet link for rescheduled appointment
+    // Prepare patient and doctor names
     const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
     const doctorName = appointment.doctor ? `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}` : 'To be assigned';
     
-    const meetResult = await this.googleCalendarService.generateMeetLink(
+    // Try to update existing Google Calendar event if eventId exists
+    // Otherwise create a new event
+    let meetResult: { meetLink: string; eventId?: string };
+    
+    if (appointment.googleEventId) {
+      try {
+        console.log(`📅 Appointment has existing event ID (${appointment.googleEventId}), updating it...`);
+        // Update the existing event with new date/time (with proper time conversion)
+        meetResult = await this.googleCalendarService.updateEvent(
+          appointment.googleEventId,
       newSlot.schedule.date,
       newSlot.startTime,
       appointment.duration,
       doctorName,
       patientName,
       appointment.service.name,
-      appointment.patient.primaryEmail || undefined // Pass patient email
+          appointment.patient.primaryEmail || undefined,
+          appointment.doctor?.email
+        );
+        console.log('✅ Successfully updated existing Google Calendar event');
+      } catch (error: any) {
+        console.error('⚠️  Failed to update existing event, creating new one:', error.message);
+        // Fallback to creating new event if update fails (event might have been deleted)
+        meetResult = await this.googleCalendarService.generateMeetLink(
+          newSlot.schedule.date,
+          newSlot.startTime,
+          appointment.duration,
+          doctorName,
+          patientName,
+          appointment.service.name,
+          appointment.patient.primaryEmail || undefined,
+          appointment.doctor?.email
     );
+      }
+    } else {
+      // No existing event ID, create new event
+      console.log('📅 No existing event ID found, creating new Google Calendar event...');
+      meetResult = await this.googleCalendarService.generateMeetLink(
+        newSlot.schedule.date,
+        newSlot.startTime,
+        appointment.duration,
+        doctorName,
+        patientName,
+        appointment.service.name,
+        appointment.patient.primaryEmail || undefined,
+        appointment.doctor?.email
+      );
+    }
 
     // Use transaction to ensure data consistency
     const result = await this.prisma.$transaction(async (prisma) => {
@@ -975,7 +1014,7 @@ export class AppointmentsService {
         });
       }
 
-      // Update appointment with new slot and new Google Meet link
+      // Update appointment with new slot and new Google Meet link and event ID
       const updatedAppointment = await prisma.appointment.update({
         where: { id },
         data: {
@@ -984,6 +1023,7 @@ export class AppointmentsService {
           appointmentTime: newSlot.startTime,
           status: AppointmentStatus.CONFIRMED, // Keep as confirmed since payment was already made
           googleMeetLink: meetResult.meetLink,
+          googleEventId: meetResult.eventId || null,
         }
       });
 
@@ -1557,7 +1597,11 @@ export class AppointmentsService {
       if (meetResult?.meetLink) {
         await this.prisma.appointment.update({
           where: { id: created.id },
-          data: { googleMeetLink: meetResult.meetLink, confirmedAt: new Date() },
+          data: { 
+            googleMeetLink: meetResult.meetLink,
+            googleEventId: meetResult.eventId || null,
+            confirmedAt: new Date() 
+          },
         });
 
         // Send emails (best-effort)

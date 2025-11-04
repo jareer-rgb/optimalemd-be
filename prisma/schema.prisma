@@ -441,6 +441,7 @@ model Appointment {
   
   // Video consultation
   googleMeetLink    String?  // Google Meet link for video consultation
+  googleEventId     String?  // Google Calendar event ID for updating events
   
   // Report generation
   reportPdfPath    String?  // Path to generated PDF report
