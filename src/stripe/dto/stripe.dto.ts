@@ -35,6 +35,11 @@ export class ConfirmPaymentDto {
   @ApiProperty({ description: 'Is this a free appointment?', required: false })
   @IsOptional()
   isFreeAppointment?: boolean;
+
+  @ApiProperty({ description: 'Patient timezone (IANA format, e.g., "America/New_York", "Europe/London")', example: 'America/New_York', required: false })
+  @IsOptional()
+  @IsString()
+  patientTimezone?: string;
 }
 
 export class RefundPaymentDto {

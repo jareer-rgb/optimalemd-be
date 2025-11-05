@@ -267,8 +267,15 @@ export class GoogleCalendarService implements OnModuleInit {
     patientName: string,
     serviceName: string,
     patientEmail?: string,
-    doctorEmail?: string
+    doctorEmail?: string,
+    patientTimezone?: string // Optional IANA timezone (e.g., "America/New_York"). Defaults to server timezone if not provided.
   ): Promise<{ meetLink: string; eventId?: string }> {
+    // SKIPPED: Google Calendar event creation is disabled per user request
+    // Only generating Meet link without creating calendar events
+    console.log('📅 Google Calendar event creation skipped - using fallback Meet link only');
+    return { meetLink: this.createFallbackMeetLink() };
+
+    /* COMMENTED OUT: Google Calendar event creation
     try {
       // Check if credentials are valid
       if (!this.credentialsValid) {
@@ -289,39 +296,62 @@ export class GoogleCalendarService implements OnModuleInit {
       const dateString = toISODateString(appointmentDate);
       
       // IMPORTANT: appointmentTime is stored in UTC in the database
-      // We need to convert it to the user's LOCAL time before creating the calendar event
-      // This way the calendar shows the ACTUAL local time without timezone labels
+      // We convert UTC to New York timezone for Google Calendar event
+      // Google Calendar will then auto-convert for each attendee based on their calendar settings
       
-      // Create a UTC date and convert to local time
+      // Create UTC date from the appointment time
       const [year, month, day] = dateString.split('-').map(Number);
       const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
       
-      // Get local time components
-      const localYear = utcDate.getFullYear();
-      const localMonth = String(utcDate.getMonth() + 1).padStart(2, '0');
-      const localDay = String(utcDate.getDate()).padStart(2, '0');
-      const localHours = String(utcDate.getHours()).padStart(2, '0');
-      const localMinutes = String(utcDate.getMinutes()).padStart(2, '0');
+      // Convert UTC to New York timezone
+      const nyTimezone = 'America/New_York';
+      const timeFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: nyTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
       
-      const localDateString = `${localYear}-${localMonth}-${localDay}`;
-      const startDateTime = `${localDateString}T${localHours}:${localMinutes}:00`;
+      const dateFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: nyTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
       
-      // Calculate end time in local
-      const endDate = new Date(utcDate.getTime() + duration * 60000);
-      const endYear = endDate.getFullYear();
-      const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
-      const endDay = String(endDate.getDate()).padStart(2, '0');
-      const endHours = String(endDate.getHours()).padStart(2, '0');
-      const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+      // Format start time in New York timezone
+      const startParts = timeFormatter.formatToParts(utcDate);
+      const startDateParts = dateFormatter.formatToParts(utcDate);
       
-      const endDateString = `${endYear}-${endMonth}-${endDay}`;
-      const endDateTime = `${endDateString}T${endHours}:${endMinutes}:00`;
+      const startYear = startDateParts.find(p => p.type === 'year')?.value || String(year);
+      const startMonth = startDateParts.find(p => p.type === 'month')?.value || String(month).padStart(2, '0');
+      const startDay = startDateParts.find(p => p.type === 'day')?.value || String(day).padStart(2, '0');
+      const startHour = startParts.find(p => p.type === 'hour')?.value || String(hours).padStart(2, '0');
+      const startMinute = startParts.find(p => p.type === 'minute')?.value || String(minutes).padStart(2, '0');
+      
+      const startDateTime = `${startYear}-${startMonth}-${startDay}T${startHour}:${startMinute}:00`;
+      
+      // Calculate end time in New York timezone
+      const endUtcDate = new Date(utcDate.getTime() + duration * 60000);
+      const endParts = timeFormatter.formatToParts(endUtcDate);
+      const endDateParts = dateFormatter.formatToParts(endUtcDate);
+      
+      const endYear = endDateParts.find(p => p.type === 'year')?.value || String(year);
+      const endMonth = endDateParts.find(p => p.type === 'month')?.value || String(month).padStart(2, '0');
+      const endDay = endDateParts.find(p => p.type === 'day')?.value || String(day).padStart(2, '0');
+      const endHour = endParts.find(p => p.type === 'hour')?.value || String(hours).padStart(2, '0');
+      const endMinute = endParts.find(p => p.type === 'minute')?.value || String(minutes).padStart(2, '0');
+      
+      const endDateTime = `${endYear}-${endMonth}-${endDay}T${endHour}:${endMinute}:00`;
 
-      console.log(`📅 Creating Google Calendar event:`);
+      console.log(`📅 Creating Google Calendar event (New York timezone):`);
       console.log(`   UTC time from DB: ${appointmentTime}`);
-      console.log(`   Converted to local: ${localHours}:${localMinutes}`);
-      console.log(`   Start: ${startDateTime}`);
-      console.log(`   End: ${endDateTime}`);
+      console.log(`   Start: ${startDateTime} (${nyTimezone})`);
+      console.log(`   End: ${endDateTime} (${nyTimezone})`);
+      console.log(`   Google Calendar will auto-convert for each attendee's timezone`);
 
       // Prepare attendees array
       const attendees: { email: string }[] = [];
@@ -339,19 +369,17 @@ export class GoogleCalendarService implements OnModuleInit {
       }
 
       // Create calendar event with Meet integration
-      // Get user's timezone (default to UTC if not available)
-      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-      
+      // Using New York timezone for consistency (Google Calendar will auto-convert for each attendee)
       const event = {
         summary: `${serviceName} - ${doctorName} & ${patientName}`,
         description: `OptimaleMD Telemedicine Appointment\n\nDoctor: ${doctorName}\nPatient: ${patientName}\nService: ${serviceName}\n\nPlease join this Google Meet call at your scheduled appointment time.`,
         start: {
           dateTime: startDateTime,
-          timeZone: userTimezone,
+          timeZone: 'America/New_York',
         },
         end: {
           dateTime: endDateTime,
-          timeZone: userTimezone,
+          timeZone: 'America/New_York',
         },
         conferenceData: {
           createRequest: {
@@ -407,6 +435,7 @@ export class GoogleCalendarService implements OnModuleInit {
       console.log('⚠️  Using fallback Meet link due to API error');
       return { meetLink: this.createFallbackMeetLink() };
     }
+    */
   }
 
   /**
@@ -438,6 +467,8 @@ export class GoogleCalendarService implements OnModuleInit {
   /**
    * Update calendar event with patient email
    * This can be called after the initial event creation to add the patient
+   * NOTE: This is now redundant since we pass patient email during initial creation.
+   * Keeping it for backward compatibility but using 'none' to avoid duplicate emails.
    */
   async updateEventWithPatientEmail(eventId: string, patientEmail: string): Promise<void> {
     try {
@@ -446,19 +477,36 @@ export class GoogleCalendarService implements OnModuleInit {
         return;
       }
 
-      await this.calendar.events.patch({
+      // Get existing event to check if patient is already an attendee
+      const existingEvent = await this.calendar.events.get({
+        calendarId: this.configService.get<string>('GOOGLE_CALENDAR_ID') || 'primary',
+        eventId: eventId,
+      });
+
+      // Check if patient email is already in attendees
+      const existingAttendees = existingEvent.data.attendees || [];
+      const patientAlreadyAttendee = existingAttendees.some(
+        (attendee: any) => attendee.email === patientEmail
+      );
+
+      // Only update if patient is not already an attendee
+      if (!patientAlreadyAttendee) {
+        await this.calendar.events.patch({
         calendarId: this.configService.get<string>('GOOGLE_CALENDAR_ID') || 'primary',
         eventId: eventId,
         resource: {
           attendees: [
-            { email: this.configService.get<string>('DOCTOR_EMAIL') },
+              ...existingAttendees,
             { email: patientEmail },
           ],
         },
-        sendUpdates: 'all',
+          sendUpdates: 'none', // Don't send email notifications to avoid duplicate emails
       });
 
       console.log('✅ Calendar event updated with patient email');
+      } else {
+        console.log('ℹ️  Patient email already in attendees, skipping update');
+      }
     } catch (error) {
       console.error('❌ Error updating calendar event with patient email:', error);
     }
@@ -520,8 +568,15 @@ export class GoogleCalendarService implements OnModuleInit {
     patientName: string,
     serviceName: string,
     patientEmail?: string,
-    doctorEmail?: string
+    doctorEmail?: string,
+    patientTimezone?: string // Optional IANA timezone (e.g., "America/New_York"). Defaults to server timezone if not provided.
   ): Promise<{ meetLink: string; eventId: string }> {
+    // SKIPPED: Google Calendar event updates are disabled per user request
+    // Only generating Meet link without updating calendar events
+    console.log('📅 Google Calendar event update skipped - using fallback Meet link only');
+    return { meetLink: this.createFallbackMeetLink(), eventId: eventId || 'skipped' };
+
+    /* COMMENTED OUT: Google Calendar event update
     try {
       // Check if credentials are valid
       if (!this.credentialsValid || !this.calendar) {
@@ -536,39 +591,62 @@ export class GoogleCalendarService implements OnModuleInit {
       const dateString = toISODateString(appointmentDate);
       
       // IMPORTANT: appointmentTime is stored in UTC in the database
-      // We need to convert it to the user's LOCAL time before updating the calendar event
-      // This way the calendar shows the ACTUAL local time without timezone labels
+      // We convert UTC to New York timezone for Google Calendar event
+      // Google Calendar will then auto-convert for each attendee based on their calendar settings
       
-      // Create a UTC date and convert to local time
+      // Create UTC date from the appointment time
       const [year, month, day] = dateString.split('-').map(Number);
       const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
       
-      // Get local time components
-      const localYear = utcDate.getFullYear();
-      const localMonth = String(utcDate.getMonth() + 1).padStart(2, '0');
-      const localDay = String(utcDate.getDate()).padStart(2, '0');
-      const localHours = String(utcDate.getHours()).padStart(2, '0');
-      const localMinutes = String(utcDate.getMinutes()).padStart(2, '0');
+      // Convert UTC to New York timezone
+      const nyTimezone = 'America/New_York';
+      const timeFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: nyTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
       
-      const localDateString = `${localYear}-${localMonth}-${localDay}`;
-      const startDateTime = `${localDateString}T${localHours}:${localMinutes}:00`;
+      const dateFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: nyTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
       
-      // Calculate end time in local
-      const endDate = new Date(utcDate.getTime() + duration * 60000);
-      const endYear = endDate.getFullYear();
-      const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
-      const endDay = String(endDate.getDate()).padStart(2, '0');
-      const endHours = String(endDate.getHours()).padStart(2, '0');
-      const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+      // Format start time in New York timezone
+      const startParts = timeFormatter.formatToParts(utcDate);
+      const startDateParts = dateFormatter.formatToParts(utcDate);
       
-      const endDateString = `${endYear}-${endMonth}-${endDay}`;
-      const endDateTime = `${endDateString}T${endHours}:${endMinutes}:00`;
+      const startYear = startDateParts.find(p => p.type === 'year')?.value || String(year);
+      const startMonth = startDateParts.find(p => p.type === 'month')?.value || String(month).padStart(2, '0');
+      const startDay = startDateParts.find(p => p.type === 'day')?.value || String(day).padStart(2, '0');
+      const startHour = startParts.find(p => p.type === 'hour')?.value || String(hours).padStart(2, '0');
+      const startMinute = startParts.find(p => p.type === 'minute')?.value || String(minutes).padStart(2, '0');
+      
+      const startDateTime = `${startYear}-${startMonth}-${startDay}T${startHour}:${startMinute}:00`;
+      
+      // Calculate end time in New York timezone
+      const endUtcDate = new Date(utcDate.getTime() + duration * 60000);
+      const endParts = timeFormatter.formatToParts(endUtcDate);
+      const endDateParts = dateFormatter.formatToParts(endUtcDate);
+      
+      const endYear = endDateParts.find(p => p.type === 'year')?.value || String(year);
+      const endMonth = endDateParts.find(p => p.type === 'month')?.value || String(month).padStart(2, '0');
+      const endDay = endDateParts.find(p => p.type === 'day')?.value || String(day).padStart(2, '0');
+      const endHour = endParts.find(p => p.type === 'hour')?.value || String(hours).padStart(2, '0');
+      const endMinute = endParts.find(p => p.type === 'minute')?.value || String(minutes).padStart(2, '0');
+      
+      const endDateTime = `${endYear}-${endMonth}-${endDay}T${endHour}:${endMinute}:00`;
 
-      console.log(`📅 Updating Google Calendar event:`);
+      console.log(`📅 Updating Google Calendar event (New York timezone):`);
       console.log(`   UTC time from DB: ${appointmentTime}`);
-      console.log(`   Converted to local: ${localHours}:${localMinutes}`);
-      console.log(`   Start: ${startDateTime}`);
-      console.log(`   End: ${endDateTime}`);
+      console.log(`   Start: ${startDateTime} (${nyTimezone})`);
+      console.log(`   End: ${endDateTime} (${nyTimezone})`);
+      console.log(`   Google Calendar will auto-convert for each attendee's timezone`);
 
       // Prepare attendees array
       const attendees: { email: string }[] = [];
@@ -585,10 +663,7 @@ export class GoogleCalendarService implements OnModuleInit {
         attendees.push({ email: patientEmail });
       }
 
-      // Get user's timezone (default to UTC if not available)
-      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-
-      // Update calendar event
+      // Update calendar event using New York timezone for consistency
       const response = await this.calendar.events.patch({
         calendarId: this.configService.get<string>('GOOGLE_CALENDAR_ID') || 'primary',
         eventId: eventId,
@@ -597,11 +672,11 @@ export class GoogleCalendarService implements OnModuleInit {
           description: `OptimaleMD Telemedicine Appointment\n\nDoctor: ${doctorName}\nPatient: ${patientName}\nService: ${serviceName}\n\nPlease join this Google Meet call at your scheduled appointment time.`,
           start: {
             dateTime: startDateTime,
-            timeZone: userTimezone,
+            timeZone: 'America/New_York',
           },
           end: {
             dateTime: endDateTime,
-            timeZone: userTimezone,
+            timeZone: 'America/New_York',
           },
           attendees,
           reminders: {
@@ -653,5 +728,6 @@ export class GoogleCalendarService implements OnModuleInit {
       console.error('❌ Error updating Google Calendar event:', error);
       throw error;
     }
+    */
   }
 }

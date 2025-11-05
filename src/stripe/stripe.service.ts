@@ -148,7 +148,7 @@ export class StripeService {
    * Confirm payment and update appointment status
    */
   async confirmPayment(confirmPaymentDto: ConfirmPaymentDto) {
-    const { paymentIntentId, appointmentId, isFreeAppointment } = confirmPaymentDto;
+    const { paymentIntentId, appointmentId, isFreeAppointment, patientTimezone } = confirmPaymentDto;
 
     // Handle free appointments
     if (isFreeAppointment) {
@@ -212,7 +212,7 @@ export class StripeService {
     const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
     const doctorName = appointment.doctor ? `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}` : 'To be assigned';
     
-    // Generate Google Meet link
+    // Generate Google Meet link with patient's timezone
     const meetResult = await this.googleCalendarService.generateMeetLink(
       appointment.appointmentDate,
       appointment.appointmentTime,
@@ -221,7 +221,8 @@ export class StripeService {
       patientName,
       appointment.service.name,
       appointment.patient.primaryEmail || undefined, // Pass patient email
-      appointment.doctor?.email // Pass doctor email if available
+      appointment.doctor?.email, // Pass doctor email if available
+      patientTimezone // Pass patient's timezone for correct event time
     );
 
     // Update appointment status to confirmed, mark as paid, and store Google Meet link and event ID
@@ -257,17 +258,8 @@ export class StripeService {
       },
     });
 
-    // Update calendar event with patient email if Google Calendar API is working
-    if (meetResult.eventId) {
-      try {
-        await this.googleCalendarService.updateEventWithPatientEmail(
-          meetResult.eventId,
-          appointment.patient.primaryEmail || ''
-        );
-      } catch (error) {
-        console.log('Could not update calendar event with patient email:', error.message);
-      }
-    }
+    // NOTE: Patient email is already included when creating the event via generateMeetLink
+    // No need to update the event again, which would cause duplicate email notifications
 
     // Update slot availability (if slotId exists)
     if (updatedAppointment.slotId) {
@@ -286,7 +278,7 @@ export class StripeService {
       const amount = updatedAppointment.amount.toString();
       const doctorName = updatedAppointment.doctor ? `Dr. ${updatedAppointment.doctor.firstName} ${updatedAppointment.doctor.lastName}` : 'To be assigned';
 
-      // Send confirmation email to patient
+      // Send confirmation email to patient with their timezone
       await this.mailerService.sendAppointmentConfirmationEmail(
         updatedAppointment.patient.primaryEmail || '',
         patientName,
@@ -295,10 +287,11 @@ export class StripeService {
         appointmentDate,
         updatedAppointment.appointmentTime,
         amount,
-        updatedAppointment.googleMeetLink || undefined
+        updatedAppointment.googleMeetLink || undefined,
+        patientTimezone // Use patient's timezone from frontend
       );
 
-      // Send email to doctor if assigned
+      // Send email to doctor if assigned (hardcoded to New York timezone)
       if (updatedAppointment.doctor && updatedAppointment.doctor.email) {
         await this.mailerService.sendAppointmentConfirmationEmail(
           updatedAppointment.doctor.email,
@@ -308,7 +301,8 @@ export class StripeService {
           appointmentDate,
           updatedAppointment.appointmentTime,
           amount,
-          updatedAppointment.googleMeetLink || undefined
+          updatedAppointment.googleMeetLink || undefined,
+          'America/New_York' // Hardcoded to New York timezone for doctor emails
         );
       }
     } catch (error) {

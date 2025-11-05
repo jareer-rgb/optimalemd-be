@@ -625,27 +625,43 @@ export class MailerService implements OnModuleInit {
     appointmentDate: string, 
     appointmentTime: string,
     amount: string,
-    googleMeetLink?: string
+    googleMeetLink?: string,
+    timezone?: string // Optional IANA timezone (e.g., "America/New_York", "Europe/London"). Defaults to UTC if not provided.
   ): Promise<void> {
-    // Convert UTC time to local time for display in email
+    // Convert UTC time to specified timezone (or UTC if not provided)
     const [hours, minutes] = appointmentTime.split(':').map(Number);
     const [year, month, day] = appointmentDate.split('-').map(Number);
     const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
     
-    // Get local time
-    const localHours = utcDate.getHours();
-    const localMinutes = String(utcDate.getMinutes()).padStart(2, '0');
-    const ampm = localHours >= 12 ? 'PM' : 'AM';
-    const displayHour = localHours > 12 ? localHours - 12 : localHours === 0 ? 12 : localHours;
-    const localTime = `${displayHour}:${localMinutes} ${ampm}`;
+    // Use Intl.DateTimeFormat to convert to specified timezone (or UTC)
+    const targetTimezone = timezone || 'UTC';
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: targetTimezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
     
-    // Format date
-    const localDate = utcDate.toLocaleDateString('en-US', {
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: targetTimezone,
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
+    
+    // Format time in target timezone
+    const formattedTime = timeFormatter.format(utcDate);
+    // Extract hour and minute from formatted string (e.g., "08:00 AM" or "8:00 AM")
+    const timeMatch = formattedTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    const displayTime = timeMatch ? `${timeMatch[1]}:${timeMatch[2]} ${timeMatch[3]}` : formattedTime;
+    
+    // Add timezone indicator
+    const timezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, utcDate);
+    const localTime = `${displayTime} ${timezoneAbbr ? `(${timezoneAbbr})` : '(UTC)'}`;
+    
+    // Format date in target timezone
+    const localDate = dateFormatter.format(utcDate);
     const html = `
       <!DOCTYPE html>
       <html>
@@ -827,8 +843,43 @@ export class MailerService implements OnModuleInit {
     appointmentDate: string,
     appointmentTime: string,
     amount: string,
-    googleMeetLink?: string
+    googleMeetLink?: string,
+    timezone?: string // Optional IANA timezone (e.g., "America/New_York"). Defaults to UTC if not provided.
   ): Promise<void> {
+    // Convert UTC time to specified timezone (or UTC if not provided)
+    const [hours, minutes] = appointmentTime.split(':').map(Number);
+    const [year, month, day] = appointmentDate.split('-').map(Number);
+    const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+    
+    // Use Intl.DateTimeFormat to convert to specified timezone (or UTC)
+    const targetTimezone = timezone || 'UTC';
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: targetTimezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: targetTimezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    // Format time in target timezone
+    const formattedTime = timeFormatter.format(utcDate);
+    // Extract hour and minute from formatted string (e.g., "08:00 AM" or "8:00 AM")
+    const timeMatch = formattedTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    const displayTime = timeMatch ? `${timeMatch[1]}:${timeMatch[2]} ${timeMatch[3]}` : formattedTime;
+    
+    // Add timezone indicator
+    const timezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, utcDate);
+    const localTime = `${displayTime} ${timezoneAbbr ? `(${timezoneAbbr})` : '(UTC)'}`;
+    
+    // Format date in target timezone
+    const localDate = dateFormatter.format(utcDate);
     const html = `
       <!DOCTYPE html>
       <html>
@@ -955,11 +1006,11 @@ export class MailerService implements OnModuleInit {
               </div>
               <div class="detail-row">
                 <span class="detail-label">Date:</span>
-                <span class="detail-value">${appointmentDate}</span>
+                <span class="detail-value">${localDate}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Time:</span>
-                <span class="detail-value">${appointmentTime}</span>
+                <span class="detail-value">${localTime}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Amount:</span>
@@ -1374,47 +1425,47 @@ export class MailerService implements OnModuleInit {
     oldTime: string,
     newDate: string,
     newTime: string,
-    googleMeetLink?: string
+    googleMeetLink?: string,
+    timezone?: string // Optional IANA timezone. Defaults to UTC if not provided.
   ): Promise<void> {
-    // Convert UTC times to local time for display in email (old appointment)
+    // Convert UTC times to specified timezone (or UTC if not provided)
+    const targetTimezone = timezone || 'UTC';
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: targetTimezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: targetTimezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    // Convert old appointment time
     const [oldHours, oldMinutes] = oldTime.split(':').map(Number);
     const [oldYear, oldMonth, oldDay] = oldDate.split('-').map(Number);
     const oldUtcDate = new Date(Date.UTC(oldYear, oldMonth - 1, oldDay, oldHours, oldMinutes, 0));
-    
-    // Get local time for old appointment
-    const oldLocalHours = oldUtcDate.getHours();
-    const oldLocalMinutes = String(oldUtcDate.getMinutes()).padStart(2, '0');
-    const oldAmpm = oldLocalHours >= 12 ? 'PM' : 'AM';
-    const oldDisplayHour = oldLocalHours > 12 ? oldLocalHours - 12 : oldLocalHours === 0 ? 12 : oldLocalHours;
-    const oldLocalTime = `${oldDisplayHour}:${oldLocalMinutes} ${oldAmpm}`;
-    
-    // Format old date
-    const oldLocalDate = oldUtcDate.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const oldFormattedTime = timeFormatter.format(oldUtcDate);
+    const oldTimeMatch = oldFormattedTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    const oldDisplayTime = oldTimeMatch ? `${oldTimeMatch[1]}:${oldTimeMatch[2]} ${oldTimeMatch[3]}` : oldFormattedTime;
+    const oldTimezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, oldUtcDate);
+    const oldLocalTime = `${oldDisplayTime} ${oldTimezoneAbbr ? `(${oldTimezoneAbbr})` : '(UTC)'}`;
+    const oldLocalDate = dateFormatter.format(oldUtcDate);
 
-    // Convert UTC times to local time for display in email (new appointment)
+    // Convert new appointment time
     const [newHours, newMinutes] = newTime.split(':').map(Number);
     const [newYear, newMonth, newDay] = newDate.split('-').map(Number);
     const newUtcDate = new Date(Date.UTC(newYear, newMonth - 1, newDay, newHours, newMinutes, 0));
-    
-    // Get local time for new appointment
-    const newLocalHours = newUtcDate.getHours();
-    const newLocalMinutes = String(newUtcDate.getMinutes()).padStart(2, '0');
-    const newAmpm = newLocalHours >= 12 ? 'PM' : 'AM';
-    const newDisplayHour = newLocalHours > 12 ? newLocalHours - 12 : newLocalHours === 0 ? 12 : newLocalHours;
-    const newLocalTime = `${newDisplayHour}:${newLocalMinutes} ${newAmpm}`;
-    
-    // Format new date
-    const newLocalDate = newUtcDate.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const newFormattedTime = timeFormatter.format(newUtcDate);
+    const newTimeMatch = newFormattedTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    const newDisplayTime = newTimeMatch ? `${newTimeMatch[1]}:${newTimeMatch[2]} ${newTimeMatch[3]}` : newFormattedTime;
+    const newTimezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, newUtcDate);
+    const newLocalTime = `${newDisplayTime} ${newTimezoneAbbr ? `(${newTimezoneAbbr})` : '(UTC)'}`;
+    const newLocalDate = dateFormatter.format(newUtcDate);
 
     const html = `
       <!DOCTYPE html>
@@ -1613,47 +1664,47 @@ export class MailerService implements OnModuleInit {
     oldTime: string,
     newDate: string,
     newTime: string,
-    googleMeetLink?: string
+    googleMeetLink?: string,
+    timezone?: string // Optional IANA timezone. Defaults to UTC if not provided.
   ): Promise<void> {
-    // Convert UTC times to local time for display in email (old appointment)
+    // Convert UTC times to specified timezone (or UTC if not provided)
+    const targetTimezone = timezone || 'UTC';
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: targetTimezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: targetTimezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    // Convert old appointment time
     const [oldHours, oldMinutes] = oldTime.split(':').map(Number);
     const [oldYear, oldMonth, oldDay] = oldDate.split('-').map(Number);
     const oldUtcDate = new Date(Date.UTC(oldYear, oldMonth - 1, oldDay, oldHours, oldMinutes, 0));
-    
-    // Get local time for old appointment
-    const oldLocalHours = oldUtcDate.getHours();
-    const oldLocalMinutes = String(oldUtcDate.getMinutes()).padStart(2, '0');
-    const oldAmpm = oldLocalHours >= 12 ? 'PM' : 'AM';
-    const oldDisplayHour = oldLocalHours > 12 ? oldLocalHours - 12 : oldLocalHours === 0 ? 12 : oldLocalHours;
-    const oldLocalTime = `${oldDisplayHour}:${oldLocalMinutes} ${oldAmpm}`;
-    
-    // Format old date
-    const oldLocalDate = oldUtcDate.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const oldFormattedTime = timeFormatter.format(oldUtcDate);
+    const oldTimeMatch = oldFormattedTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    const oldDisplayTime = oldTimeMatch ? `${oldTimeMatch[1]}:${oldTimeMatch[2]} ${oldTimeMatch[3]}` : oldFormattedTime;
+    const oldTimezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, oldUtcDate);
+    const oldLocalTime = `${oldDisplayTime} ${oldTimezoneAbbr ? `(${oldTimezoneAbbr})` : '(UTC)'}`;
+    const oldLocalDate = dateFormatter.format(oldUtcDate);
 
-    // Convert UTC times to local time for display in email (new appointment)
+    // Convert new appointment time
     const [newHours, newMinutes] = newTime.split(':').map(Number);
     const [newYear, newMonth, newDay] = newDate.split('-').map(Number);
     const newUtcDate = new Date(Date.UTC(newYear, newMonth - 1, newDay, newHours, newMinutes, 0));
-    
-    // Get local time for new appointment
-    const newLocalHours = newUtcDate.getHours();
-    const newLocalMinutes = String(newUtcDate.getMinutes()).padStart(2, '0');
-    const newAmpm = newLocalHours >= 12 ? 'PM' : 'AM';
-    const newDisplayHour = newLocalHours > 12 ? newLocalHours - 12 : newLocalHours === 0 ? 12 : newLocalHours;
-    const newLocalTime = `${newDisplayHour}:${newLocalMinutes} ${newAmpm}`;
-    
-    // Format new date
-    const newLocalDate = newUtcDate.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const newFormattedTime = timeFormatter.format(newUtcDate);
+    const newTimeMatch = newFormattedTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    const newDisplayTime = newTimeMatch ? `${newTimeMatch[1]}:${newTimeMatch[2]} ${newTimeMatch[3]}` : newFormattedTime;
+    const newTimezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, newUtcDate);
+    const newLocalTime = `${newDisplayTime} ${newTimezoneAbbr ? `(${newTimezoneAbbr})` : '(UTC)'}`;
+    const newLocalDate = dateFormatter.format(newUtcDate);
 
     const html = `
       <!DOCTYPE html>
@@ -2618,6 +2669,34 @@ export class MailerService implements OnModuleInit {
     } catch (error) {
       console.error('Failed to send subscription cancellation email:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Get timezone abbreviation (e.g., EST, EDT, PST, UTC) for a given timezone and date
+   * @param timezone - IANA timezone string (e.g., "America/New_York")
+   * @param date - Date object to determine DST (Daylight Saving Time)
+   * @returns Timezone abbreviation string
+   */
+  private getTimezoneAbbreviation(timezone: string, date: Date): string {
+    try {
+      if (timezone === 'UTC') {
+        return 'UTC';
+      }
+      
+      // Use Intl.DateTimeFormat to get timezone name
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        timeZoneName: 'short'
+      });
+      
+      const parts = formatter.formatToParts(date);
+      const timeZoneName = parts.find(part => part.type === 'timeZoneName');
+      
+      return timeZoneName?.value || 'UTC';
+    } catch (error) {
+      console.error(`Error getting timezone abbreviation for ${timezone}:`, error);
+      return 'UTC';
     }
   }
 } 

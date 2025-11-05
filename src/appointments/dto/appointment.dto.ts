@@ -65,6 +65,11 @@ export class CreateAppointmentDto {
   @IsDecimal()
   @IsNotEmpty()
   amount: string;
+
+  @ApiProperty({ description: 'Patient timezone (IANA format, e.g., "America/New_York", "Europe/London")', example: 'America/New_York', required: false })
+  @IsOptional()
+  @IsString()
+  patientTimezone?: string;
 }
 
 export class UpdateAppointmentDto {
@@ -171,6 +176,11 @@ export class RescheduleAppointmentDto {
   @IsString()
   @MaxLength(500)
   reason?: string;
+
+  @ApiProperty({ description: 'Patient timezone (IANA format, e.g., "America/New_York", "Europe/London")', example: 'America/New_York', required: false })
+  @IsOptional()
+  @IsString()
+  patientTimezone?: string;
 }
 
 export class AdminCreateAppointmentDto {

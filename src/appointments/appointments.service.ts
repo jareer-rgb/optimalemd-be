@@ -26,7 +26,7 @@ export class AppointmentsService {
    * Create a temporary appointment for payment processing
    */
   async createTemporaryAppointment(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
-    const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount, primaryServiceId, selectedSlotTime } = createAppointmentDto;
+    const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount, primaryServiceId, selectedSlotTime, patientTimezone } = createAppointmentDto;
 
     // Check if patient exists and is active
     const patient = await this.prisma.user.findUnique({
@@ -173,7 +173,7 @@ export class AppointmentsService {
    * Create a new appointment
    */
   async createAppointment(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
-    const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount, primaryServiceId } = createAppointmentDto;
+    const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount, primaryServiceId, patientTimezone } = createAppointmentDto;
 
     // Check if patient exists and is active
     const patient = await this.prisma.user.findUnique({
@@ -879,7 +879,7 @@ export class AppointmentsService {
    * Reschedule appointment
    */
   async rescheduleAppointment(id: string, rescheduleAppointmentDto: RescheduleAppointmentDto): Promise<AppointmentResponseDto> {
-    const { newSlotId, reason } = rescheduleAppointmentDto;
+    const { newSlotId, reason, patientTimezone } = rescheduleAppointmentDto;
 
     const appointment = await this.prisma.appointment.findUnique({
       where: { id },
@@ -972,7 +972,8 @@ export class AppointmentsService {
       patientName,
       appointment.service.name,
           appointment.patient.primaryEmail || undefined,
-          appointment.doctor?.email
+          appointment.doctor?.email,
+          patientTimezone // Pass patient's timezone for correct event time
         );
         console.log('✅ Successfully updated existing Google Calendar event');
       } catch (error: any) {
@@ -986,8 +987,9 @@ export class AppointmentsService {
           patientName,
           appointment.service.name,
           appointment.patient.primaryEmail || undefined,
-          appointment.doctor?.email
-    );
+          appointment.doctor?.email,
+          patientTimezone // Pass patient's timezone for correct event time
+        );
       }
     } else {
       // No existing event ID, create new event
@@ -1000,7 +1002,8 @@ export class AppointmentsService {
         patientName,
         appointment.service.name,
         appointment.patient.primaryEmail || undefined,
-        appointment.doctor?.email
+        appointment.doctor?.email,
+        patientTimezone // Pass patient's timezone for correct event time
       );
     }
 
@@ -1050,7 +1053,8 @@ export class AppointmentsService {
         oldTime,
         newDate,
         newTime,
-        meetResult.meetLink
+        meetResult.meetLink,
+        patientTimezone // Use patient's timezone from frontend
       );
 
       // Send reschedule notification to doctor with new Google Meet link (only if doctor is assigned)
@@ -1063,7 +1067,8 @@ export class AppointmentsService {
           oldTime,
           newDate,
           newTime,
-          meetResult.meetLink
+          meetResult.meetLink,
+          patientTimezone // Use patient's timezone from frontend
         );
       }
     } catch (error) {
@@ -1478,7 +1483,7 @@ export class AppointmentsService {
   }
 
   async adminCreateConfirmed(dto: any): Promise<any> {
-    const { patientId, doctorId, serviceId, primaryServiceId, slotId, appointmentDate, appointmentTime, duration, patientNotes } = dto;
+    const { patientId, doctorId, serviceId, primaryServiceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, patientTimezone } = dto;
 
     // Basic validations
     const patient = await this.prisma.user.findUnique({ where: { id: patientId }, select: { id: true, isActive: true } });
@@ -1591,7 +1596,8 @@ export class AppointmentsService {
         patientName,
         created.service.name,
         created.patient.primaryEmail || undefined,
-        created.doctor?.email
+        created.doctor?.email,
+        patientTimezone // Pass patient's timezone for correct event time
       );
 
       if (meetResult?.meetLink) {
@@ -1617,7 +1623,8 @@ export class AppointmentsService {
               dateStr,
               created.appointmentTime,
               amountStr,
-              meetResult.meetLink
+              meetResult.meetLink,
+              patientTimezone // Use patient's timezone from frontend
             );
           }
         } catch (err) {
@@ -1634,7 +1641,8 @@ export class AppointmentsService {
               dateStr,
               created.appointmentTime,
               amountStr,
-              meetResult.meetLink
+              meetResult.meetLink,
+              'America/New_York' // Hardcoded to New York timezone for doctor emails
             );
           }
         } catch (err) {
