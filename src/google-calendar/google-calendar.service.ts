@@ -268,174 +268,110 @@ export class GoogleCalendarService implements OnModuleInit {
     serviceName: string,
     patientEmail?: string,
     doctorEmail?: string,
-    patientTimezone?: string // Optional IANA timezone (e.g., "America/New_York"). Defaults to server timezone if not provided.
+    patientTimezone?: string,
+    additionalServices?: Array<{ id: string; name: string; duration: number }>
   ): Promise<{ meetLink: string; eventId?: string }> {
-    // SKIPPED: Google Calendar event creation is disabled per user request
-    // Only generating Meet link without creating calendar events
-    console.log('📅 Google Calendar event creation skipped - using fallback Meet link only');
-    return { meetLink: this.createFallbackMeetLink() };
-
-    /* COMMENTED OUT: Google Calendar event creation
     try {
-      // Check if credentials are valid
-      if (!this.credentialsValid) {
-        console.log('⚠️  Google API credentials not valid, using fallback Meet link');
+      if (!this.credentialsValid || !this.calendar) {
+        console.log('⚠️  Google Calendar API unavailable or credentials invalid, using fallback Meet link');
         return { meetLink: this.createFallbackMeetLink() };
       }
 
-      // If Google Calendar API is not configured, use fallback
-      if (!this.calendar) {
-        console.log('⚠️  Google Calendar API not available, using fallback Meet link');
-        return { meetLink: this.createFallbackMeetLink() };
-      }
-
-      // Parse appointment time (format: "HH:MM")
-      const [hours, minutes] = appointmentTime.split(':').map(Number);
-      
-      // Get date string in YYYY-MM-DD format
+      const calendarId = this.configService.get<string>('GOOGLE_CALENDAR_ID') || 'primary';
       const dateString = toISODateString(appointmentDate);
+      const meetingStart = dateTimeToUTC(dateString, appointmentTime);
+      const meetingEnd = new Date(meetingStart.getTime() + duration * 60000);
       
-      // IMPORTANT: appointmentTime is stored in UTC in the database
-      // We convert UTC to New York timezone for Google Calendar event
-      // Google Calendar will then auto-convert for each attendee based on their calendar settings
-      
-      // Create UTC date from the appointment time
-      const [year, month, day] = dateString.split('-').map(Number);
-      const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
-      
-      // Convert UTC to New York timezone
-      const nyTimezone = 'America/New_York';
-      const timeFormatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: nyTimezone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-      
-      const dateFormatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: nyTimezone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      });
-      
-      // Format start time in New York timezone
-      const startParts = timeFormatter.formatToParts(utcDate);
-      const startDateParts = dateFormatter.formatToParts(utcDate);
-      
-      const startYear = startDateParts.find(p => p.type === 'year')?.value || String(year);
-      const startMonth = startDateParts.find(p => p.type === 'month')?.value || String(month).padStart(2, '0');
-      const startDay = startDateParts.find(p => p.type === 'day')?.value || String(day).padStart(2, '0');
-      const startHour = startParts.find(p => p.type === 'hour')?.value || String(hours).padStart(2, '0');
-      const startMinute = startParts.find(p => p.type === 'minute')?.value || String(minutes).padStart(2, '0');
-      
-      const startDateTime = `${startYear}-${startMonth}-${startDay}T${startHour}:${startMinute}:00`;
-      
-      // Calculate end time in New York timezone
-      const endUtcDate = new Date(utcDate.getTime() + duration * 60000);
-      const endParts = timeFormatter.formatToParts(endUtcDate);
-      const endDateParts = dateFormatter.formatToParts(endUtcDate);
-      
-      const endYear = endDateParts.find(p => p.type === 'year')?.value || String(year);
-      const endMonth = endDateParts.find(p => p.type === 'month')?.value || String(month).padStart(2, '0');
-      const endDay = endDateParts.find(p => p.type === 'day')?.value || String(day).padStart(2, '0');
-      const endHour = endParts.find(p => p.type === 'hour')?.value || String(hours).padStart(2, '0');
-      const endMinute = endParts.find(p => p.type === 'minute')?.value || String(minutes).padStart(2, '0');
-      
-      const endDateTime = `${endYear}-${endMonth}-${endDay}T${endHour}:${endMinute}:00`;
+      const timezoneNote = patientTimezone ? `Patient Timezone: ${patientTimezone}\n` : '';
 
-      console.log(`📅 Creating Google Calendar event (New York timezone):`);
-      console.log(`   UTC time from DB: ${appointmentTime}`);
-      console.log(`   Start: ${startDateTime} (${nyTimezone})`);
-      console.log(`   End: ${endDateTime} (${nyTimezone})`);
-      console.log(`   Google Calendar will auto-convert for each attendee's timezone`);
+      const allServices = additionalServices && additionalServices.length > 0
+        ? `${serviceName}, ${additionalServices.map(s => s.name).join(', ')}`
+        : serviceName;
 
-      // Prepare attendees array
+      const requestBody: any = {
+        summary: `${allServices} - ${doctorName}`,
+        description: `
+OptimaleMD Telemedicine Appointment
+
+Doctor: ${doctorName}
+Patient: ${patientName}
+Service${additionalServices && additionalServices.length > 0 ? 's' : ''}: ${allServices}
+${timezoneNote}
+
+Joining instructions:
+• Click the link above at your scheduled time
+• Navigate to meet.google.com and enter the code from the link
+• Join using the Google Meet mobile app for best experience
+
+This link was generated automatically by OptimaleMD.
+        `.trim(),
+        start: {
+          dateTime: meetingStart.toISOString(),
+          timeZone: 'UTC',
+        },
+        end: {
+          dateTime: meetingEnd.toISOString(),
+          timeZone: 'UTC',
+        },
+        reminders: { useDefault: false },
+        conferenceData: {
+          createRequest: {
+            requestId: `meet-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
+            conferenceSolutionKey: { type: 'hangoutsMeet' },
+          },
+        },
+        guestsCanInviteOthers: false,
+        guestsCanModify: false,
+        guestsCanSeeOtherGuests: false,
+        visibility: 'private',
+        transparency: 'opaque',
+        colorId: '11',
+      };
+
       const attendees: { email: string }[] = [];
-      
-      // Add doctor email if provided, otherwise use default
       if (doctorEmail) {
         attendees.push({ email: doctorEmail });
-      } else {
-        attendees.push({ email: this.configService.get<string>('DOCTOR_EMAIL') || 'doctor@optimaleMD.com' });
       }
-      
-      // Add patient email if provided
       if (patientEmail) {
         attendees.push({ email: patientEmail });
       }
+      if (attendees.length > 0) {
+        requestBody.attendees = attendees;
+      }
 
-      // Create calendar event with Meet integration
-      // Using New York timezone for consistency (Google Calendar will auto-convert for each attendee)
-      const event = {
-        summary: `${serviceName} - ${doctorName} & ${patientName}`,
-        description: `OptimaleMD Telemedicine Appointment\n\nDoctor: ${doctorName}\nPatient: ${patientName}\nService: ${serviceName}\n\nPlease join this Google Meet call at your scheduled appointment time.`,
-        start: {
-          dateTime: startDateTime,
-          timeZone: 'America/New_York',
-        },
-        end: {
-          dateTime: endDateTime,
-          timeZone: 'America/New_York',
-        },
-        conferenceData: {
-          createRequest: {
-            requestId: `meet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            conferenceSolutionKey: {
-              type: 'hangoutsMeet',
-            },
-          },
-        },
-        attendees,
-        reminders: {
-          useDefault: false,
-          overrides: [
-            { method: 'email', minutes: 24 * 60 }, // 1 day before
-            { method: 'popup', minutes: 10 }, // 10 minutes before
-          ],
-        },
-      };
+      console.log('📅 Creating Google Calendar event with Meet integration (internal calendar)...');
 
-      console.log('📅 Creating Google Calendar event with Meet integration...');
-
-      // Create the calendar event
       const response = await this.calendar.events.insert({
-        calendarId: this.configService.get<string>('GOOGLE_CALENDAR_ID') || 'primary',
-        resource: event,
+        calendarId,
+        requestBody,
         conferenceDataVersion: 1,
-        sendUpdates: 'all', // Send email notifications to attendees
+        sendUpdates: 'none',
       });
 
       console.log('✅ Google Calendar event created successfully');
 
-      // Extract Meet link from response
       const meetLink = response.data.conferenceData?.entryPoints?.find(
         (entry: any) => entry.entryPointType === 'video'
       )?.uri;
 
-      if (meetLink) {
+      if (!meetLink) {
+        console.warn('⚠️  Failed to extract Meet link from calendar event response. Falling back to generated link.');
+        await this.safeDeleteEvent(response.data.id, calendarId);
+        return { meetLink: this.createFallbackMeetLink() };
+      }
+
         console.log('🔗 Meet link generated:', meetLink);
-        console.log(`📅 Calendar event created for ${dateString} at ${appointmentTime}`);
         console.log(`   Event ID: ${response.data.id}`);
+
         return { 
           meetLink,
-          eventId: response.data.id
+        eventId: response.data.id,
         };
-      } else {
-        console.error('❌ Failed to extract Meet link from calendar event');
-        throw new Error('Failed to create Meet link');
-      }
     } catch (error) {
       console.error('❌ Error creating Google Calendar event with Meet:', error);
-      
-      // Fallback to simple Meet link if API fails
       console.log('⚠️  Using fallback Meet link due to API error');
       return { meetLink: this.createFallbackMeetLink() };
     }
-    */
   }
 
   /**
@@ -448,6 +384,27 @@ export class GoogleCalendarService implements OnModuleInit {
     const fallbackLink = `https://meet.google.com/${meetingId}`;
     console.log('🔗 Generated fallback Meet link:', fallbackLink);
     return fallbackLink;
+  }
+
+  /**
+   * Delete a temporary calendar event if we created one but could not extract a Meet link
+   */
+  private async safeDeleteEvent(eventId: string | undefined, calendarId: string): Promise<void> {
+    if (!eventId || !this.calendar) {
+      return;
+    }
+
+    try {
+      await this.calendar.events.delete({
+        calendarId,
+        eventId,
+      });
+      console.log(`🗑️  Deleted temporary calendar event ${eventId}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error';
+      console.warn(`⚠️  Unable to delete temporary calendar event ${eventId}: ${message}`);
+    }
   }
 
   /**

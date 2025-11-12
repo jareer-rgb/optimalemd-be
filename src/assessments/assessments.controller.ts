@@ -17,6 +17,7 @@ import {
   AssessmentResponseDto,
   CreateAppointmentAssessmentDto,
   UpdateAppointmentAssessmentDto,
+  CreateMultipleAppointmentAssessmentsDto,
   AppointmentAssessmentResponseDto,
 } from './dto/assessment.dto';
 
@@ -69,6 +70,15 @@ export class AssessmentsController {
   }
 
   // Appointment Assessment endpoints
+  @Post('appointment/bulk')
+  @ApiOperation({ summary: 'Create or update multiple appointment assessments' })
+  @ApiResponse({ status: 201, description: 'Appointment assessments created/updated successfully', type: [AppointmentAssessmentResponseDto] })
+  async createMultipleAppointmentAssessments(
+    @Body() createDto: CreateMultipleAppointmentAssessmentsDto,
+  ): Promise<AppointmentAssessmentResponseDto[]> {
+    return this.assessmentsService.createMultipleAppointmentAssessments(createDto);
+  }
+
   @Post('appointment')
   @ApiOperation({ summary: 'Create or update appointment assessment' })
   @ApiResponse({ status: 201, description: 'Appointment assessment created/updated successfully', type: AppointmentAssessmentResponseDto })

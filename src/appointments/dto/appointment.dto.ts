@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum, IsNumber, IsBoolean, IsDecimal, Min, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum, IsNumber, IsBoolean, IsDecimal, Min, MaxLength, IsArray } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { AppointmentStatus, UrgencyLevel } from '@prisma/client';
 
@@ -70,6 +70,17 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsString()
   patientTimezone?: string;
+
+  @ApiProperty({
+    description: 'Additional medical service IDs selected by the patient (beyond the primary service)',
+    example: ['service-id-1', 'service-id-2'],
+    required: false,
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  additionalServiceIds?: string[];
 }
 
 export class UpdateAppointmentDto {

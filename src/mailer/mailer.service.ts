@@ -626,7 +626,8 @@ export class MailerService implements OnModuleInit {
     appointmentTime: string,
     amount: string,
     googleMeetLink?: string,
-    timezone?: string // Optional IANA timezone (e.g., "America/New_York", "Europe/London"). Defaults to UTC if not provided.
+    timezone?: string, // Optional IANA timezone (e.g., "America/Chicago"). Defaults to doctor's timezone (CST) if not provided.
+    additionalServices?: Array<{ id: string; name: string; duration: number }> // Optional additional services
   ): Promise<void> {
     // Convert UTC time to specified timezone (or UTC if not provided)
     const [hours, minutes] = appointmentTime.split(':').map(Number);
@@ -634,20 +635,12 @@ export class MailerService implements OnModuleInit {
     const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
     
     // Use Intl.DateTimeFormat to convert to specified timezone (or UTC)
-    const targetTimezone = timezone || 'UTC';
+    const targetTimezone = timezone || 'America/Chicago';
     const timeFormatter = new Intl.DateTimeFormat('en-US', {
       timeZone: targetTimezone,
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
-    });
-    
-    const dateFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: targetTimezone,
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
     });
     
     // Format time in target timezone
@@ -660,8 +653,18 @@ export class MailerService implements OnModuleInit {
     const timezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, utcDate);
     const localTime = `${displayTime} ${timezoneAbbr ? `(${timezoneAbbr})` : '(UTC)'}`;
     
-    // Format date in target timezone
-    const localDate = dateFormatter.format(utcDate);
+    // Format date based on appointmentDate string directly (not from UTC date object)
+    // This matches the frontend logic: extract YYYY-MM-DD and create local date to avoid timezone shift
+    // This ensures the date is correct even when time crosses midnight in UTC
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    // Create a local date from the date string (not UTC) to match frontend behavior
+    const localDateObj = new Date(year, month - 1, day);
+    const localDate = dateFormatter.format(localDateObj);
     const html = `
       <!DOCTYPE html>
       <html>
@@ -783,8 +786,8 @@ export class MailerService implements OnModuleInit {
                 <span class="detail-value">${doctorName}</span>
               </div>
               <div class="detail-row">
-                <span class="detail-label">Service:</span>
-                <span class="detail-value">${serviceName}</span>
+                <span class="detail-label">Service${additionalServices && additionalServices.length > 0 ? 's' : ''}:</span>
+                <span class="detail-value">${serviceName}${additionalServices && additionalServices.length > 0 ? `, ${additionalServices.map(s => s.name).join(', ')}` : ''}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Date:</span>
@@ -844,7 +847,8 @@ export class MailerService implements OnModuleInit {
     appointmentTime: string,
     amount: string,
     googleMeetLink?: string,
-    timezone?: string // Optional IANA timezone (e.g., "America/New_York"). Defaults to UTC if not provided.
+    timezone?: string, // Optional IANA timezone (e.g., "America/New_York"). Defaults to UTC if not provided.
+    additionalServices?: Array<{ id: string; name: string; duration: number }> // Optional additional services
   ): Promise<void> {
     // Convert UTC time to specified timezone (or UTC if not provided)
     const [hours, minutes] = appointmentTime.split(':').map(Number);
@@ -860,14 +864,6 @@ export class MailerService implements OnModuleInit {
       hour12: true
     });
     
-    const dateFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: targetTimezone,
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    
     // Format time in target timezone
     const formattedTime = timeFormatter.format(utcDate);
     // Extract hour and minute from formatted string (e.g., "08:00 AM" or "8:00 AM")
@@ -878,8 +874,18 @@ export class MailerService implements OnModuleInit {
     const timezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, utcDate);
     const localTime = `${displayTime} ${timezoneAbbr ? `(${timezoneAbbr})` : '(UTC)'}`;
     
-    // Format date in target timezone
-    const localDate = dateFormatter.format(utcDate);
+    // Format date based on appointmentDate string directly (not from UTC date object)
+    // This matches the frontend logic: extract YYYY-MM-DD and create local date to avoid timezone shift
+    // This ensures the date is correct even when time crosses midnight in UTC
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    // Create a local date from the date string (not UTC) to match frontend behavior
+    const localDateObj = new Date(year, month - 1, day);
+    const localDate = dateFormatter.format(localDateObj);
     const html = `
       <!DOCTYPE html>
       <html>
@@ -1001,8 +1007,8 @@ export class MailerService implements OnModuleInit {
                 <span class="detail-value">${patientName}</span>
               </div>
               <div class="detail-row">
-                <span class="detail-label">Service:</span>
-                <span class="detail-value">${serviceName}</span>
+                <span class="detail-label">Service${additionalServices && additionalServices.length > 0 ? 's' : ''}:</span>
+                <span class="detail-value">${serviceName}${additionalServices && additionalServices.length > 0 ? `, ${additionalServices.map(s => s.name).join(', ')}` : ''}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Date:</span>
@@ -1060,6 +1066,34 @@ export class MailerService implements OnModuleInit {
     appointmentTime: string,
     amount: string
   ): Promise<void> {
+    // Format date based on appointmentDate string directly (not from UTC date object)
+    // This matches the frontend logic: extract YYYY-MM-DD and create local date to avoid timezone shift
+    const [year, month, day] = appointmentDate.split('-').map(Number);
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const localDateObj = new Date(year, month - 1, day);
+    const formattedDate = dateFormatter.format(localDateObj);
+    
+    // Format time (convert from UTC to patient's timezone - default to America/Chicago)
+    const [hours, minutes] = appointmentTime.split(':').map(Number);
+    const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+    const targetTimezone = 'America/Chicago';
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: targetTimezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    const formattedTime = timeFormatter.format(utcDate);
+    const timeMatch = formattedTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    const displayTime = timeMatch ? `${timeMatch[1]}:${timeMatch[2]} ${timeMatch[3]}` : formattedTime;
+    const timezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, utcDate);
+    const formattedTimeWithTz = `${displayTime} ${timezoneAbbr ? `(${timezoneAbbr})` : '(UTC)'}`;
+    
     const html = `
       <!DOCTYPE html>
       <html>
@@ -1190,11 +1224,11 @@ export class MailerService implements OnModuleInit {
               </div>
               <div class="detail-row">
                 <span class="detail-label">Date:</span>
-                <span class="detail-value">${appointmentDate}</span>
+                <span class="detail-value">${formattedDate}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Time:</span>
-                <span class="detail-value">${appointmentTime}</span>
+                <span class="detail-value">${formattedTimeWithTz}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Amount:</span>
@@ -1240,8 +1274,39 @@ export class MailerService implements OnModuleInit {
     patientEmail: string,
     appointmentDate: string,
     appointmentTime: string,
-    amount: string
+    amount: string,
+    timezone?: string
   ): Promise<void> {
+    const targetTimezone = timezone || 'America/Chicago';
+    const [hours, minutes] = appointmentTime.split(':').map(Number);
+    const [year, month, day] = appointmentDate.split('-').map(Number);
+    const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: targetTimezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    // Format date based on date string directly (not from UTC date object)
+    // This matches the frontend logic: extract YYYY-MM-DD and create local date to avoid timezone shift
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const formattedTime = timeFormatter.format(utcDate);
+    const timeMatch = formattedTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    const displayTime = timeMatch ? `${timeMatch[1]}:${timeMatch[2]} ${timeMatch[3]}` : formattedTime;
+    const timezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, utcDate);
+    const localTime = `${displayTime} ${timezoneAbbr ? `(${timezoneAbbr})` : ''}`.trim();
+    // Create a local date from the date string (not UTC) to match frontend behavior
+    const localDateObj = new Date(year, month - 1, day);
+    const localDate = dateFormatter.format(localDateObj);
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -1376,11 +1441,11 @@ export class MailerService implements OnModuleInit {
               </div>
               <div class="detail-row">
                 <span class="detail-label">Date:</span>
-                <span class="detail-value">${appointmentDate}</span>
+                <span class="detail-value">${localDate}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Time:</span>
-                <span class="detail-value">${appointmentTime}</span>
+                <span class="detail-value">${localTime}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Amount:</span>
@@ -1426,10 +1491,10 @@ export class MailerService implements OnModuleInit {
     newDate: string,
     newTime: string,
     googleMeetLink?: string,
-    timezone?: string // Optional IANA timezone. Defaults to UTC if not provided.
+    timezone?: string // Optional IANA timezone. Defaults to doctor's timezone (CST) if not provided.
   ): Promise<void> {
     // Convert UTC times to specified timezone (or UTC if not provided)
-    const targetTimezone = timezone || 'UTC';
+    const targetTimezone = timezone || 'America/Chicago';
     const timeFormatter = new Intl.DateTimeFormat('en-US', {
       timeZone: targetTimezone,
       hour: '2-digit',
@@ -1437,8 +1502,9 @@ export class MailerService implements OnModuleInit {
       hour12: true
     });
     
+    // Format date based on date string directly (not from UTC date object)
+    // This matches the frontend logic: extract YYYY-MM-DD and create local date to avoid timezone shift
     const dateFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: targetTimezone,
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -1454,7 +1520,9 @@ export class MailerService implements OnModuleInit {
     const oldDisplayTime = oldTimeMatch ? `${oldTimeMatch[1]}:${oldTimeMatch[2]} ${oldTimeMatch[3]}` : oldFormattedTime;
     const oldTimezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, oldUtcDate);
     const oldLocalTime = `${oldDisplayTime} ${oldTimezoneAbbr ? `(${oldTimezoneAbbr})` : '(UTC)'}`;
-    const oldLocalDate = dateFormatter.format(oldUtcDate);
+    // Create a local date from the date string (not UTC) to match frontend behavior
+    const oldLocalDateObj = new Date(oldYear, oldMonth - 1, oldDay);
+    const oldLocalDate = dateFormatter.format(oldLocalDateObj);
 
     // Convert new appointment time
     const [newHours, newMinutes] = newTime.split(':').map(Number);
@@ -1465,7 +1533,9 @@ export class MailerService implements OnModuleInit {
     const newDisplayTime = newTimeMatch ? `${newTimeMatch[1]}:${newTimeMatch[2]} ${newTimeMatch[3]}` : newFormattedTime;
     const newTimezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, newUtcDate);
     const newLocalTime = `${newDisplayTime} ${newTimezoneAbbr ? `(${newTimezoneAbbr})` : '(UTC)'}`;
-    const newLocalDate = dateFormatter.format(newUtcDate);
+    // Create a local date from the date string (not UTC) to match frontend behavior
+    const newLocalDateObj = new Date(newYear, newMonth - 1, newDay);
+    const newLocalDate = dateFormatter.format(newLocalDateObj);
 
     const html = `
       <!DOCTYPE html>
@@ -1676,8 +1746,9 @@ export class MailerService implements OnModuleInit {
       hour12: true
     });
     
+    // Format date based on date string directly (not from UTC date object)
+    // This matches the frontend logic: extract YYYY-MM-DD and create local date to avoid timezone shift
     const dateFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: targetTimezone,
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -1693,7 +1764,9 @@ export class MailerService implements OnModuleInit {
     const oldDisplayTime = oldTimeMatch ? `${oldTimeMatch[1]}:${oldTimeMatch[2]} ${oldTimeMatch[3]}` : oldFormattedTime;
     const oldTimezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, oldUtcDate);
     const oldLocalTime = `${oldDisplayTime} ${oldTimezoneAbbr ? `(${oldTimezoneAbbr})` : '(UTC)'}`;
-    const oldLocalDate = dateFormatter.format(oldUtcDate);
+    // Create a local date from the date string (not UTC) to match frontend behavior
+    const oldLocalDateObj = new Date(oldYear, oldMonth - 1, oldDay);
+    const oldLocalDate = dateFormatter.format(oldLocalDateObj);
 
     // Convert new appointment time
     const [newHours, newMinutes] = newTime.split(':').map(Number);
@@ -1704,7 +1777,9 @@ export class MailerService implements OnModuleInit {
     const newDisplayTime = newTimeMatch ? `${newTimeMatch[1]}:${newTimeMatch[2]} ${newTimeMatch[3]}` : newFormattedTime;
     const newTimezoneAbbr = this.getTimezoneAbbreviation(targetTimezone, newUtcDate);
     const newLocalTime = `${newDisplayTime} ${newTimezoneAbbr ? `(${newTimezoneAbbr})` : '(UTC)'}`;
-    const newLocalDate = dateFormatter.format(newUtcDate);
+    // Create a local date from the date string (not UTC) to match frontend behavior
+    const newLocalDateObj = new Date(newYear, newMonth - 1, newDay);
+    const newLocalDate = dateFormatter.format(newLocalDateObj);
 
     const html = `
       <!DOCTYPE html>

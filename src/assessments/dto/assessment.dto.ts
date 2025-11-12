@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateAssessmentDto {
   @ApiProperty({ description: 'Assessment name', example: "Men's Hormone Replacement Therapy" })
@@ -57,6 +58,31 @@ export class CreateAppointmentAssessmentDto {
   @IsOptional()
   @IsString()
   content?: string;
+}
+
+export class BulkAppointmentAssessmentDto {
+  @ApiProperty({ description: 'Assessment ID' })
+  @IsString()
+  @IsNotEmpty()
+  assessmentId: string;
+
+  @ApiProperty({ description: 'Custom content override for this appointment', required: false })
+  @IsOptional()
+  @IsString()
+  content?: string;
+}
+
+export class CreateMultipleAppointmentAssessmentsDto {
+  @ApiProperty({ description: 'Appointment ID' })
+  @IsString()
+  @IsNotEmpty()
+  appointmentId: string;
+
+  @ApiProperty({ description: 'Assessments to assign', type: [BulkAppointmentAssessmentDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BulkAppointmentAssessmentDto)
+  assessments: BulkAppointmentAssessmentDto[];
 }
 
 export class UpdateAppointmentAssessmentDto {

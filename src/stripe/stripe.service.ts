@@ -213,6 +213,7 @@ export class StripeService {
     const doctorName = appointment.doctor ? `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}` : 'To be assigned';
     
     // Generate Google Meet link with patient's timezone
+    const additionalServices = (appointment as any).additionalServices as Array<{ id: string; name: string; duration: number }> | null;
     const meetResult = await this.googleCalendarService.generateMeetLink(
       appointment.appointmentDate,
       appointment.appointmentTime,
@@ -222,7 +223,8 @@ export class StripeService {
       appointment.service.name,
       appointment.patient.primaryEmail || undefined, // Pass patient email
       appointment.doctor?.email, // Pass doctor email if available
-      patientTimezone // Pass patient's timezone for correct event time
+      patientTimezone, // Pass patient's timezone for correct event time
+      additionalServices || undefined
     );
 
     // Update appointment status to confirmed, mark as paid, and store Google Meet link and event ID
@@ -279,6 +281,7 @@ export class StripeService {
       const doctorName = updatedAppointment.doctor ? `Dr. ${updatedAppointment.doctor.firstName} ${updatedAppointment.doctor.lastName}` : 'To be assigned';
 
       // Send confirmation email to patient with their timezone
+      const additionalServices = (updatedAppointment as any).additionalServices as Array<{ id: string; name: string; duration: number }> | null;
       await this.mailerService.sendAppointmentConfirmationEmail(
         updatedAppointment.patient.primaryEmail || '',
         patientName,
@@ -288,21 +291,23 @@ export class StripeService {
         updatedAppointment.appointmentTime,
         amount,
         updatedAppointment.googleMeetLink || undefined,
-        patientTimezone // Use patient's timezone from frontend
+        patientTimezone, // Use patient's timezone from frontend
+        additionalServices || undefined
       );
 
-      // Send email to doctor if assigned (hardcoded to New York timezone)
+      // Send email to doctor if assigned
       if (updatedAppointment.doctor && updatedAppointment.doctor.email) {
-        await this.mailerService.sendAppointmentConfirmationEmail(
+        await this.mailerService.sendDoctorAppointmentNotification(
           updatedAppointment.doctor.email,
           doctorName,
-          patientName, // For doctor email, patient is the "other party"
+          patientName,
           updatedAppointment.service.name,
           appointmentDate,
           updatedAppointment.appointmentTime,
           amount,
           updatedAppointment.googleMeetLink || undefined,
-          'America/New_York' // Hardcoded to New York timezone for doctor emails
+          'America/Chicago',
+          additionalServices || undefined
         );
       }
     } catch (error) {

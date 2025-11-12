@@ -6,7 +6,8 @@ import {
   AssessmentResponseDto,
   CreateAppointmentAssessmentDto,
   UpdateAppointmentAssessmentDto,
-  AppointmentAssessmentResponseDto
+  AppointmentAssessmentResponseDto,
+  CreateMultipleAppointmentAssessmentsDto
 } from './dto/assessment.dto';
 
 @Injectable()
@@ -99,6 +100,69 @@ export class AssessmentsService {
     });
 
     return appointmentAssessment;
+  }
+
+  async createMultipleAppointmentAssessments(createDto: CreateMultipleAppointmentAssessmentsDto): Promise<AppointmentAssessmentResponseDto[]> {
+    const { appointmentId, assessments } = createDto;
+
+    if (!assessments || assessments.length === 0) {
+      return [];
+    }
+
+    // Ensure appointment exists
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException(`Appointment with ID ${appointmentId} not found`);
+    }
+
+    // Deduplicate assessments (keep the last entry for each assessmentId)
+    const assessmentMap = new Map<string, { assessmentId: string; content?: string }>();
+    assessments.forEach((item) => {
+      assessmentMap.set(item.assessmentId, item);
+    });
+
+    const uniqueAssessments = Array.from(assessmentMap.values());
+    const assessmentIds = uniqueAssessments.map((item) => item.assessmentId);
+
+    // Verify all assessments exist
+    const existingAssessments = await this.prisma.assessment.findMany({
+      where: { id: { in: assessmentIds } },
+    });
+
+    if (existingAssessments.length !== assessmentIds.length) {
+      const existingIds = new Set(existingAssessments.map((ass) => ass.id));
+      const missing = assessmentIds.filter((id) => !existingIds.has(id));
+      throw new NotFoundException(`Assessments not found: ${missing.join(', ')}`);
+    }
+
+    const results = await Promise.all(
+      uniqueAssessments.map((item) =>
+        this.prisma.appointmentAssessment.upsert({
+          where: {
+            appointmentId_assessmentId: {
+              appointmentId,
+              assessmentId: item.assessmentId,
+            },
+          },
+          update: {
+            content: item.content,
+          },
+          create: {
+            appointmentId,
+            assessmentId: item.assessmentId,
+            content: item.content,
+          },
+          include: {
+            assessment: true,
+          },
+        })
+      )
+    );
+
+    return results;
   }
 
   async getAppointmentAssessments(appointmentId: string): Promise<AppointmentAssessmentResponseDto[]> {

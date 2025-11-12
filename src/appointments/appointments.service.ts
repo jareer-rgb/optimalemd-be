@@ -26,7 +26,7 @@ export class AppointmentsService {
    * Create a temporary appointment for payment processing
    */
   async createTemporaryAppointment(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
-    const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount, primaryServiceId, selectedSlotTime, patientTimezone } = createAppointmentDto;
+    const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount, primaryServiceId, selectedSlotTime, patientTimezone, additionalServiceIds } = createAppointmentDto;
 
     // Check if patient exists and is active
     const patient = await this.prisma.user.findUnique({
@@ -59,7 +59,7 @@ export class AppointmentsService {
     // Check if service exists and is active
     const service = await this.prisma.service.findUnique({
       where: { id: serviceId },
-      select: { id: true, isActive: true, duration: true }
+      select: { id: true, isActive: true, duration: true, name: true }
     });
     if (!service) {
       throw new NotFoundException('Service not found');
@@ -67,6 +67,39 @@ export class AppointmentsService {
     if (!service.isActive) {
       throw new BadRequestException('Service is not active');
     }
+
+    const uniqueAdditionalServiceIds = Array.from(new Set((additionalServiceIds || []).filter(id => id && id !== serviceId)));
+
+    let additionalServicesData: Array<{ id: string; name: string; duration: number }> = [];
+    let additionalServicesDuration = 0;
+
+    if (uniqueAdditionalServiceIds.length > 0) {
+      const additionalServices = await this.prisma.service.findMany({
+        where: { id: { in: uniqueAdditionalServiceIds } },
+        select: { id: true, name: true, duration: true, isActive: true }
+      });
+
+      if (additionalServices.length !== uniqueAdditionalServiceIds.length) {
+        throw new BadRequestException('One or more additional services are invalid');
+      }
+
+      for (const additional of additionalServices) {
+        if (!additional.isActive) {
+          throw new BadRequestException(`Service "${additional.name}" is not active`);
+        }
+        additionalServicesDuration += additional.duration;
+        additionalServicesData.push({
+          id: additional.id,
+          name: additional.name,
+          duration: additional.duration,
+        });
+      }
+    }
+
+    const computedDuration = service.duration + additionalServicesDuration;
+    const appointmentDuration = additionalServicesData.length > 0
+      ? computedDuration
+      : (typeof duration === 'number' ? duration : service.duration);
 
     // Check if slot exists and is available (only if slotId is provided)
     let slot: any = null;
@@ -86,8 +119,8 @@ export class AppointmentsService {
       const slotStart = new Date(`2000-01-01T${slot.startTime}`);
       const slotEnd = new Date(`2000-01-01T${slot.endTime}`);
       const slotDuration = (slotEnd.getTime() - slotStart.getTime()) / (1000 * 60);
-      if (slotDuration < service.duration) {
-        throw new BadRequestException('Slot duration is insufficient for this service');
+      if (slotDuration < appointmentDuration) {
+        throw new BadRequestException('Slot duration is insufficient for the selected services');
       }
     }
 
@@ -124,12 +157,13 @@ export class AppointmentsService {
         appointmentDate: dateStringToUTC(appointmentDate),
         appointmentTime,
         selectedSlotTime,
-        duration,
+        duration: appointmentDuration,
         patientNotes,
         symptoms,
         amount,
         status: AppointmentStatus.PENDING,
         isPaid: false,
+        additionalServices: additionalServicesData.length > 0 ? additionalServicesData : undefined,
       },
       include: {
         patient: {
@@ -864,7 +898,8 @@ export class AppointmentsService {
           appointment.patient.primaryEmail || '',
           appointmentDate,
           appointment.appointmentTime,
-          amount
+          amount,
+          'America/Chicago'
         );
       }
     } catch (error) {
@@ -979,6 +1014,7 @@ export class AppointmentsService {
       } catch (error: any) {
         console.error('⚠️  Failed to update existing event, creating new one:', error.message);
         // Fallback to creating new event if update fails (event might have been deleted)
+        const additionalServices = (appointment as any).additionalServices as Array<{ id: string; name: string; duration: number }> | null;
         meetResult = await this.googleCalendarService.generateMeetLink(
           newSlot.schedule.date,
           newSlot.startTime,
@@ -988,7 +1024,8 @@ export class AppointmentsService {
           appointment.service.name,
           appointment.patient.primaryEmail || undefined,
           appointment.doctor?.email,
-          patientTimezone // Pass patient's timezone for correct event time
+          patientTimezone, // Pass patient's timezone for correct event time
+          additionalServices || undefined
         );
       }
     } else {
@@ -1068,7 +1105,7 @@ export class AppointmentsService {
           newDate,
           newTime,
           meetResult.meetLink,
-          patientTimezone // Use patient's timezone from frontend
+          'America/Chicago'
         );
       }
     } catch (error) {
@@ -1588,6 +1625,7 @@ export class AppointmentsService {
     try {
       const patientName = `${created.patient.firstName} ${created.patient.lastName}`;
       const doctorName = created.doctor ? `Dr. ${created.doctor.firstName} ${created.doctor.lastName}` : 'To be assigned';
+      const additionalServices = (created as any).additionalServices as Array<{ id: string; name: string; duration: number }> | null;
       const meetResult = await this.googleCalendarService.generateMeetLink(
         created.appointmentDate,
         created.appointmentTime,
@@ -1597,7 +1635,8 @@ export class AppointmentsService {
         created.service.name,
         created.patient.primaryEmail || undefined,
         created.doctor?.email,
-        patientTimezone // Pass patient's timezone for correct event time
+        patientTimezone, // Pass patient's timezone for correct event time
+        additionalServices || undefined
       );
 
       if (meetResult?.meetLink) {
@@ -1615,6 +1654,7 @@ export class AppointmentsService {
         const amountStr = typeof (created as any).amount === 'string' ? (created as any).amount : '0.00';
         try {
           if (created.patient?.primaryEmail) {
+            const additionalServices = (created as any).additionalServices as Array<{ id: string; name: string; duration: number }> | null;
             await this.mailerService.sendAppointmentConfirmationEmail(
               created.patient.primaryEmail || '',
               patientName,
@@ -1624,7 +1664,8 @@ export class AppointmentsService {
               created.appointmentTime,
               amountStr,
               meetResult.meetLink,
-              patientTimezone // Use patient's timezone from frontend
+              patientTimezone, // Use patient's timezone from frontend
+              additionalServices || undefined
             );
           }
         } catch (err) {
@@ -1633,6 +1674,7 @@ export class AppointmentsService {
 
         try {
           if (created.doctor?.email) {
+            const additionalServices = (created as any).additionalServices as Array<{ id: string; name: string; duration: number }> | null;
             await this.mailerService.sendDoctorAppointmentNotification(
               created.doctor.email,
               doctorName,
@@ -1642,7 +1684,8 @@ export class AppointmentsService {
               created.appointmentTime,
               amountStr,
               meetResult.meetLink,
-              'America/New_York' // Hardcoded to New York timezone for doctor emails
+              'America/Chicago',
+              additionalServices || undefined
             );
           }
         } catch (err) {
@@ -1766,8 +1809,45 @@ export class AppointmentsService {
       }
     });
 
-    // Convert map to array and sort by time
-    return Array.from(slotMap.values()).sort((a, b) => a.startTime.localeCompare(b.startTime));
+    // Convert map to array
+    const slotArray = Array.from(slotMap.values());
+    
+    // Detect if we have midnight crossover (early morning slots < 12:00 and late night slots >= 12:00)
+    // This happens when UTC times cross midnight (e.g., 16:00-01:00 UTC from 10 AM-7 PM CST)
+    const hasEarlyMorning = slotArray.some(s => {
+      const [h] = s.startTime.split(':').map(Number);
+      return h < 12;
+    });
+    const hasLateNight = slotArray.some(s => {
+      const [h] = s.startTime.split(':').map(Number);
+      return h >= 12;
+    });
+    const crossesMidnight = hasEarlyMorning && hasLateNight;
+    
+    // Custom sort function to handle midnight crossover
+    // Times that cross midnight (e.g., 00:00, 00:30) should come after late night times (e.g., 23:00, 23:30)
+    const sortSlots = (a: any, b: any) => {
+      const timeToMinutes = (time: string): number => {
+        const [hours, minutes] = time.split(':').map(Number);
+        return hours * 60 + minutes;
+      };
+      
+      const aMinutes = timeToMinutes(a.startTime);
+      const bMinutes = timeToMinutes(b.startTime);
+      
+      if (crossesMidnight) {
+        // If crossing midnight, treat early morning times (< 12:00) as next day (add 24 hours)
+        // This ensures 14:00, 15:00, ..., 23:00, 23:30, 00:00, 00:30 order
+        const aSortMinutes = aMinutes < 12 * 60 ? aMinutes + 24 * 60 : aMinutes;
+        const bSortMinutes = bMinutes < 12 * 60 ? bMinutes + 24 * 60 : bMinutes;
+        return aSortMinutes - bSortMinutes;
+      } else {
+        // Normal sort (no midnight crossover)
+        return aMinutes - bMinutes;
+      }
+    };
+    
+    return slotArray.sort(sortSlots);
   }
 
   /**

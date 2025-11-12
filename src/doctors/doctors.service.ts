@@ -854,15 +854,24 @@ export class DoctorsService {
       }
 
       const patientData = patientMap.get(patientId);
+      // Format services (primary + additional)
+      const additionalServices = (appointment as any).additionalServices as Array<{ id: string; name: string; duration: number }> | null;
+      const allServices = appointment.service?.name 
+        ? (additionalServices && Array.isArray(additionalServices) && additionalServices.length > 0
+            ? `${appointment.service.name}, ${additionalServices.map(s => s.name).join(', ')}`
+            : appointment.service.name)
+        : 'N/A';
+      
       patientData.appointments.push({
         id: appointment.id,
         date: this.formatDate(appointment.appointmentDate),
         time: appointment.appointmentTime || 'N/A',
         status: appointment.status || 'N/A',
-        purpose: appointment.service?.name || 'N/A',
+        purpose: allServices,
         appointmentDate: appointment.appointmentDate,
         appointmentTime: appointment.appointmentTime,
         medicalForm: appointment.medicalForm,
+        additionalServices: additionalServices || null, // Include additional services in response
       });
       patientData.totalAppointments = patientData.appointments.length;
 
@@ -872,10 +881,18 @@ export class DoctorsService {
       
       if (appointmentHasPassed && patientData.lastVisit === '-') {
         // This is the most recent past appointment (first one in DESC order that has passed)
+        // Format services (primary + additional) for last visit purpose
+        const lastVisitAdditionalServices = (appointment as any).additionalServices as Array<{ id: string; name: string; duration: number }> | null;
+        const lastVisitAllServices = appointment.service?.name 
+          ? (lastVisitAdditionalServices && Array.isArray(lastVisitAdditionalServices) && lastVisitAdditionalServices.length > 0
+              ? `${appointment.service.name}, ${lastVisitAdditionalServices.map(s => s.name).join(', ')}`
+              : appointment.service.name)
+          : 'N/A';
+        
         patientData.lastVisit = this.formatDate(appointment.appointmentDate);
         patientData.lastVisitTime = appointment.appointmentTime || 'N/A';
         patientData.lastVisitStatus = appointment.status || 'N/A';
-        patientData.lastVisitPurpose = appointment.service?.name || 'N/A';
+        patientData.lastVisitPurpose = lastVisitAllServices;
         patientData.appointmentId = appointment.id;
         patientData.appointmentDate = appointment.appointmentDate;
         patientData.appointmentTime = appointment.appointmentTime;

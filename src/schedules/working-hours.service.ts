@@ -48,27 +48,30 @@ export class WorkingHoursService {
       throw new BadRequestException('Invalid time format. Use HH:MM format');
     }
 
-    if (!this.isValidTimeRange(startTime, endTime)) {
-      throw new BadRequestException('Start time must be before end time');
+    // Allow time ranges that cross midnight (endTime < startTime indicates next day in UTC)
+    // This happens when local time converts to UTC and crosses midnight
+    // Example: 10 AM - 7 PM CST = 16:00 - 01:00 UTC (next day)
+    if (!this.isValidTimeRange(startTime, endTime, true)) {
+      throw new BadRequestException('Invalid time range');
     }
 
     // Convert local time to UTC
     let utcStartTime = startTime;
     let utcEndTime = endTime;
     
-    if (timezone && timezone !== 'UTC') {
-      try {
-        utcStartTime = localTimeToUTC(startTime, doctorTimezone);
-        utcEndTime = localTimeToUTC(endTime, doctorTimezone);
+    // if (timezone && timezone !== 'UTC') {
+    //   try {
+    //     utcStartTime = localTimeToUTC(startTime, doctorTimezone);
+    //     utcEndTime = localTimeToUTC(endTime, doctorTimezone);
         
-        console.log(`📅 Working Hours Timezone Conversion:`);
-        console.log(`   Doctor timezone: ${doctorTimezone}`);
-        console.log(`   Local time: ${startTime} - ${endTime}`);
-        console.log(`   UTC time: ${utcStartTime} - ${utcEndTime}`);
-      } catch (error) {
-        throw new BadRequestException(`Timezone conversion failed: ${error.message}`);
-      }
-    }
+    //     console.log(`📅 Working Hours Timezone Conversion:`);
+    //     console.log(`   Doctor timezone: ${doctorTimezone}`);
+    //     console.log(`   Local time: ${startTime} - ${endTime}`);
+    //     console.log(`   UTC time: ${utcStartTime} - ${utcEndTime}`);
+    //   } catch (error) {
+    //     throw new BadRequestException(`Timezone conversion failed: ${error.message}`);
+    //   }
+    // }
 
     // Check if working hours already exist for this day
     const existingWorkingHours = await this.prisma.workingHours.findUnique({
@@ -124,8 +127,9 @@ export class WorkingHoursService {
         throw new BadRequestException(`Invalid time format for day ${wh.dayOfWeek}. Use HH:MM format`);
       }
 
-      if (!this.isValidTimeRange(wh.startTime, wh.endTime)) {
-        throw new BadRequestException(`Start time must be before end time for day ${wh.dayOfWeek}`);
+      // Allow time ranges that cross midnight
+      if (!this.isValidTimeRange(wh.startTime, wh.endTime, true)) {
+        throw new BadRequestException(`Invalid time range for day ${wh.dayOfWeek}`);
       }
     }
 
@@ -253,8 +257,9 @@ export class WorkingHoursService {
     }
 
     if (updateWorkingHoursDto.startTime && updateWorkingHoursDto.endTime) {
-      if (!this.isValidTimeRange(updateWorkingHoursDto.startTime, updateWorkingHoursDto.endTime)) {
-        throw new BadRequestException('Start time must be before end time');
+      // Allow time ranges that cross midnight
+      if (!this.isValidTimeRange(updateWorkingHoursDto.startTime, updateWorkingHoursDto.endTime, true)) {
+        throw new BadRequestException('Invalid time range');
       }
     }
 
@@ -269,25 +274,25 @@ export class WorkingHoursService {
       }
 
       // Convert times to UTC if they're being updated
-      if (updateWorkingHoursDto.startTime) {
-        try {
-          const utcStartTime = localTimeToUTC(updateWorkingHoursDto.startTime, timezone);
-          updateData.startTime = utcStartTime;
-          console.log(`🔄 Update: ${updateWorkingHoursDto.startTime} (${timezone}) → ${utcStartTime} (UTC)`);
-        } catch (error) {
-          throw new BadRequestException(`Failed to convert start time: ${error.message}`);
-        }
-      }
+      // if (updateWorkingHoursDto.startTime) {
+      //   try {
+      //     const utcStartTime = localTimeToUTC(updateWorkingHoursDto.startTime, timezone);
+      //     updateData.startTime = utcStartTime;
+      //     console.log(`🔄 Update: ${updateWorkingHoursDto.startTime} (${timezone}) → ${utcStartTime} (UTC)`);
+      //   } catch (error) {
+      //     throw new BadRequestException(`Failed to convert start time: ${error.message}`);
+      //   }
+      // }
 
-      if (updateWorkingHoursDto.endTime) {
-        try {
-          const utcEndTime = localTimeToUTC(updateWorkingHoursDto.endTime, timezone);
-          updateData.endTime = utcEndTime;
-          console.log(`🔄 Update: ${updateWorkingHoursDto.endTime} (${timezone}) → ${utcEndTime} (UTC)`);
-        } catch (error) {
-          throw new BadRequestException(`Failed to convert end time: ${error.message}`);
-        }
-      }
+      // if (updateWorkingHoursDto.endTime) {
+      //   try {
+      //     const utcEndTime = localTimeToUTC(updateWorkingHoursDto.endTime, timezone);
+      //     updateData.endTime = utcEndTime;
+      //     console.log(`🔄 Update: ${updateWorkingHoursDto.endTime} (${timezone}) → ${utcEndTime} (UTC)`);
+      //   } catch (error) {
+      //     throw new BadRequestException(`Failed to convert end time: ${error.message}`);
+      //   }
+      // }
       
       // Remove timezone from update data (it's not a database field)
       delete updateData.timezone;
@@ -444,10 +449,23 @@ export class WorkingHoursService {
           const startTimeUTC = workingHour.startTime;
           const endTimeUTC = workingHour.endTime;
           
-          console.log(`   Day ${dayOfWeek}: Using working hours times: ${startTimeUTC}-${endTimeUTC} (already in UTC)`);
+          // Check if times cross midnight (endTime < startTime in UTC)
+          const [startHours, startMinutes] = startTimeUTC.split(':').map(Number);
+          const [endHours, endMinutes] = endTimeUTC.split(':').map(Number);
+          const crossesMidnight = endHours < startHours || (endHours === startHours && endMinutes < startMinutes);
+          
+          if (crossesMidnight) {
+            console.log(`   Day ${dayOfWeek}: Working hours cross midnight in UTC: ${startTimeUTC}-${endTimeUTC} (will generate slots from ${startTimeUTC} to 23:59, then 00:00 to ${endTimeUTC})`);
+          } else {
+            console.log(`   Day ${dayOfWeek}: Using working hours times: ${startTimeUTC}-${endTimeUTC} (already in UTC)`);
+          }
 
-          // Generate slots using UTC times
+          // Generate slots using UTC times (handles midnight crossover automatically)
           const slots = this.generateSlots(startTimeUTC, endTimeUTC, workingHour.slotDuration, workingHour.breakDuration);
+          
+          if (crossesMidnight) {
+            console.log(`   Generated ${slots.length} slots (including midnight crossover)`);
+          }
 
           // Create schedule with UTC times
           const schedule = await this.prisma.schedule.create({
@@ -501,25 +519,101 @@ export class WorkingHoursService {
 
   /**
    * Generate time slots based on working hours
+   * Handles the case where endTime < startTime (crosses midnight in UTC)
+   * Example: 16:00 - 01:00 means 16:00 to 01:00 next day
    */
   private generateSlots(startTime: string, endTime: string, slotDuration: number, breakDuration: number): Array<{ startTime: string; endTime: string }> {
     const slots: Array<{ startTime: string; endTime: string }> = [];
-    const start = new Date(`2000-01-01T${startTime}`);
-    const end = new Date(`2000-01-01T${endTime}`);
-    let currentTime = new Date(start);
-
-    while (currentTime < end) {
-      const slotStart = currentTime.toTimeString().slice(0, 5);
-      currentTime.setMinutes(currentTime.getMinutes() + slotDuration);
+    
+    // Parse times
+    const [startHours, startMinutes] = startTime.split(':').map(Number);
+    const [endHours, endMinutes] = endTime.split(':').map(Number);
+    
+    // Check if endTime is earlier than startTime (crosses midnight)
+    const crossesMidnight = endHours < startHours || (endHours === startHours && endMinutes < startMinutes);
+    
+    if (crossesMidnight) {
+      // Handle midnight crossover: generate slots from startTime to 23:59, then 00:00 to endTime
+      // Example: 16:00 - 01:00 means slots from 16:00 to 23:59, then 00:00 to 01:00
+      // All slots are created for the same schedule date (they represent one continuous working period)
       
-      if (currentTime > end) break;
+      // Part 1: From startTime to end of day (23:59)
+      const endOfDay = new Date(`2000-01-01T23:59:00`);
+      let currentTime = new Date(`2000-01-01T${startTime}`);
       
-      const slotEnd = currentTime.toTimeString().slice(0, 5);
-      slots.push({ startTime: slotStart, endTime: slotEnd });
+      while (currentTime <= endOfDay) {
+        const slotStart = currentTime.toTimeString().slice(0, 5);
+        const nextTime = new Date(currentTime);
+        nextTime.setMinutes(nextTime.getMinutes() + slotDuration);
+        
+        // If slot would go past end of day, cap it at 23:59
+        if (nextTime > endOfDay) {
+          slots.push({ startTime: slotStart, endTime: '23:59' });
+          break;
+        }
+        
+        const slotEnd = nextTime.toTimeString().slice(0, 5);
+        slots.push({ startTime: slotStart, endTime: slotEnd });
+        
+        // Move to next slot start (after break if applicable)
+        currentTime = new Date(nextTime);
+        if (breakDuration > 0) {
+          currentTime.setMinutes(currentTime.getMinutes() + breakDuration);
+          if (currentTime > endOfDay) break;
+        }
+      }
+      
+      // Part 2: From start of day (00:00) to endTime
+      const end = new Date(`2000-01-01T${endTime}`);
+      currentTime = new Date(`2000-01-01T00:00:00`);
+      
+      while (currentTime < end) {
+        const slotStart = currentTime.toTimeString().slice(0, 5);
+        const nextTime = new Date(currentTime);
+        nextTime.setMinutes(nextTime.getMinutes() + slotDuration);
+        
+        if (nextTime >= end) {
+          // Last slot ends at endTime
+          slots.push({ startTime: slotStart, endTime: endTime });
+          break;
+        }
+        
+        const slotEnd = nextTime.toTimeString().slice(0, 5);
+        slots.push({ startTime: slotStart, endTime: slotEnd });
+        
+        // Move to next slot start (after break if applicable)
+        currentTime = new Date(nextTime);
+        if (breakDuration > 0) {
+          currentTime.setMinutes(currentTime.getMinutes() + breakDuration);
+          if (currentTime >= end) break;
+        }
+      }
+    } else {
+      // Normal case: startTime < endTime (same day)
+      const start = new Date(`2000-01-01T${startTime}`);
+      const end = new Date(`2000-01-01T${endTime}`);
+      let currentTime = new Date(start);
 
-      // Add break time
-      if (breakDuration > 0) {
-        currentTime.setMinutes(currentTime.getMinutes() + breakDuration);
+      while (currentTime < end) {
+        const slotStart = currentTime.toTimeString().slice(0, 5);
+        const nextTime = new Date(currentTime);
+        nextTime.setMinutes(nextTime.getMinutes() + slotDuration);
+        
+        if (nextTime >= end) {
+          // Last slot ends at endTime
+          slots.push({ startTime: slotStart, endTime: endTime });
+          break;
+        }
+        
+        const slotEnd = nextTime.toTimeString().slice(0, 5);
+        slots.push({ startTime: slotStart, endTime: slotEnd });
+        
+        // Move to next slot start (after break if applicable)
+        currentTime = new Date(nextTime);
+        if (breakDuration > 0) {
+          currentTime.setMinutes(currentTime.getMinutes() + breakDuration);
+          if (currentTime >= end) break;
+        }
       }
     }
 
@@ -535,9 +629,28 @@ export class WorkingHoursService {
   }
 
   /**
-   * Validate time range (start < end)
+   * Validate time range
+   * @param startTime Start time in HH:MM format
+   * @param endTime End time in HH:MM format
+   * @param allowMidnightCrossover If true, allows endTime < startTime (crosses midnight)
+   *                               This is needed when UTC times cross midnight (e.g., 16:00 - 01:00)
    */
-  private isValidTimeRange(startTime: string, endTime: string): boolean {
+  private isValidTimeRange(startTime: string, endTime: string, allowMidnightCrossover: boolean = false): boolean {
+    const [startHours, startMinutes] = startTime.split(':').map(Number);
+    const [endHours, endMinutes] = endTime.split(':').map(Number);
+    
+    // Check if times are valid
+    if (isNaN(startHours) || isNaN(startMinutes) || isNaN(endHours) || isNaN(endMinutes)) {
+      return false;
+    }
+    
+    // If allowing midnight crossover, any valid time range is acceptable
+    // (endTime < startTime means it crosses midnight, which is valid)
+    if (allowMidnightCrossover) {
+      return true; // Both times are valid, range is acceptable
+    }
+    
+    // Normal validation: start must be before end on the same day
     const start = new Date(`2000-01-01T${startTime}`);
     const end = new Date(`2000-01-01T${endTime}`);
     return start < end;

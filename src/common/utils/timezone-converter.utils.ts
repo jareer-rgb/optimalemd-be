@@ -24,7 +24,7 @@
  * localTimeToUTC("09:00", "Asia/Karachi") // Returns "04:00" (Pakistan is UTC+5)
  * localTimeToUTC("09:00", "Europe/Istanbul") // Returns "06:00" (Turkey is UTC+3)
  */
-export function localTimeToUTC(timeString: string, sourceTimezone: string): string {
+export function localTimeToUTC(timeString: string, sourceTimezone: string, referenceDate: Date = new Date()): string {
   if (!timeString || !sourceTimezone) {
     throw new Error('Time string and timezone are required');
   }
@@ -40,66 +40,19 @@ export function localTimeToUTC(timeString: string, sourceTimezone: string): stri
     throw new Error('Invalid time values');
   }
 
-  // Use a fixed reference date (middle of year to avoid DST complications)
-  const year = 2024;
-  const month = 6; // July (0-indexed, so 6 = July)
-  const day = 15;
+  // Determine timezone offset (in minutes) for the provided reference date
+  const offsetHours = getTimezoneOffsetHours(sourceTimezone, referenceDate);
+  const offsetMinutes = Math.round(offsetHours * 60);
+  
+  // Convert local time to total minutes and subtract offset to get UTC
+  const minutesInDay = 24 * 60;
+  let totalMinutes = hours * 60 + minutes - offsetMinutes;
 
-  // Create a date string representing the local time
-  // We need to create a date that represents "08:00 in Istanbul" and find its UTC equivalent
-  const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+  // Normalize to 0-1439 range to avoid negative values or overflow
+  totalMinutes = ((totalMinutes % minutesInDay) + minutesInDay) % minutesInDay;
   
-  // Parse this string as if it's in the source timezone
-  // We'll use toLocaleString to get the date representation in different timezones
-  
-  // Step 1: Create a date object (will be interpreted in local system time)
-  const tempDate = new Date(dateString);
-  
-  // Step 2: Get what this time is in UTC
-  const utcString = tempDate.toLocaleString('en-US', {
-    timeZone: 'UTC',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
-  
-  // Step 3: Get what this same moment is in the source timezone
-  const sourceString = tempDate.toLocaleString('en-US', {
-    timeZone: sourceTimezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
-  
-  // Step 4: Calculate the offset
-  const parseTime = (str: string) => {
-    const [datePart, timePart] = str.split(', ');
-    const [m, d, y] = datePart.split('/').map(Number);
-    const [h, min] = timePart.split(':').map(Number);
-    return { year: y, month: m - 1, day: d, hours: h, minutes: min };
-  };
-  
-  const utcParsed = parseTime(utcString);
-  const sourceParsed = parseTime(sourceString);
-  
-  const utcMs = Date.UTC(utcParsed.year, utcParsed.month, utcParsed.day, utcParsed.hours, utcParsed.minutes);
-  const sourceMs = Date.UTC(sourceParsed.year, sourceParsed.month, sourceParsed.day, sourceParsed.hours, sourceParsed.minutes);
-  
-  const offsetMs = sourceMs - utcMs;
-  
-  // Step 5: Apply reverse offset to get UTC time from local time
-  // If we want "08:00 Istanbul", we need to subtract the offset
-  const targetUtcMs = Date.UTC(year, month, day, hours, minutes) - offsetMs;
-  const targetUtcDate = new Date(targetUtcMs);
-  
-  const utcHours = String(targetUtcDate.getUTCHours()).padStart(2, '0');
-  const utcMinutes = String(targetUtcDate.getUTCMinutes()).padStart(2, '0');
+  const utcHours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+  const utcMinutes = String(totalMinutes % 60).padStart(2, '0');
 
   return `${utcHours}:${utcMinutes}`;
 }

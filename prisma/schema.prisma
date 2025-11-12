@@ -432,6 +432,9 @@ model Appointment {
   // Prescribed medications grouped by medical service
   // Example shape: { "Hormone Optimization / TRT": ["Testosterone injections", "Enclomiphene"], "Hair Loss Treatments": ["Oral Minoxidil"] }
   medications       Json?
+  // Additional medical services selected by the patient (beyond the primary service)
+  // Stored as an array of objects: [{ id: "service-id", name: "Service Name", duration: 30 }, ...]
+  additionalServices Json?
   
   
   // Payment and billing
