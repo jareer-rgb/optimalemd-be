@@ -21,8 +21,8 @@ env_variables:
   JWT_SECRET: "your-super-secret-jwt-key-here"
   JWT_EXPIRES_IN: "7d"
   # Stripe Configuration
-  STRIPE_SECRET_KEY: "sk_test_51QFBF9Ibcr1VQY2lWe4eiSIkXs0KflET6JwOBSL4fszWNUx7lRpZqNkGxlmzWeety5jIsCctDIjJhvdszMZS4u7F00Kjijx2yl"
-  STRIPE_PUBLISHABLE_KEY: "pk_test_51QFBF9Ibcr1VQY2l0rPXH40tJKpXfK3dD9xJszb1VfYEdqsc2Szd31P5P1kAkifsRxHEasTMnc4M92pIcgPHgsH800kj5r83DP"
+  STRIPE_SECRET_KEY: "k_live_51RywxfIqcNoCEMxMkOIgvMR3U0YKrmgDvom30whU5eKBBAj6PmVGZpMpWuW3NjjxoCY5oO7xpEahX02yeJGyHKxk00F0FPkLsf"
+  STRIPE_PUBLISHABLE_KEY: "pk_live_51RywxfIqcNoCEMxM5387KmbnrLQm1V5gkwpahlRCuHFhJIdFOprGvyphcRrGbQRbQy2okX3kJv1wfSNyJFcaNjCL00BCvRjjAW"
   # Email Configuration
   SMTP_HOST: "smtp.gmail.com"
   SMTP_PORT: "465"
