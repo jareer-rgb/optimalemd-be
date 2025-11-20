@@ -457,7 +457,7 @@ export class WorkingHoursService {
           if (crossesMidnight) {
             console.log(`   Day ${dayOfWeek}: Working hours cross midnight in UTC: ${startTimeUTC}-${endTimeUTC} (will generate slots from ${startTimeUTC} to 23:59, then 00:00 to ${endTimeUTC})`);
           } else {
-            console.log(`   Day ${dayOfWeek}: Using working hours times: ${startTimeUTC}-${endTimeUTC} (already in UTC)`);
+          console.log(`   Day ${dayOfWeek}: Using working hours times: ${startTimeUTC}-${endTimeUTC} (already in UTC)`);
           }
 
           // Generate slots using UTC times (handles midnight crossover automatically)
@@ -592,26 +592,26 @@ export class WorkingHoursService {
       // Normal case: startTime < endTime (same day)
       const start = new Date(`2000-01-01T${startTime}`);
       const end = new Date(`2000-01-01T${endTime}`);
-      let currentTime = new Date(start);
+    let currentTime = new Date(start);
 
-      while (currentTime < end) {
-        const slotStart = currentTime.toTimeString().slice(0, 5);
-        const nextTime = new Date(currentTime);
-        nextTime.setMinutes(nextTime.getMinutes() + slotDuration);
-        
-        if (nextTime >= end) {
+    while (currentTime < end) {
+      const slotStart = currentTime.toTimeString().slice(0, 5);
+      const nextTime = new Date(currentTime);
+      nextTime.setMinutes(nextTime.getMinutes() + slotDuration);
+      
+      if (nextTime >= end) {
           // Last slot ends at endTime
           slots.push({ startTime: slotStart, endTime: endTime });
-          break;
-        }
-        
-        const slotEnd = nextTime.toTimeString().slice(0, 5);
-        slots.push({ startTime: slotStart, endTime: slotEnd });
-        
+        break;
+      }
+      
+      const slotEnd = nextTime.toTimeString().slice(0, 5);
+      slots.push({ startTime: slotStart, endTime: slotEnd });
+
         // Move to next slot start (after break if applicable)
-        currentTime = new Date(nextTime);
-        if (breakDuration > 0) {
-          currentTime.setMinutes(currentTime.getMinutes() + breakDuration);
+      currentTime = new Date(nextTime);
+      if (breakDuration > 0) {
+        currentTime.setMinutes(currentTime.getMinutes() + breakDuration);
           if (currentTime >= end) break;
         }
       }

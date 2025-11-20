@@ -48,14 +48,14 @@ export class GoogleCalendarOAuthController {
       
       if (result.success) {
         // Redirect to success page
-        res.redirect(`http://localhost:5173/doctor-dashboard?calendar=connected&doctorId=${result.doctorId}`);
+        res.redirect(`https://optimalemd.health/doctor-dashboard?calendar=connected&doctorId=${result.doctorId}`);
       } else {
         // Redirect to error page
-        res.redirect(`http://localhost:5173/doctor-dashboard?calendar=error&error=${encodeURIComponent(result.error || 'Unknown error')}`);
+        res.redirect(`https://optimalemd.health/doctor-dashboard?calendar=error&error=${encodeURIComponent(result.error || 'Unknown error')}`);
       }
     } catch (error) {
       console.error('OAuth callback error:', error);
-      res.redirect(`http://localhost:5173/doctor-dashboard?calendar=error&error=${encodeURIComponent(error.message)}`);
+      res.redirect(`https://optimalemd.health/doctor-dashboard?calendar=error&error=${encodeURIComponent(error.message)}`);
     }
   }
 

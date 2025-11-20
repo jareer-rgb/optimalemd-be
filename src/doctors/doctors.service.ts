@@ -872,6 +872,7 @@ export class DoctorsService {
         appointmentTime: appointment.appointmentTime,
         medicalForm: appointment.medicalForm,
         additionalServices: additionalServices || null, // Include additional services in response
+        googleMeetLink: appointment.googleMeetLink || null,
       });
       patientData.totalAppointments = patientData.appointments.length;
 

@@ -993,6 +993,8 @@ export class AppointmentsService {
     // Try to update existing Google Calendar event if eventId exists
     // Otherwise create a new event
     let meetResult: { meetLink: string; eventId?: string };
+    const appointmentAdditionalServices =
+      (appointment as any).additionalServices as Array<{ id: string; name: string; duration: number }> | null;
     
     if (appointment.googleEventId) {
       try {
@@ -1014,7 +1016,6 @@ export class AppointmentsService {
       } catch (error: any) {
         console.error('⚠️  Failed to update existing event, creating new one:', error.message);
         // Fallback to creating new event if update fails (event might have been deleted)
-        const additionalServices = (appointment as any).additionalServices as Array<{ id: string; name: string; duration: number }> | null;
         meetResult = await this.googleCalendarService.generateMeetLink(
           newSlot.schedule.date,
           newSlot.startTime,
@@ -1025,7 +1026,8 @@ export class AppointmentsService {
           appointment.patient.primaryEmail || undefined,
           appointment.doctor?.email,
           patientTimezone, // Pass patient's timezone for correct event time
-          additionalServices || undefined
+          appointmentAdditionalServices || undefined,
+          appointment.doctorId || undefined
         );
       }
     } else {
@@ -1040,7 +1042,9 @@ export class AppointmentsService {
         appointment.service.name,
         appointment.patient.primaryEmail || undefined,
         appointment.doctor?.email,
-        patientTimezone // Pass patient's timezone for correct event time
+        patientTimezone, // Pass patient's timezone for correct event time
+        appointmentAdditionalServices || undefined,
+        appointment.doctorId || undefined
       );
     }
 
@@ -1636,7 +1640,8 @@ export class AppointmentsService {
         created.patient.primaryEmail || undefined,
         created.doctor?.email,
         patientTimezone, // Pass patient's timezone for correct event time
-        additionalServices || undefined
+        additionalServices || undefined,
+        doctorId || undefined
       );
 
       if (meetResult?.meetLink) {

@@ -269,15 +269,10 @@ export class GoogleCalendarService implements OnModuleInit {
     patientEmail?: string,
     doctorEmail?: string,
     patientTimezone?: string,
-    additionalServices?: Array<{ id: string; name: string; duration: number }>
+    additionalServices?: Array<{ id: string; name: string; duration: number }>,
+    doctorId?: string
   ): Promise<{ meetLink: string; eventId?: string }> {
     try {
-      if (!this.credentialsValid || !this.calendar) {
-        console.log('⚠️  Google Calendar API unavailable or credentials invalid, using fallback Meet link');
-        return { meetLink: this.createFallbackMeetLink() };
-      }
-
-      const calendarId = this.configService.get<string>('GOOGLE_CALENDAR_ID') || 'primary';
       const dateString = toISODateString(appointmentDate);
       const meetingStart = dateTimeToUTC(dateString, appointmentTime);
       const meetingEnd = new Date(meetingStart.getTime() + duration * 60000);
@@ -288,7 +283,15 @@ export class GoogleCalendarService implements OnModuleInit {
         ? `${serviceName}, ${additionalServices.map(s => s.name).join(', ')}`
         : serviceName;
 
-      const requestBody: any = {
+      const attendees: { email: string }[] = [];
+      if (doctorEmail) {
+        attendees.push({ email: doctorEmail });
+      }
+      if (patientEmail) {
+        attendees.push({ email: patientEmail });
+      }
+
+      const baseEvent = {
         summary: `${allServices} - ${doctorName}`,
         description: `
 OptimaleMD Telemedicine Appointment
@@ -314,64 +317,158 @@ This link was generated automatically by OptimaleMD.
           timeZone: 'UTC',
         },
         reminders: { useDefault: false },
-        conferenceData: {
-          createRequest: {
-            requestId: `meet-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
-            conferenceSolutionKey: { type: 'hangoutsMeet' },
-          },
-        },
-        guestsCanInviteOthers: false,
-        guestsCanModify: false,
-        guestsCanSeeOtherGuests: false,
-        visibility: 'private',
-        transparency: 'opaque',
+        attendees: attendees.length > 0 ? attendees : undefined,
         colorId: '11',
       };
 
-      const attendees: { email: string }[] = [];
-      if (doctorEmail) {
-        attendees.push({ email: doctorEmail });
-      }
-      if (patientEmail) {
-        attendees.push({ email: patientEmail });
-      }
-      if (attendees.length > 0) {
-        requestBody.attendees = attendees;
+      // Prefer doctor-hosted meetings when doctor is connected
+      if (doctorId) {
+        const doctorHostedResult = await this.createDoctorHostedEvent(doctorId, baseEvent);
+        if (doctorHostedResult) {
+          return doctorHostedResult;
+        }
+        console.log('ℹ️  Falling back to platform calendar because doctor-hosted event creation failed or doctor is not connected.');
       }
 
-      console.log('📅 Creating Google Calendar event with Meet integration (internal calendar)...');
+      if (!this.credentialsValid || !this.calendar) {
+        console.log('⚠️  Google Calendar API unavailable or credentials invalid, using fallback Meet link');
+        return { meetLink: this.createFallbackMeetLink() };
+      }
 
-      const response = await this.calendar.events.insert({
+      return await this.createPlatformHostedEvent(baseEvent);
+    } catch (error) {
+      console.error('❌ Error creating Google Calendar event with Meet:', error);
+      console.log('⚠️  Using fallback Meet link due to API error');
+      return { meetLink: this.createFallbackMeetLink() };
+    }
+  }
+
+  private buildEventRequestBody(baseEvent: any, overrides?: Record<string, any>) {
+    const clonedBase = JSON.parse(JSON.stringify(baseEvent));
+    return {
+      ...clonedBase,
+      ...overrides,
+      conferenceData: {
+        createRequest: {
+          requestId: `meet-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
+          conferenceSolutionKey: { type: 'hangoutsMeet' },
+          conferenceProperties: {
+            allowedConferenceSolutionTypes: ['hangoutsMeet'],
+          },
+        },
+      },
+    };
+  }
+
+  private async createDoctorHostedEvent(
+    doctorId: string,
+    baseEvent: any
+  ): Promise<{ meetLink: string; eventId?: string } | null> {
+    try {
+      const doctor = await this.prisma.doctor.findUnique({
+        where: { id: doctorId },
+        select: {
+          id: true,
+          email: true,
+          googleCalendarConnected: true,
+          googleCalendarId: true,
+        },
+      });
+
+      if (!doctor?.googleCalendarConnected) {
+        console.log('ℹ️  Doctor is not connected to Google Calendar.');
+        return null;
+      }
+
+      const oauthResult = await this.oauthService.getDoctorOAuthClient(doctorId);
+      if (!oauthResult.success || !oauthResult.client) {
+        console.error('❌ Failed to get doctor OAuth client:', oauthResult.error);
+        return null;
+      }
+
+      const calendar = google.calendar({ version: 'v3', auth: oauthResult.client });
+      const calendarId = doctor.googleCalendarId || 'primary';
+
+      const requestBody = this.buildEventRequestBody(baseEvent, {
+        guestsCanInviteOthers: false,
+        guestsCanModify: false,
+        guestsCanSeeOtherGuests: true,
+        visibility: 'private',
+        transparency: 'opaque',
+      });
+
+      console.log(`📅 Creating Google Calendar event on doctor's calendar (${calendarId})...`);
+
+      const response = await calendar.events.insert({
         calendarId,
         requestBody,
         conferenceDataVersion: 1,
         sendUpdates: 'none',
       });
 
-      console.log('✅ Google Calendar event created successfully');
+      console.log('✅ Doctor-hosted Google Calendar event created successfully');
 
       const meetLink = response.data.conferenceData?.entryPoints?.find(
         (entry: any) => entry.entryPointType === 'video'
       )?.uri;
 
       if (!meetLink) {
-        console.warn('⚠️  Failed to extract Meet link from calendar event response. Falling back to generated link.');
-        await this.safeDeleteEvent(response.data.id, calendarId);
-        return { meetLink: this.createFallbackMeetLink() };
+        console.warn('⚠️  Failed to extract Meet link from doctor-hosted event response.');
+        return null;
       }
 
-        console.log('🔗 Meet link generated:', meetLink);
-        console.log(`   Event ID: ${response.data.id}`);
+      console.log('🔗 Meet link generated:', meetLink);
+      console.log(`   Event ID: ${response.data.id}`);
 
-        return { 
-          meetLink,
+      return {
+        meetLink,
         eventId: response.data.id,
-        };
+      };
     } catch (error) {
-      console.error('❌ Error creating Google Calendar event with Meet:', error);
-      console.log('⚠️  Using fallback Meet link due to API error');
+      console.error('❌ Error creating doctor-hosted Google Calendar event:', error.message || error);
+      return null;
+    }
+  }
+
+  private async createPlatformHostedEvent(baseEvent: any): Promise<{ meetLink: string; eventId?: string }> {
+    const calendarId = this.configService.get<string>('GOOGLE_CALENDAR_ID') || 'primary';
+    const requestBody = this.buildEventRequestBody(baseEvent, {
+      guestsCanInviteOthers: true,
+      guestsCanModify: false,
+      guestsCanSeeOtherGuests: true,
+      anyoneCanAddSelf: true,
+      visibility: 'public',
+      transparency: 'opaque',
+    });
+
+    console.log('📅 Creating Google Calendar event with Meet integration (platform calendar)...');
+
+    const response = await this.calendar.events.insert({
+      calendarId,
+      requestBody,
+      conferenceDataVersion: 1,
+      sendUpdates: 'none',
+    });
+
+    console.log('✅ Platform Google Calendar event created successfully');
+
+    const meetLink = response.data.conferenceData?.entryPoints?.find(
+      (entry: any) => entry.entryPointType === 'video'
+    )?.uri;
+
+    if (!meetLink) {
+      console.warn('⚠️  Failed to extract Meet link from calendar event response. Falling back to generated link.');
+      await this.safeDeleteEvent(response.data.id, calendarId);
       return { meetLink: this.createFallbackMeetLink() };
     }
+
+    console.log('🔗 Meet link generated:', meetLink);
+    console.log(`   Event ID: ${response.data.id}`);
+
+    return {
+      meetLink,
+      eventId: response.data.id,
+    };
   }
 
   /**

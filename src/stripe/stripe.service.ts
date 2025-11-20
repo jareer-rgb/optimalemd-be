@@ -224,7 +224,8 @@ export class StripeService {
       appointment.patient.primaryEmail || undefined, // Pass patient email
       appointment.doctor?.email, // Pass doctor email if available
       patientTimezone, // Pass patient's timezone for correct event time
-      additionalServices || undefined
+      additionalServices || undefined,
+      appointment.doctorId || undefined
     );
 
     // Update appointment status to confirmed, mark as paid, and store Google Meet link and event ID
