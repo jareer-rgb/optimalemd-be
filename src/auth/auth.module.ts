@@ -9,11 +9,13 @@ import { NewSignupController } from './new-signup.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MailerModule } from '../mailer/mailer.module';
+import { StripeModule } from '../stripe/stripe.module';
 
 @Module({
   imports: [
     PrismaModule,
     MailerModule,
+    StripeModule,
     PassportModule,
     ConfigModule,
     JwtModule.registerAsync({

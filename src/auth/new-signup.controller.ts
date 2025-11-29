@@ -11,9 +11,11 @@ import {
   UseGuards,
   Request,
   Req,
-  BadRequestException
+  BadRequestException,
+  NotFoundException
 } from '@nestjs/common';
 import { NewSignupService } from './new-signup.service';
+import { StripeService } from '../stripe/stripe.service';
 import { 
   CreateWelcomeOrderDto, 
   UpdateSignupStepDto, 
@@ -25,10 +27,53 @@ import {
   CreateUserStepByStepDto
 } from './dto/new-signup.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { CreatePaymentIntentDto } from '../stripe/dto';
 
 @Controller('auth/new-signup')
 export class NewSignupController {
-  constructor(private readonly newSignupService: NewSignupService) {}
+  constructor(
+    private readonly newSignupService: NewSignupService,
+    private readonly stripeService: StripeService,
+  ) {}
+
+  // Check if email already exists (public endpoint - no auth required)
+  @Get('check-email')
+  @HttpCode(HttpStatus.OK)
+  async checkEmailExists(@Query('email') email: string) {
+    if (!email) {
+      throw new BadRequestException('Email is required');
+    }
+
+    try {
+      const checkResult = await this.newSignupService.checkEmailExists(email);
+      
+      let message = 'Email is available';
+      if (checkResult.exists && checkResult.hasIncompleteSignup) {
+        message = 'An account with this email already exists. You have an incomplete signup - please log in to resume.';
+      } else if (checkResult.exists) {
+        message = 'An account with this email already exists. Please log in.';
+      } else if (checkResult.hasIncompleteSignup) {
+        // No user account, but incomplete signup exists (paid but didn't create password)
+        // This will be handled by frontend to auto-resume
+        message = 'You have an incomplete signup. You will be redirected to continue where you left off.';
+      }
+
+      return {
+        success: true,
+        statusCode: 200,
+        data: {
+          email,
+          exists: checkResult.exists,
+          hasIncompleteSignup: checkResult.hasIncompleteSignup,
+          welcomeOrderId: checkResult.welcomeOrderId,
+        },
+        message,
+      };
+    } catch (error) {
+      console.error('Error checking email existence:', error);
+      throw new BadRequestException('Unable to check email. Please try again.');
+    }
+  }
 
   // Create a new welcome order
   @Post('welcome-order')
@@ -430,5 +475,44 @@ export class NewSignupController {
     @Body() updateData: { userId: string }
   ) {
     return this.newSignupService.updateWelcomeOrder(welcomeOrderId, updateData);
+  }
+
+  // Create payment intent for welcome order (public endpoint - no auth required)
+  @Post('welcome-order/:welcomeOrderId/payment-intent')
+  @HttpCode(HttpStatus.CREATED)
+  async createWelcomeOrderPaymentIntent(
+    @Param('welcomeOrderId') welcomeOrderId: string,
+    @Body() body: { amount: number; currency?: string }
+  ) {
+    try {
+      // Validate welcome order exists and is not already paid
+      const welcomeOrder = await this.newSignupService.getWelcomeOrder(welcomeOrderId);
+
+      if (welcomeOrder.paymentStatus === 'SUCCEEDED') {
+        throw new BadRequestException('Welcome order is already paid');
+      }
+
+      // Create payment intent using StripeService
+      const result = await this.stripeService.createPaymentIntent({
+        welcomeOrderId,
+        amount: body.amount || welcomeOrder.finalAmount.toNumber(),
+        currency: body.currency || 'usd',
+      });
+
+      return {
+        success: true,
+        statusCode: 201,
+        message: 'Payment intent created successfully',
+        data: result,
+      };
+    } catch (error) {
+      console.error('Error creating welcome order payment intent:', error);
+      
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      throw new BadRequestException('Failed to create payment intent. Please try again.');
+    }
   }
 }

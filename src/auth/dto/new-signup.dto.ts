@@ -148,6 +148,9 @@ export class SignupProgressResponseDto {
   currentStep: number;
   currentSubStep: number;
   isCompleted: boolean;
+  paymentStatus?: PaymentStatus; // Include payment status to skip payment step if already paid
+  paymentIntentId?: string; // Include payment intent ID
+  userId?: string; // Include userId to check if user already exists (skip password step if exists)
   steps: {
     stepNumber: number;
     stepName: string;

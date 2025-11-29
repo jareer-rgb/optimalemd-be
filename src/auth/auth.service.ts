@@ -123,7 +123,7 @@ export class AuthService {
   /**
    * Login user (patient)
    */
-  private async loginUser(email: string, password: string): Promise<AuthResponseDataDto> {
+  private async loginUser(email: string, password: string): Promise<AuthResponseDataDto & { hasIncompleteSignup?: boolean; welcomeOrderId?: string; resumeStep?: number }> {
     // Find user by primary email
     const user = await this.prisma.user.findUnique({
       where: { primaryEmail: email },
@@ -149,6 +149,21 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Check for incomplete welcome order (signup not completed)
+    const incompleteWelcomeOrder = await this.prisma.welcomeOrder.findFirst({
+      where: {
+        userId: user.id,
+        isCompleted: false,
+      },
+      select: {
+        id: true,
+        currentStep: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
     // Generate JWT token
     const payload = { sub: user.id, email: user.primaryEmail, userType: 'user' };
     const accessToken = this.jwtService.sign(payload);
@@ -156,11 +171,20 @@ export class AuthService {
     // Return user data without password
     const { password: _, ...userWithoutPassword } = user;
 
-    return {
+    const response: AuthResponseDataDto & { hasIncompleteSignup?: boolean; welcomeOrderId?: string; resumeStep?: number } = {
       accessToken,
       user: userWithoutPassword as UserResponseDto,
       userType: 'user' as const,
     };
+
+    // Add incomplete signup info if found
+    if (incompleteWelcomeOrder) {
+      response.hasIncompleteSignup = true;
+      response.welcomeOrderId = incompleteWelcomeOrder.id;
+      response.resumeStep = incompleteWelcomeOrder.currentStep;
+    }
+
+    return response;
   }
 
   /**

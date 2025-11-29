@@ -28,6 +28,97 @@ export class NewSignupService {
     return `WO-${timestamp}-${random}`;
   }
 
+  // Check if email already exists and if there's an incomplete signup
+  async checkEmailExists(email: string): Promise<{ exists: boolean; hasIncompleteSignup: boolean; welcomeOrderId?: string }> {
+    if (!email) {
+      return { exists: false, hasIncompleteSignup: false };
+    }
+
+    // Normalize email to lowercase for case-insensitive matching
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if user exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { primaryEmail: normalizedEmail },
+      select: { id: true },
+    });
+
+    const userExists = !!existingUser;
+
+    // Check for incomplete welcome orders (either by email or userId if user exists)
+    // A welcome order is incomplete if:
+    // 1. isCompleted is false, OR
+    // 2. isCompleted is true but signup isn't truly complete (all steps not done)
+    // We check for welcome orders regardless of status - status doesn't matter for incomplete detection
+    const allWelcomeOrders = await this.prisma.welcomeOrder.findMany({
+      where: {
+        OR: [
+          { email: normalizedEmail },
+          ...(userExists ? [{ userId: existingUser.id }] : []),
+        ],
+      },
+      include: {
+        signupSteps: {
+          orderBy: [
+            { stepNumber: 'asc' },
+            { subStepNumber: 'asc' },
+          ],
+        },
+      },
+      orderBy: {
+        createdAt: 'desc', // Get the most recent one first
+      },
+    });
+
+    // Find incomplete welcome order - either explicitly incomplete or incorrectly marked as complete
+    let incompleteWelcomeOrder: { id: string; email: string; userId: string | null } | null = null;
+    for (const order of allWelcomeOrders) {
+      // If explicitly marked as incomplete, it's incomplete
+      if (!order.isCompleted) {
+        incompleteWelcomeOrder = {
+          id: order.id,
+          email: order.email,
+          userId: order.userId,
+        };
+        break;
+      }
+      
+      // Check if it's incorrectly marked as complete
+      // Signup is truly complete only if all required steps are done:
+      // - Step 0 (Gender)
+      // - Step 1 (Basic Info) 
+      // - Step 2 (Checkout/Payment) - paymentStatus should be SUCCEEDED
+      // - Step 3 (Password) - user should exist (userId should be set)
+      // - Step 4 (Details) - all 3 sub-steps should be done (0: BMI, 1: Medical, 2: Consent)
+      
+      const hasGender = order.signupSteps.some(s => s.stepNumber === 0 && s.isCompleted);
+      const hasBasicInfo = order.signupSteps.some(s => s.stepNumber === 1 && s.isCompleted);
+      const hasPayment = order.paymentStatus === 'SUCCEEDED';
+      const hasPassword = !!order.userId; // User created means password step is done
+      const hasAllDetails = order.signupSteps.some(s => s.stepNumber === 4 && s.subStepNumber === 0 && s.isCompleted) && // BMI
+                            order.signupSteps.some(s => s.stepNumber === 4 && s.subStepNumber === 1 && s.isCompleted) && // Medical
+                            order.signupSteps.some(s => s.stepNumber === 4 && s.subStepNumber === 2 && s.isCompleted); // Consent
+      
+      const isTrulyComplete = hasGender && hasBasicInfo && hasPayment && hasPassword && hasAllDetails;
+      
+      // If marked as completed but not truly complete, treat as incomplete
+      if (!isTrulyComplete) {
+        incompleteWelcomeOrder = {
+          id: order.id,
+          email: order.email,
+          userId: order.userId,
+        };
+        break;
+      }
+    }
+
+    return {
+      exists: userExists,
+      hasIncompleteSignup: !!incompleteWelcomeOrder,
+      welcomeOrderId: incompleteWelcomeOrder?.id,
+    };
+  }
+
   // Create a new welcome order
   async createWelcomeOrder(createDto: CreateWelcomeOrderDto) {
     const orderNumber = this.generateOrderNumber();
@@ -96,17 +187,19 @@ export class NewSignupService {
       },
     });
 
-    // Update welcome order progress
+    // Update welcome order progress - don't mark as completed until all steps are done
+    // Only mark as completed when explicitly called via completeSignup, not when updating individual steps
     await this.prisma.welcomeOrder.update({
       where: { id: welcomeOrderId },
       data: {
         currentStep: updateDto.stepNumber,
         currentSubStep: updateDto.subStepNumber || 0,
-        status: updateDto.isCompleted && updateDto.stepNumber === 4 
+        // Only update status if not already completed - keep IN_PROGRESS for incomplete signups
+        status: welcomeOrder.isCompleted 
           ? WelcomeOrderStatus.COMPLETED 
           : WelcomeOrderStatus.IN_PROGRESS,
-        isCompleted: updateDto.isCompleted && updateDto.stepNumber === 4,
-        completedAt: updateDto.isCompleted && updateDto.stepNumber === 4 ? new Date() : null,
+        // Never set isCompleted to true here - only in completeSignup method
+        // isCompleted remains false until explicitly completed via completeSignup
       },
     });
 
@@ -137,11 +230,15 @@ export class NewSignupService {
       currentStep: welcomeOrder.currentStep,
       currentSubStep: welcomeOrder.currentSubStep,
       isCompleted: welcomeOrder.isCompleted,
+      paymentStatus: welcomeOrder.paymentStatus as PaymentStatus, // Include payment status for step skipping logic
+      paymentIntentId: welcomeOrder.paymentIntentId || undefined, // Include payment intent ID (convert null to undefined)
+      userId: welcomeOrder.userId || undefined, // Include userId to check if user already exists
       steps: welcomeOrder.signupSteps.map(step => ({
         stepNumber: step.stepNumber,
         stepName: step.stepName,
         subStepNumber: step.subStepNumber || undefined,
         subStepName: step.subStepName || undefined,
+        stepData: step.stepData || undefined, // Include stepData for loading form
         isCompleted: step.isCompleted,
         isValid: step.isValid,
         completedAt: step.completedAt || undefined,
@@ -149,11 +246,25 @@ export class NewSignupService {
     };
   }
 
-  // Resume signup by email
+  // Resume signup by email (also checks by userId if user exists)
   async resumeSignupByEmail(email: string): Promise<ResumeSignupResponseDto> {
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // First check if user exists - if so, also search by userId
+    const existingUser = await this.prisma.user.findUnique({
+      where: { primaryEmail: normalizedEmail },
+      select: { id: true },
+    });
+
+    // Find incomplete welcome order by email OR userId (if user exists)
     const welcomeOrder = await this.prisma.welcomeOrder.findFirst({
       where: {
-        email,
+        OR: [
+          { email: normalizedEmail },
+          ...(existingUser ? [{ userId: existingUser.id }] : []),
+        ],
+        isCompleted: false,
         status: {
           in: [WelcomeOrderStatus.PENDING, WelcomeOrderStatus.IN_PROGRESS],
         },
@@ -170,6 +281,9 @@ export class NewSignupService {
             { subStepNumber: 'asc' },
           ],
         },
+      },
+      orderBy: {
+        createdAt: 'desc', // Get the most recent one
       },
     });
 
