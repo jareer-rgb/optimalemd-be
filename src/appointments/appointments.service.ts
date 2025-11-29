@@ -761,16 +761,17 @@ export class AppointmentsService {
     console.log('Existing medications in DB:', JSON.stringify(appointmentAny.medications, null, 2));
     
     if (merge && appointmentAny.medications) {
-      // When merging, we keep existing services and replace/add the new ones
+      // When merging, we keep existing services and replace/update the specified services
       const existing = appointmentAny.medications as Record<string, string[]>;
       updatedMedications = { ...existing };
       
       console.log('After copying existing:', JSON.stringify(updatedMedications, null, 2));
       
-      // For each service in the incoming medications, REPLACE (not merge) its medications
+      // For each service in the incoming medications, REPLACE that service's medications
+      // This allows updating a specific service while preserving all other services
       for (const [serviceName, meds] of Object.entries(medications)) {
-        console.log(`Replacing service "${serviceName}" with:`, meds);
-        updatedMedications[serviceName] = meds; // Replace, not merge
+        console.log(`Updating service "${serviceName}" with:`, meds);
+        updatedMedications[serviceName] = meds; // Replace medications for this service
       }
     }
 
