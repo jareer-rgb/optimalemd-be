@@ -500,7 +500,7 @@ export class AdminService {
   }
 
   /**
-   * Delete patient (soft delete by deactivating)
+   * Delete patient (hard delete - permanently removes from database)
    */
   async deletePatient(patientId: string): Promise<void> {
     const patient = await this.prisma.user.findUnique({
@@ -511,10 +511,25 @@ export class AdminService {
       throw new NotFoundException('Patient not found');
     }
 
-    // Soft delete by deactivating
-    await this.prisma.user.update({
-      where: { id: patientId },
-      data: { isActive: false }
+    // Get patient email before deletion (for deleting welcome orders)
+    const patientEmail = patient.primaryEmail || patient.email;
+
+    // Delete welcome orders by email (in case they exist before user was created)
+    // This handles cases where welcome orders exist with email but no userId yet
+    if (patientEmail) {
+      await this.prisma.welcomeOrder.deleteMany({
+        where: {
+          email: patientEmail
+        }
+      });
+    }
+
+    // Hard delete - permanently remove patient and all related data
+    // Note: This will cascade delete related records based on Prisma schema relationships
+    // WelcomeOrders with userId will be cascade deleted automatically via the relation
+    // SignupSteps will also be cascade deleted
+    await this.prisma.user.delete({
+      where: { id: patientId }
     });
   }
 

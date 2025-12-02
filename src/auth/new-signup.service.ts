@@ -29,7 +29,7 @@ export class NewSignupService {
   }
 
   // Check if email already exists and if there's an incomplete signup
-  async checkEmailExists(email: string): Promise<{ exists: boolean; hasIncompleteSignup: boolean; welcomeOrderId?: string }> {
+  async checkEmailExists(email: string): Promise<{ exists: boolean; hasIncompleteSignup: boolean; welcomeOrderId?: string; isActive?: boolean }> {
     if (!email) {
       return { exists: false, hasIncompleteSignup: false };
     }
@@ -37,13 +37,22 @@ export class NewSignupService {
     // Normalize email to lowercase for case-insensitive matching
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check if user exists
+    // Check if user exists and get their active status
     const existingUser = await this.prisma.user.findUnique({
       where: { primaryEmail: normalizedEmail },
-      select: { id: true },
+      select: { id: true, isActive: true },
     });
 
     const userExists = !!existingUser;
+    
+    // If user exists but is inactive, prevent signup
+    if (userExists && existingUser && !existingUser.isActive) {
+      return {
+        exists: true,
+        hasIncompleteSignup: false,
+        isActive: false,
+      };
+    }
 
     // Check for incomplete welcome orders (either by email or userId if user exists)
     // A welcome order is incomplete if:
@@ -116,6 +125,7 @@ export class NewSignupService {
       exists: userExists,
       hasIncompleteSignup: !!incompleteWelcomeOrder,
       welcomeOrderId: incompleteWelcomeOrder?.id,
+      isActive: userExists ? (existingUser?.isActive ?? true) : undefined,
     };
   }
 
@@ -307,12 +317,18 @@ export class NewSignupService {
     };
   }
 
-  // Complete the signup process and create user
+  // Complete the signup process and create or update user
   async completeSignup(welcomeOrderId: string, userData: any) {
     const welcomeOrder = await this.prisma.welcomeOrder.findUnique({
       where: { id: welcomeOrderId },
       include: {
-        signupSteps: true,
+        signupSteps: {
+          orderBy: [
+            { stepNumber: 'asc' },
+            { subStepNumber: 'asc' },
+          ],
+        },
+        user: true,
       },
     });
 
@@ -324,38 +340,160 @@ export class NewSignupService {
       throw new BadRequestException('Signup already completed');
     }
 
-    // Create user
-    const user = await this.prisma.user.create({
-      data: {
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        email: userData.email,
-        primaryEmail: userData.email, // Add missing primaryEmail field
-        password: userData.password, // Should be hashed
-        gender: userData.gender,
-        dateOfBirth: new Date(userData.dateOfBirth),
-        completeAddress: userData.completeAddress,
-        city: userData.city,
-        state: userData.state,
-        zipcode: userData.zipcode,
-        primaryPhone: userData.primaryPhone,
-        alternativePhone: userData.alternativePhone,
-        emergencyContactName: userData.emergencyContactName,
-        emergencyContactRelationship: userData.emergencyContactRelationship,
-        emergencyContactPhone: userData.emergencyContactPhone,
-        referringSource: userData.referringSource,
-        preferredMethodOfCommunication: userData.preferredMethodOfCommunication,
-        disabilityAccessibilityNeeds: userData.disabilityAccessibilityNeeds,
-        consentForTreatment: userData.consentForTreatment ? 'Y' : 'N',
-        hipaaPrivacyNoticeAcknowledgment: userData.hipaaPrivacyNoticeAcknowledgment ? 'Y' : 'N',
-        releaseOfMedicalRecordsConsent: userData.releaseOfMedicalRecordsConsent ? 'Y' : 'N',
+    // Collect data from signup steps (especially step 4 which has dateOfBirth, address, phone)
+    let mergedUserData: any = { ...userData };
+    
+    // Merge data from signup steps
+    welcomeOrder.signupSteps.forEach(step => {
+      if (step.stepData && typeof step.stepData === 'object') {
+        const stepData = step.stepData as any;
+        
+        // Step 4 contains dateOfBirth, completeAddress, city, zipcode, primaryPhone, etc.
+        if (step.stepNumber === 4) {
+          if (stepData.dateOfBirth) mergedUserData.dateOfBirth = stepData.dateOfBirth;
+          if (stepData.completeAddress) mergedUserData.completeAddress = stepData.completeAddress;
+          if (stepData.city) mergedUserData.city = stepData.city;
+          if (stepData.zipcode) mergedUserData.zipcode = stepData.zipcode;
+          if (stepData.primaryPhone) mergedUserData.primaryPhone = stepData.primaryPhone;
+          if (stepData.alternativePhone) mergedUserData.alternativePhone = stepData.alternativePhone;
+        }
+        
+        // Merge all other step data
+        Object.keys(stepData).forEach(key => {
+          if (stepData[key] !== undefined && stepData[key] !== null && stepData[key] !== '') {
+            mergedUserData[key] = stepData[key];
+          }
+        });
+      }
+    });
+
+    // Check if user already exists (from Step3Password)
+    let user;
+    if (welcomeOrder.userId) {
+      // User already exists, update it
+      const updateData: any = {};
+      
+      if (mergedUserData.firstName) updateData.firstName = mergedUserData.firstName;
+      if (mergedUserData.lastName) updateData.lastName = mergedUserData.lastName;
+      if (mergedUserData.gender) updateData.gender = mergedUserData.gender;
+      if (mergedUserData.state) updateData.state = mergedUserData.state;
+      
+      // Handle dateOfBirth
+      if (mergedUserData.dateOfBirth) {
+        const dateValue = mergedUserData.dateOfBirth;
+        if (typeof dateValue === 'string') {
+          const date = new Date(dateValue);
+          if (!isNaN(date.getTime())) {
+            updateData.dateOfBirth = date;
+          }
+        } else if (dateValue instanceof Date) {
+          updateData.dateOfBirth = dateValue;
+        }
+      }
+      
+      if (mergedUserData.completeAddress) updateData.completeAddress = mergedUserData.completeAddress;
+      if (mergedUserData.city) updateData.city = mergedUserData.city;
+      if (mergedUserData.zipcode) updateData.zipcode = mergedUserData.zipcode;
+      if (mergedUserData.primaryPhone) updateData.primaryPhone = mergedUserData.primaryPhone;
+      if (mergedUserData.alternativePhone) updateData.alternativePhone = mergedUserData.alternativePhone;
+      if (mergedUserData.emergencyContactName) updateData.emergencyContactName = mergedUserData.emergencyContactName;
+      if (mergedUserData.emergencyContactRelationship) updateData.emergencyContactRelationship = mergedUserData.emergencyContactRelationship;
+      if (mergedUserData.emergencyContactPhone) updateData.emergencyContactPhone = mergedUserData.emergencyContactPhone;
+      if (mergedUserData.referringSource) updateData.referringSource = mergedUserData.referringSource;
+      if (mergedUserData.preferredMethodOfCommunication) updateData.preferredMethodOfCommunication = mergedUserData.preferredMethodOfCommunication;
+      if (mergedUserData.disabilityAccessibilityNeeds) updateData.disabilityAccessibilityNeeds = mergedUserData.disabilityAccessibilityNeeds;
+      
+      // Handle consents
+      if (mergedUserData.consentForTreatment !== undefined) {
+        updateData.consentForTreatment = mergedUserData.consentForTreatment ? 'Y' : 'N';
+      }
+      if (mergedUserData.hipaaPrivacyNoticeAcknowledgment !== undefined) {
+        updateData.hipaaPrivacyNoticeAcknowledgment = mergedUserData.hipaaPrivacyNoticeAcknowledgment ? 'Y' : 'N';
+      }
+      if (mergedUserData.releaseOfMedicalRecordsConsent !== undefined) {
+        updateData.releaseOfMedicalRecordsConsent = mergedUserData.releaseOfMedicalRecordsConsent ? 'Y' : 'N';
+      }
+      
+      // Update legacy fields
+      if (mergedUserData.email) {
+        updateData.email = mergedUserData.email;
+        updateData.primaryEmail = mergedUserData.email;
+      }
+      if (mergedUserData.primaryPhone) {
+        updateData.phone = mergedUserData.primaryPhone;
+      }
+      
+      updateData.hasCompletedIntakeForm = true;
+      updateData.intakeFormCompletedAt = new Date();
+
+      user = await this.prisma.user.update({
+        where: { id: welcomeOrder.userId },
+        data: updateData,
+      });
+      
+      console.log('✅ Updated existing user with all collected data:', user.id);
+    } else {
+      // User doesn't exist, create it
+      const createData: any = {
+        firstName: mergedUserData.firstName || userData.firstName,
+        lastName: mergedUserData.lastName || userData.lastName,
+        email: mergedUserData.email || userData.email,
+        primaryEmail: mergedUserData.email || userData.email,
+        password: mergedUserData.password || userData.password,
+        gender: mergedUserData.gender || userData.gender,
+        state: mergedUserData.state || userData.state,
         isEmailVerified: false,
         hasCompletedIntakeForm: true,
         intakeFormCompletedAt: new Date(),
-      },
-    });
+      };
+      
+      // Handle dateOfBirth
+      if (mergedUserData.dateOfBirth) {
+        const dateValue = mergedUserData.dateOfBirth;
+        if (typeof dateValue === 'string') {
+          const date = new Date(dateValue);
+          if (!isNaN(date.getTime())) {
+            createData.dateOfBirth = date;
+          }
+        } else if (dateValue instanceof Date) {
+          createData.dateOfBirth = dateValue;
+        }
+      }
+      
+      if (mergedUserData.completeAddress) createData.completeAddress = mergedUserData.completeAddress;
+      if (mergedUserData.city) createData.city = mergedUserData.city;
+      if (mergedUserData.zipcode) createData.zipcode = mergedUserData.zipcode;
+      if (mergedUserData.primaryPhone) {
+        createData.primaryPhone = mergedUserData.primaryPhone;
+        createData.phone = mergedUserData.primaryPhone;
+      }
+      if (mergedUserData.alternativePhone) createData.alternativePhone = mergedUserData.alternativePhone;
+      if (mergedUserData.emergencyContactName) createData.emergencyContactName = mergedUserData.emergencyContactName;
+      if (mergedUserData.emergencyContactRelationship) createData.emergencyContactRelationship = mergedUserData.emergencyContactRelationship;
+      if (mergedUserData.emergencyContactPhone) createData.emergencyContactPhone = mergedUserData.emergencyContactPhone;
+      if (mergedUserData.referringSource) createData.referringSource = mergedUserData.referringSource;
+      if (mergedUserData.preferredMethodOfCommunication) createData.preferredMethodOfCommunication = mergedUserData.preferredMethodOfCommunication;
+      if (mergedUserData.disabilityAccessibilityNeeds) createData.disabilityAccessibilityNeeds = mergedUserData.disabilityAccessibilityNeeds;
+      
+      // Handle consents
+      if (mergedUserData.consentForTreatment !== undefined) {
+        createData.consentForTreatment = mergedUserData.consentForTreatment ? 'Y' : 'N';
+      }
+      if (mergedUserData.hipaaPrivacyNoticeAcknowledgment !== undefined) {
+        createData.hipaaPrivacyNoticeAcknowledgment = mergedUserData.hipaaPrivacyNoticeAcknowledgment ? 'Y' : 'N';
+      }
+      if (mergedUserData.releaseOfMedicalRecordsConsent !== undefined) {
+        createData.releaseOfMedicalRecordsConsent = mergedUserData.releaseOfMedicalRecordsConsent ? 'Y' : 'N';
+      }
 
-    // Update welcome order with user ID
+      user = await this.prisma.user.create({
+        data: createData,
+      });
+      
+      console.log('✅ Created new user with all collected data:', user.id);
+    }
+
+    // Update welcome order with user ID and mark as completed
     await this.prisma.welcomeOrder.update({
       where: { id: welcomeOrderId },
       data: {
@@ -408,6 +546,23 @@ export class NewSignupService {
 
   // Update payment status
   async updatePaymentStatus(welcomeOrderId: string, paymentIntentId: string, status: PaymentStatus) {
+    // Fetch welcome order with signup steps to get user info
+    const existingOrder = await this.prisma.welcomeOrder.findUnique({
+      where: { id: welcomeOrderId },
+      include: {
+        signupSteps: {
+          orderBy: [
+            { stepNumber: 'asc' },
+            { subStepNumber: 'asc' },
+          ],
+        },
+      },
+    });
+
+    if (!existingOrder) {
+      throw new NotFoundException('Welcome order not found');
+    }
+
     const welcomeOrder = await this.prisma.welcomeOrder.update({
       where: { id: welcomeOrderId },
       data: {
@@ -418,6 +573,35 @@ export class NewSignupService {
         status: status === PaymentStatus.SUCCEEDED ? WelcomeOrderStatus.IN_PROGRESS : WelcomeOrderStatus.PENDING,
       },
     });
+
+    // Send payment confirmation email if payment succeeded
+    if (status === PaymentStatus.SUCCEEDED) {
+      try {
+        // Get firstName and lastName from signup steps (step 1 - Basic Info)
+        let firstName = '';
+        let lastName = '';
+        const basicInfoStep = existingOrder.signupSteps.find(step => step.stepNumber === 1);
+        if (basicInfoStep && basicInfoStep.stepData) {
+          const stepData = basicInfoStep.stepData as any;
+          firstName = stepData.firstName || '';
+          lastName = stepData.lastName || '';
+        }
+
+        const name = `${firstName} ${lastName}`.trim() || 'Valued Customer';
+        const amount = Number(welcomeOrder.finalAmount);
+
+        await this.mailerService.sendPaymentConfirmationEmail(
+          welcomeOrder.email,
+          name,
+          amount,
+          welcomeOrder.orderNumber
+        );
+        console.log(`✅ Payment confirmation email sent to ${welcomeOrder.email}`);
+      } catch (emailError: any) {
+        console.error('Failed to send payment confirmation email:', emailError);
+        // Don't throw - payment is already confirmed, email failure shouldn't block the response
+      }
+    }
 
     return welcomeOrder;
   }
@@ -601,41 +785,79 @@ export class NewSignupService {
       // Filter out undefined/null values and prepare update data
       const updateData: any = {};
       
-      Object.keys(userData).forEach(key => {
-        if (userData[key] !== undefined && userData[key] !== null && userData[key] !== '') {
-          // Special handling for dateOfBirth
+      // Explicitly handle each expected field
+      const fieldsToUpdate = [
+        'dateOfBirth',
+        'completeAddress',
+        'city',
+        'zipcode',
+        'primaryPhone',
+        'alternativePhone',
+        'emergencyContactName',
+        'emergencyContactRelationship',
+        'emergencyContactPhone',
+        'referringSource',
+        'preferredMethodOfCommunication',
+        'disabilityAccessibilityNeeds',
+      ];
+
+      fieldsToUpdate.forEach(key => {
+        if (userData[key] !== undefined && userData[key] !== null) {
           if (key === 'dateOfBirth') {
+            // Special handling for dateOfBirth
             const dateValue = userData[key];
-            // Validate date format
-            if (typeof dateValue === 'string') {
+            if (dateValue && dateValue !== '') {
               const date = new Date(dateValue);
               if (isNaN(date.getTime())) {
-                throw new BadRequestException('Invalid date format. Please use MM-DD-YYYY format.');
+                throw new BadRequestException('Invalid date format. Please use YYYY-MM-DD format.');
               }
-              // Check if date is reasonable (not in the past beyond 150 years, not in the future)
               const currentYear = new Date().getFullYear();
               const dateYear = date.getFullYear();
               if (dateYear < currentYear - 150 || dateYear > currentYear) {
                 throw new BadRequestException('Invalid date. Please enter a valid birth date.');
               }
               updateData[key] = date;
-            } else {
-              updateData[key] = dateValue;
             }
+          } else if (key === 'primaryPhone') {
+            // Always include primaryPhone if provided, and also update legacy phone field
+            if (userData[key] && userData[key] !== '') {
+              updateData.primaryPhone = userData[key];
+              updateData.phone = userData[key]; // Also update legacy field
+            }
+          } else if (key === 'alternativePhone') {
+            // Allow empty alternative phone (set to null if empty)
+            updateData[key] = userData[key] && userData[key] !== '' ? userData[key] : null;
           } else {
+            // Include all other fields (allow empty strings for some fields)
             updateData[key] = userData[key];
           }
         }
       });
 
       console.log('Filtered update data:', updateData);
+      
+      // Ensure we have data to update
+      if (Object.keys(updateData).length === 0) {
+        console.warn('No data to update for user:', userId);
+        // Return current user if no updates
+        return await this.prisma.user.findUnique({
+          where: { id: userId },
+        });
+      }
 
       const updatedUser = await this.prisma.user.update({
         where: { id: userId },
         data: updateData,
       });
 
-      console.log('User profile updated successfully:', updatedUser);
+      console.log('✅ User profile updated successfully with fields:', Object.keys(updateData));
+      console.log('Updated user data:', {
+        dateOfBirth: updatedUser.dateOfBirth,
+        completeAddress: updatedUser.completeAddress,
+        city: updatedUser.city,
+        zipcode: updatedUser.zipcode,
+        primaryPhone: updatedUser.primaryPhone,
+      });
       return updatedUser;
     } catch (error) {
       console.error('Error updating user profile:', error);
@@ -842,20 +1064,96 @@ export class NewSignupService {
         throw new NotFoundException('User not found');
       }
 
-      // Update user with consent data
-      const updatedUser = await this.prisma.user.update({
-        where: { id: userId },
-        data: {
+      // Find welcome order for this user to get all signup step data
+      const welcomeOrder = await this.prisma.welcomeOrder.findFirst({
+        where: { userId: userId },
+        include: {
+          signupSteps: {
+            orderBy: [
+              { stepNumber: 'asc' },
+              { subStepNumber: 'asc' },
+            ],
+          },
+        },
+      });
+
+      // Collect all data from signup steps
+      let mergedData: any = {};
+      
+      if (welcomeOrder && welcomeOrder.signupSteps) {
+        welcomeOrder.signupSteps.forEach(step => {
+          if (step.stepData && typeof step.stepData === 'object') {
+            const stepData = step.stepData as any;
+            
+            // Merge all step data, prioritizing step 4 (details) which has dateOfBirth, address, phone
+            Object.keys(stepData).forEach(key => {
+              if (stepData[key] !== undefined && stepData[key] !== null && stepData[key] !== '') {
+                mergedData[key] = stepData[key];
+              }
+            });
+          }
+        });
+      }
+
+      // Prepare update data with all collected fields
+      const updateData: any = {
           consentForTreatment: consentData.consentForTreatment ? 'Y' : 'N',
           hipaaPrivacyNoticeAcknowledgment: consentData.hipaaPrivacyNoticeAcknowledgment ? 'Y' : 'N',
           releaseOfMedicalRecordsConsent: consentData.releaseOfMedicalRecordsConsent ? 'Y' : 'N',
           isEmailVerified: false, // Will be verified when they click email link
           hasCompletedIntakeForm: true,
           intakeFormCompletedAt: new Date(),
+      };
+
+      // Add data from signup steps
+      if (mergedData.dateOfBirth) {
+        const dateValue = mergedData.dateOfBirth;
+        if (typeof dateValue === 'string') {
+          const date = new Date(dateValue);
+          if (!isNaN(date.getTime())) {
+            updateData.dateOfBirth = date;
+          }
+        } else if (dateValue instanceof Date) {
+          updateData.dateOfBirth = dateValue;
         }
+      }
+      
+      if (mergedData.completeAddress !== undefined) updateData.completeAddress = mergedData.completeAddress;
+      if (mergedData.city !== undefined) updateData.city = mergedData.city;
+      if (mergedData.zipcode !== undefined) updateData.zipcode = mergedData.zipcode;
+      if (mergedData.primaryPhone !== undefined) {
+        updateData.primaryPhone = mergedData.primaryPhone;
+        updateData.phone = mergedData.primaryPhone; // Also update legacy field
+      }
+      if (mergedData.alternativePhone) updateData.alternativePhone = mergedData.alternativePhone;
+      if (mergedData.emergencyContactName) updateData.emergencyContactName = mergedData.emergencyContactName;
+      if (mergedData.emergencyContactRelationship) updateData.emergencyContactRelationship = mergedData.emergencyContactRelationship;
+      if (mergedData.emergencyContactPhone) updateData.emergencyContactPhone = mergedData.emergencyContactPhone;
+      if (mergedData.referringSource) updateData.referringSource = mergedData.referringSource;
+      if (mergedData.preferredMethodOfCommunication) updateData.preferredMethodOfCommunication = mergedData.preferredMethodOfCommunication;
+      if (mergedData.disabilityAccessibilityNeeds) updateData.disabilityAccessibilityNeeds = mergedData.disabilityAccessibilityNeeds;
+
+      console.log('Updating user with merged data from signup steps:', updateData);
+
+      // Update user with all collected data
+      const updatedUser = await this.prisma.user.update({
+        where: { id: userId },
+        data: updateData,
       });
 
-      console.log('Updated user with consent data:', updatedUser);
+      // Mark welcome order as completed if it exists
+      if (welcomeOrder) {
+        await this.prisma.welcomeOrder.update({
+          where: { id: welcomeOrder.id },
+          data: {
+            status: WelcomeOrderStatus.IN_PROGRESS,
+            isCompleted: false,
+            completedAt: new Date(),
+          },
+        });
+      }
+
+      console.log('Updated user with all collected data including dateOfBirth, address, phone:', updatedUser);
 
       // Generate email verification token
       const emailVerificationToken = crypto.randomBytes(32).toString('hex');

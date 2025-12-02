@@ -47,6 +47,21 @@ export class NewSignupController {
     try {
       const checkResult = await this.newSignupService.checkEmailExists(email);
       
+      // Check if user is inactive first
+      if (checkResult.exists && checkResult.isActive === false) {
+        return {
+          success: false,
+          statusCode: 403,
+          data: {
+            email,
+            exists: true,
+            hasIncompleteSignup: false,
+            isActive: false,
+          },
+          message: 'This account has been deactivated. Please contact support for assistance.',
+        };
+      }
+
       let message = 'Email is available';
       if (checkResult.exists && checkResult.hasIncompleteSignup) {
         message = 'An account with this email already exists. You have an incomplete signup - please log in to resume.';
@@ -66,6 +81,7 @@ export class NewSignupController {
           exists: checkResult.exists,
           hasIncompleteSignup: checkResult.hasIncompleteSignup,
           welcomeOrderId: checkResult.welcomeOrderId,
+          isActive: checkResult.isActive,
         },
         message,
       };
@@ -187,8 +203,8 @@ export class NewSignupController {
     };
   }
 
-  // Update user medical form completion status
-  @Put('update-user/:userId')
+  // Update user medical form completion status (separate endpoint to avoid route conflict)
+  @Put('update-user-completion/:userId')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async updateUserMedicalFormCompletion(@Param('userId') userId: string) {
@@ -332,7 +348,24 @@ export class NewSignupController {
     @Param('userId') userId: string,
     @Body() userData: any
   ) {
-    return this.newSignupService.updateUserProfile(userId, userData);
+    const updatedUser = await this.newSignupService.updateUserProfile(userId, userData);
+    
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+    
+    // Return updated user data in response (exclude password field safely)
+    const userResponse: any = { ...updatedUser };
+    delete userResponse.password;
+    
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'User profile updated successfully',
+      data: userResponse,
+      timestamp: new Date().toISOString(),
+      path: `/api/auth/new-signup/update-user/${userId}`,
+    };
   }
 
   // Save BMI data to Medical Form

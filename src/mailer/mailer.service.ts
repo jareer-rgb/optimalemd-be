@@ -2747,6 +2747,200 @@ export class MailerService implements OnModuleInit {
     }
   }
 
+  async sendPaymentConfirmationEmail(to: string, name: string, amount: number, orderNumber: string): Promise<void> {
+    const formattedDate = new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333333;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .header {
+            background-color: #000000;
+            padding: 25px;
+            text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+          }
+          .logo {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+          }
+          .content {
+            padding: 30px;
+            text-align: center;
+          }
+          .title {
+            color: #333333;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+          }
+          .description {
+            color: #666666;
+            font-size: 16px;
+            margin-bottom: 25px;
+            line-height: 1.6;
+          }
+          .success-message {
+            background-color: #d4edda;
+            padding: 25px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #28a745;
+            color: #155724;
+          }
+          .payment-details {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #000000;
+            text-align: left;
+          }
+          .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+          }
+          .detail-row:last-child {
+            border-bottom: none;
+            font-weight: bold;
+            color: #000000;
+            font-size: 18px;
+          }
+          .detail-label {
+            font-weight: bold;
+            color: #333333;
+          }
+          .detail-value {
+            color: #666666;
+          }
+          .info-box {
+            background-color: #e7f3ff;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+            color: #004085;
+            font-size: 14px;
+          }
+          .footer {
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 20px;
+            color: #666666;
+            font-size: 14px;
+            border-top: 1px solid #e9ecef;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
+          </div>
+          <div class="content">
+            <h2 class="title">Payment Confirmed!</h2>
+            <p class="description">Hi ${name},</p>
+            <p class="description">Thank you for your purchase! Your payment has been successfully processed.</p>
+            
+            <div class="success-message">
+              <span style="font-size: 32px; display: block; margin-bottom: 10px;">🎉</span>
+              <p style="margin: 0; color: #155724; font-weight: bold; font-size: 18px;">Your payment was successful!</p>
+            </div>
+            
+            <div class="payment-details">
+              <div class="detail-row">
+                <span class="detail-label">Order Number:</span>
+                <span class="detail-value">${orderNumber}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Payment Date:</span>
+                <span class="detail-value">${formattedDate}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Amount Paid:</span>
+                <span class="detail-value">$${amount.toFixed(2)}</span>
+              </div>
+            </div>
+            
+            <div class="info-box">
+              <p style="margin: 0;"><strong>ℹ️ What's Next:</strong></p>
+              <ul style="text-align: left; margin: 10px 0 0 20px; padding: 0;">
+                <li>Continue with your registration to complete your account setup</li>
+                <li>You'll receive additional emails with instructions on next steps</li>
+                <li>If you have any questions, please contact our support team</li>
+              </ul>
+            </div>
+            
+            <p class="description">We're excited to have you join OptimaleMD and look forward to helping you on your health journey!</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email, please do not reply.</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to,
+        subject: 'Payment Confirmed - OptimaleMD',
+        html,
+      });
+      console.log(`Payment confirmation email sent successfully to ${to}`);
+    } catch (error) {
+      console.error('Failed to send payment confirmation email:', error);
+      throw error;
+    }
+  }
+
   /**
    * Get timezone abbreviation (e.g., EST, EDT, PST, UTC) for a given timezone and date
    * @param timezone - IANA timezone string (e.g., "America/New_York")
