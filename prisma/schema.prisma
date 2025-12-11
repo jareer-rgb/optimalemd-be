@@ -779,6 +779,20 @@ model MedicationPrescription {
   @@map("medication_prescriptions")
 }
 
+// Medication table - stores all medications with their prices
+model Medication {
+  id              String   @id @default(uuid())
+  name            String   @unique // Medication name
+  price           Decimal  @db.Decimal(10, 2) // Regular price
+  discountedPrice Decimal? @db.Decimal(10, 2) // Discounted price (optional)
+  isActive        Boolean  @default(true)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("medications")
+}
+
 // Enums for new signup flow
 enum WelcomeOrderStatus {
   PENDING

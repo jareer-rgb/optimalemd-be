@@ -19,6 +19,7 @@ import { ReportsModule } from './reports/reports.module';
 import { AssessmentsModule } from './assessments/assessments.module';
 import { ContactModule } from './contact/contact.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
+import { MedicationsModule } from './medications/medications.module';
 
 @Module({ 
   imports: [
@@ -42,6 +43,7 @@ import { PrescriptionsModule } from './prescriptions/prescriptions.module';
     AssessmentsModule,
     ContactModule,
     PrescriptionsModule,
+    MedicationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

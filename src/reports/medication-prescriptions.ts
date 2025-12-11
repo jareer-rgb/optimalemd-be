@@ -1,6 +1,6 @@
 // Medication prescriptions mapping - copied from frontend NewMedicationModal.tsx
 export const MEDICATION_PRESCRIPTIONS: Record<string, string> = {
-  "Testosterone Injections": `Men's Hormone Replacement Therapy
+  "Testosterone shots (injectible)": `Men's Hormone Replacement Therapy
 Hormone Replacement Therapy Treatment:
 Patient to monitor and record weekly blood pressure and heart rate for review at follow up. If blood pressure is consistently >150/90 or there are any notable side effects or concerns such as lumps/tenderness in the testicles, severe acne, oily skin, difficulty urinating, thinning hair, worsening fatigue, breast enlargement or tenderness, increased moodiness, etc., patient is to discontinue use of testosterone therapy and follow up with his OptimaleMD-affiliated physician for further evaluation and treatment.
 Follow up labs and telemedicine consult in approximately 3 months. Labs to be drawn as instructed in email to follow. Care team will arrange subsequent lab testing and follow ups. If follow up labs are abnormal, repeat labs per company protocol prior to follow up consultation.
@@ -9,7 +9,7 @@ IM/SQ injections: If the patient is prescribed IM injections and would like to s
 Testosterone Therapy: Reviewed mechanism of action and that through its use, there will be suppression of his natural production of testosterone and semen (which may lead to infertility), and may lead to the shrinkage of his testicles. Also discussed that there are no guarantees that his natural production of testosterone will return to his baseline after stopping therapy. Discussion of the main side effects included: testicular shrinkage, infertility, acne, oily skin, hair loss, mood changes, breast development, deeper voice, hirsutism, lower HDL, stimulation of BPH/malignant prostate issues, elevation in his red blood cell production, elevation in estrogen and need for an additional medication/supplement for inhibition. 
 Contraindications reviewed: known breast or prostate cancer, palpable prostate nodule, PSA >4 ng/mL without urologic evaluation, severe-lower urinary tract symptoms, known hypersensitivity, untreated severe sleep apnea, uncontrolled or poorly controlled severe heart failure, active desire for fertility (unless combining therapy with clomiphene citrate), MI within the last 3-6 months. If the criteria for diagnosis of hypogonadism is not achieved (TT <300ng/dL), testosterone will be used "off label" for the symptomatic treatment of low testosterone.`,
 
-  "Testosterone Cream": `Men's Hormone Replacement Therapy
+  "Testosterone cream": `Men's Hormone Replacement Therapy
 Hormone Replacement Therapy Treatment:
 Patient to monitor and record weekly blood pressure and heart rate for review at follow up. If blood pressure is consistently >150/90 or there are any notable side effects or concerns such as lumps/tenderness in the testicles, severe acne, oily skin, difficulty urinating, thinning hair, worsening fatigue, breast enlargement or tenderness, increased moodiness, etc., patient is to discontinue use of testosterone therapy and follow up with his OptimaleMD-affiliated physician for further evaluation and treatment.
 Follow up labs and telemedicine consult in approximately 3 months. Labs to be drawn as instructed in email to follow. Care team will arrange subsequent lab testing and follow ups. If follow up labs are abnormal, repeat labs per company protocol prior to follow up consultation.
@@ -19,7 +19,7 @@ Recommend patients complete testing at a lab using venipuncture. If this is not 
 Testosterone Therapy: Reviewed mechanism of action and that through its use, there will be suppression of his natural production of testosterone and semen (which may lead to infertility), and may lead to the shrinkage of his testicles. Also discussed that there are no guarantees that his natural production of testosterone will return to his baseline after stopping therapy. Discussion of the main side effects included: testicular shrinkage, infertility, acne, oily skin, hair loss, mood changes, breast development, deeper voice, hirsutism, lower HDL, stimulation of BPH/malignant prostate issues, elevation in his red blood cell production, elevation in estrogen and need for an additional medication/supplement for inhibition. 
 Contraindications reviewed: known breast or prostate cancer, palpable prostate nodule, PSA >4 ng/mL without urologic evaluation, severe-lower urinary tract symptoms, known hypersensitivity, untreated severe sleep apnea, uncontrolled or poorly controlled severe heart failure, active desire for fertility (unless combining therapy with clomiphene citrate), MI within the last 3-6 months. If the criteria for diagnosis of hypogonadism is not achieved (TT <300ng/dL), testosterone will be used "off label" for the symptomatic treatment of low testosterone.`,
 
-  "Testosterone Troche (Sublingual)": `Men's Hormone Replacement Therapy
+  "Testosterone sublingual tablet": `Men's Hormone Replacement Therapy
 Hormone Replacement Therapy Treatment:
 Patient to monitor and record weekly blood pressure and heart rate for review at follow up. If blood pressure is consistently >150/90 or there are any notable side effects or concerns such as lumps/tenderness in the testicles, severe acne, oily skin, difficulty urinating, thinning hair, worsening fatigue, breast enlargement or tenderness, increased moodiness, etc., patient is to discontinue use of testosterone therapy and follow up with his OptimaleMD-affiliated physician for further evaluation and treatment.
 Follow up labs and telemedicine consult in approximately 3 months. Labs to be drawn as instructed in email to follow. Care team will arrange subsequent lab testing and follow ups. If follow up labs are abnormal, repeat labs per company protocol prior to follow up consultation.
@@ -27,7 +27,7 @@ Testosterone Sublingual Troche: Take one tablet (50mg) sublingually (suck do not
 Testosterone Therapy: Reviewed mechanism of action and that through its use, there will be suppression of his natural production of testosterone and semen (which may lead to infertility), and may lead to the shrinkage of his testicles. Also discussed that there are no guarantees that his natural production of testosterone will return to his baseline after stopping therapy. Discussion of the main side effects included: testicular shrinkage, infertility, acne, oily skin, hair loss, mood changes, breast development, deeper voice, hirsutism, lower HDL, stimulation of BPH/malignant prostate issues, elevation in his red blood cell production, elevation in estrogen and need for an additional medication/supplement for inhibition. 
 Contraindications reviewed: known breast or prostate cancer, palpable prostate nodule, PSA >4 ng/mL without urologic evaluation, severe-lower urinary tract symptoms, known hypersensitivity, untreated severe sleep apnea, uncontrolled or poorly controlled severe heart failure, active desire for fertility (unless combining therapy with clomiphene citrate), MI within the last 3-6 months. If the criteria for diagnosis of hypogonadism is not achieved (TT <300ng/dL), testosterone will be used "off label" for the symptomatic treatment of low testosterone.`,
 
-  "Sermorelin (injectable)": `Sermorelin therapy:
+  "Sermorellin (injectible)": `Sermorelin therapy:
 Weight Loss Patient Instructions and Education:
 Patient to monitor and record weekly blood pressure and heart rate for review at follow up. If blood pressure is consistently >150/90 or there are any notable side effects or concerns such as pins and needle sensation in extremities,, unrelenting headaches, heart palpitations, chest pain, shortness of breath, blurred vision, worsening depression, suicidal ideating, severe nausea, jaw pain, patient is to discontinue use of the weight loss medication and go to the ER if symptoms appear severe or follow up with his OptimaleMD-affiliated physician for further evaluation and treatment.
 Follow up labs and telemedicine consult in approximately 3 months. Labs to be drawn as instructed in email to follow. Care team will arrange subsequent lab testing and follow ups. If follow up labs are abnormal, repeat labs per company protocol prior to follow up consultation.
@@ -54,7 +54,7 @@ Contraindications reviewed: hypotension or uncontrolled hypertension, heart fail
 Potential at home treatments for priapism:
 Watch and wait, walking or jogging in place, applying ice packs and pressure on the perineum. If no contraindications, pseudoephedrine 60 - 120mg and diphenhydramine 25mg. If rescue efforts are ineffective and the erection has been present for 4 hours and/or is painful, the patient should immediately visit the ER for further evaluation and treatment`,
 
-  "PT-141 (injectable)": `PT 141 Therapy
+  "PT141": `PT 141 Therapy
 Sexual Health
 Follow up labs and telemedicine consult in approximately 3 months. Labs to be drawn as instructed in email to follow. Care team will arrange subsequent lab testing and follow ups. If follow up labs are abnormal, repeat labs per company protocol prior to follow up consultation.
 PT-141: Administer one spray (1mg) into one nostril. Wait to 10-20 minutes to see if medication is tolerated. Then administer one spray (1mg) into the other nostril. Do not use more than once within 24 hours; max 2mg up to three times weekly. - dispense one month supply with 11 refills. Ship directly to the patient's home address. See below for side effects.
@@ -72,7 +72,7 @@ Tizepatide Therapy: Reviewed with the patient; time to onset may vary.
 Reviewed very common side effects (occurring in 10% or more): nausea, headaches, dizziness, constipation, diarrhea, fatigue, injection site reactions (redness, swelling, itching), and decreased appetite.
 Reviewed contraindications: History of hypersensitivity to Tirzepatide or any of its components, and type 1 diabetes. Used with caution in patients with a history of pancreatitis, thyroid cancer, or those with diabetic retinopathy. Also, caution is advised in patients with a history of gastroparesis or severe gastrointestinal disease.`,
 
-  "Oral Minoxidil": `Hair Restoration Therapy Treatment:
+  "Oral capsule minoxidil": `Hair Restoration Therapy Treatment:
 Patient educated on off-label use of low-dose oral minoxidil for androgenic alopecia. Discussed mechanism of action as a vasodilator that prolongs the anagen phase of hair growth. Patient to monitor for lightheadedness, fluid retention, tachycardia, or unwanted body hair.
 Oral Minoxidil 2.5 mg tablet: Take 1 tablet (2.5 mg) by mouth once daily. Dispense 30 tablets with 3 refills. For female patients, start at 1.25 mg (½ tablet) daily. May titrate up or down per tolerance and response.
 Follow-Up:
@@ -82,7 +82,7 @@ Hypertrichosis, ankle edema, tachycardia, dizziness, periorbital swelling, and r
 Contraindications Reviewed:
 Known hypersensitivity to minoxidil, pheochromocytoma, pericardial effusion, or uncontrolled cardiac disease. Caution in patients with chronic kidney disease or orthostatic hypotension.`,
 
-  "Oral Minoxidil/Finasteride/Vitamins": `Hair Restoration Combination Therapy Treatment:
+  "Oral capsule minoxidil/finasteride/vitamins": `Hair Restoration Combination Therapy Treatment:
 Patient educated on synergistic effects of combined oral low-dose minoxidil, finasteride, and vitamins for male pattern hair loss.
 Oral Minoxidil 2.5 mg + Finasteride 1 mg + Vitamin Blend capsule: Take 1 capsule by mouth once daily. Dispense 30 capsules with 3 refills.
 Follow-Up:
@@ -144,7 +144,7 @@ Insomnia, dry mouth, constipation, anxiety, headache, paresthesia, cognitive slo
 Contraindications Reviewed:
 Seizure disorder, eating disorders, abrupt alcohol/benzo withdrawal, pregnancy, or uncontrolled hypertension.`,
 
-  "CJC/Ipamorelin (injectable)": `Peptide Optimization Therapy Treatment:
+  "CJC/Ipamorellin (injectible)": `Peptide Optimization Therapy Treatment:
 Patient instructed on mechanism as a synergistic growth hormone secretagogue combination for recovery, body composition, and sleep quality.
 CJC-1295/Ipamorelin 5 mg/5 mg vial: Reconstitute with 3 mL bacteriostatic water. Inject 300 mcg/300 mcg SQ nightly (or 5 nights per week) 60–90 minutes after last meal. Dispense 1 vial with 2 refills.
 Follow-Up:
@@ -154,7 +154,7 @@ Transient flushing, vivid dreams, tingling, mild edema, or carpal tunnel–like 
 Contraindications Reviewed:
 Active malignancy, pregnancy, uncontrolled diabetes, or hypersensitivity to peptide components.`,
 
-  "Tesamorelin (injectable)": `Peptide Therapy for Visceral Fat Reduction and Metabolic Optimization:
+  "Tesamorelin": `Peptide Therapy for Visceral Fat Reduction and Metabolic Optimization:
 Discussed mechanism of Tesamorelin as a GHRH analog stimulating endogenous GH and lipolysis.
 Tesamorelin 10 mg vial: Reconstitute with 3 mL bacteriostatic water. Inject 2 mg (0.2 mL) SQ once daily. Rotate injection sites. Dispense 30-day supply with 2 refills.
 Follow-Up:

@@ -239,6 +239,15 @@ export class AdminCreateAppointmentDto {
   @IsString()
   @MaxLength(1000)
   patientNotes?: string;
+
+  @ApiProperty({ 
+    description: 'Patient timezone (IANA format, e.g., "America/New_York")', 
+    required: false,
+    example: 'America/New_York'
+  })
+  @IsOptional()
+  @IsString()
+  patientTimezone?: string;
 }
 
 // Response DTOs
