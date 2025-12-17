@@ -735,10 +735,11 @@ export class AppointmentsService {
 
   /**
    * Update medications JSON for an appointment (doctor only)
+   * Supports both old format (string[]) and new format (MedicationObject[]) for backward compatibility
    */
   async updateMedications(
     appointmentId: string,
-    medications: Record<string, string[]>,
+    medications: Record<string, string[] | any[]>, // Can be string[] (old) or MedicationObject[] (new)
     merge: boolean,
     doctorId: string,
   ): Promise<AppointmentResponseDto> {
@@ -762,7 +763,7 @@ export class AppointmentsService {
     
     if (merge && appointmentAny.medications) {
       // When merging, we keep existing services and replace/update the specified services
-      const existing = appointmentAny.medications as Record<string, string[]>;
+      const existing = appointmentAny.medications as Record<string, string[] | any[]>;
       updatedMedications = { ...existing };
       
       console.log('After copying existing:', JSON.stringify(updatedMedications, null, 2));
@@ -771,6 +772,7 @@ export class AppointmentsService {
       // This allows updating a specific service while preserving all other services
       for (const [serviceName, meds] of Object.entries(medications)) {
         console.log(`Updating service "${serviceName}" with:`, meds);
+        // Store medications as-is (can be string[] or MedicationObject[])
         updatedMedications[serviceName] = meds; // Replace medications for this service
       }
     }

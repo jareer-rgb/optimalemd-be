@@ -767,7 +767,7 @@ export class AppointmentsController {
   })
   async updateMedications(
     @Param('id') id: string,
-    @Body() body: { medications: Record<string, string[]>; merge?: boolean },
+    @Body() body: { medications: Record<string, string[] | any[]>; merge?: boolean }, // Supports both old (string[]) and new (MedicationObject[]) formats
     @CurrentUser() user: any,
   ): Promise<BaseApiResponse<AppointmentResponseDto>> {
     const data = await this.appointmentsService.updateMedications(

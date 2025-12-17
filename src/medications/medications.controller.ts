@@ -157,7 +157,7 @@ export class MedicationsController {
   @Get()
   @ApiOperation({
     summary: 'Get All Medications',
-    description: 'Retrieve all medications with optional filtering by active status.',
+    description: 'Retrieve all medications with optional filtering by active status and therapy category.',
   })
   @ApiQuery({
     name: 'isActive',
@@ -165,6 +165,13 @@ export class MedicationsController {
     description: 'Filter by active status',
     type: 'boolean',
     example: true,
+  })
+  @ApiQuery({
+    name: 'therapyCategory',
+    required: false,
+    description: 'Filter by therapy category',
+    type: 'string',
+    example: 'Hormone Optimization / TRT',
   })
   @ApiOkResponse({
     description: 'Medications retrieved successfully',
@@ -178,9 +185,10 @@ export class MedicationsController {
   })
   async getMedications(
     @Query('isActive') isActive?: string,
+    @Query('therapyCategory') therapyCategory?: string,
   ): Promise<BaseApiResponse<MedicationResponseDto[]>> {
     const activeFilter = isActive !== undefined ? isActive === 'true' : undefined;
-    const data = await this.medicationsService.findAll(activeFilter);
+    const data = await this.medicationsService.findAll(activeFilter, therapyCategory);
     return {
       success: true,
       statusCode: HttpStatus.OK,
@@ -188,6 +196,30 @@ export class MedicationsController {
       data,
       timestamp: new Date().toISOString(),
       path: '/api/medications',
+    };
+  }
+
+  @Get('by-category')
+  @ApiOperation({
+    summary: 'Get Medications Grouped by Category',
+    description: 'Retrieve all active medications grouped by therapy category.',
+  })
+  @ApiOkResponse({
+    description: 'Medications retrieved successfully grouped by category',
+    type: BaseApiResponse<Record<string, MedicationResponseDto[]>>,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - invalid or missing JWT token',
+  })
+  async getMedicationsByCategory(): Promise<BaseApiResponse<Record<string, MedicationResponseDto[]>>> {
+    const data = await this.medicationsService.findByCategory();
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Medications retrieved successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: '/api/medications/by-category',
     };
   }
 

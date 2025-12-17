@@ -1644,4 +1644,307 @@ export class StripeService {
       throw error;
     }
   }
+
+  /**
+   * Calculate medication invoice for an appointment
+   */
+  async calculateMedicationInvoice(appointmentId: string, userId: string) {
+    // Get appointment
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: { patient: true },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    // Verify user owns this appointment
+    if (appointment.patientId !== userId) {
+      throw new BadRequestException('Unauthorized to view this appointment');
+    }
+
+    // Check if user is subscribed
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isSubscribed: true },
+    });
+
+    const isSubscribed = user?.isSubscribed || false;
+
+    // Get medications from appointment
+    const medicationsData = (appointment as any).medications as Record<string, any[]> | null;
+    
+    if (!medicationsData || Object.keys(medicationsData).length === 0) {
+      return {
+        items: [],
+        subtotal: 0,
+        total: 0,
+        isSubscribed,
+        discount: 0,
+        currency: 'usd',
+      };
+    }
+
+    // Fetch medication details from database
+    const medicationIds: string[] = [];
+    Object.values(medicationsData).forEach((meds: any[]) => {
+      meds.forEach((med: any) => {
+        if (typeof med === 'object' && med.id) {
+          medicationIds.push(med.id);
+        }
+      });
+    });
+
+    if (medicationIds.length === 0) {
+      return {
+        items: [],
+        subtotal: 0,
+        total: 0,
+        isSubscribed,
+        discount: 0,
+        currency: 'usd',
+      };
+    }
+
+    const medications = await this.prisma.medication.findMany({
+      where: { id: { in: medicationIds }, isActive: true },
+    });
+
+    // Build invoice items
+    const items: Array<{
+      medicationId: string;
+      name: string;
+      strength?: string | null;
+      dose?: string | null;
+      frequency?: string | null;
+      route?: string | null;
+      standardPrice: number;
+      membershipPrice: number | null;
+      price: number;
+      discount: number;
+    }> = [];
+
+    let subtotal = 0;
+    let totalDiscount = 0;
+
+    Object.entries(medicationsData).forEach(([category, meds]) => {
+      meds.forEach((med: any) => {
+        if (typeof med === 'object' && med.id) {
+          const medication = medications.find(m => m.id === med.id);
+          if (medication) {
+            const standardPrice = Number(medication.standardPrice);
+            const membershipPrice = medication.membershipPrice ? Number(medication.membershipPrice) : null;
+            
+            const price = isSubscribed && membershipPrice !== null ? membershipPrice : standardPrice;
+            const discount = isSubscribed && membershipPrice !== null ? standardPrice - membershipPrice : 0;
+
+            items.push({
+              medicationId: medication.id,
+              name: medication.name,
+              strength: medication.strength,
+              dose: medication.dose,
+              frequency: medication.frequency,
+              route: medication.route,
+              standardPrice,
+              membershipPrice,
+              price,
+              discount,
+            });
+
+            subtotal += price;
+            totalDiscount += discount;
+          }
+        }
+      });
+    });
+
+    return {
+      items,
+      subtotal,
+      total: subtotal,
+      isSubscribed,
+      discount: totalDiscount,
+      currency: 'usd',
+    };
+  }
+
+  /**
+   * Create payment intent for medication invoice
+   */
+  async createMedicationPaymentIntent(appointmentId: string, userId: string) {
+    // Calculate invoice
+    const invoice = await this.calculateMedicationInvoice(appointmentId, userId);
+
+    if (invoice.total <= 0) {
+      throw new BadRequestException('No medications to pay for');
+    }
+
+    // Check if payment already exists
+    const existingPayment = await this.prisma.medicationPayment.findUnique({
+      where: { appointmentId },
+    });
+
+    if (existingPayment && existingPayment.status === 'SUCCEEDED') {
+      throw new BadRequestException('Medications already paid for');
+    }
+
+    // Create payment intent
+    const paymentIntent = await this.stripe.paymentIntents.create({
+      amount: Math.round(invoice.total * 100), // Convert to cents
+      currency: invoice.currency,
+      metadata: {
+        appointmentId,
+        userId,
+        type: 'medication',
+      },
+      description: `Medication payment for appointment ${appointmentId}`,
+    });
+
+    // Create or update payment record
+    if (existingPayment) {
+      await this.prisma.medicationPayment.update({
+        where: { appointmentId },
+        data: {
+          stripePaymentId: paymentIntent.id,
+          amount: invoice.total,
+          currency: invoice.currency,
+          status: 'PENDING',
+          paymentIntent: paymentIntent.id,
+        },
+      });
+    } else {
+      await this.prisma.medicationPayment.create({
+        data: {
+          appointmentId,
+          stripePaymentId: paymentIntent.id,
+          amount: invoice.total,
+          currency: invoice.currency,
+          status: 'PENDING',
+          paymentIntent: paymentIntent.id,
+        },
+      });
+    }
+
+    return {
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      amount: invoice.total,
+      currency: invoice.currency,
+    };
+  }
+
+  /**
+   * Confirm medication payment
+   */
+  async confirmMedicationPayment(paymentIntentId: string, userId: string) {
+    // Verify payment intent
+    const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+
+    if (paymentIntent.status !== 'succeeded') {
+      throw new BadRequestException('Payment not completed');
+    }
+
+    // Get payment record with appointment and patient
+    const payment = await this.prisma.medicationPayment.findFirst({
+      where: { paymentIntent: paymentIntentId },
+      include: { 
+        appointment: {
+          include: {
+            patient: true,
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment record not found');
+    }
+
+    // Verify user owns this appointment
+    if (payment.appointment.patientId !== userId) {
+      throw new BadRequestException('Unauthorized');
+    }
+
+    // Update payment status
+    await this.prisma.medicationPayment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'SUCCEEDED',
+        paidAt: new Date(),
+      },
+    });
+
+    // Calculate invoice to get item details for email
+    const invoice = await this.calculateMedicationInvoice(payment.appointmentId, userId);
+
+    // Send confirmation email with invoice details
+    try {
+      const patient = payment.appointment.patient;
+      if (patient.email) {
+        await this.mailerService.sendMedicationPaymentConfirmationEmail(
+          patient.email,
+          `${patient.firstName} ${patient.lastName}`,
+          Number(payment.amount),
+          payment.appointmentId,
+          invoice.items,
+          invoice.isSubscribed,
+          invoice.discount,
+        );
+        console.log(`Medication payment confirmation email sent to ${patient.email}`);
+      } else {
+        console.warn(`Cannot send medication payment confirmation email: patient ${patient.id} has no email address`);
+      }
+    } catch (emailError) {
+      // Log error but don't fail the payment confirmation
+      console.error('Failed to send medication payment confirmation email:', emailError);
+    }
+
+    return {
+      success: true,
+      paymentId: payment.id,
+      appointmentId: payment.appointmentId,
+    };
+  }
+
+  /**
+   * Get medication payment status
+   */
+  async getMedicationPaymentStatus(appointmentId: string, userId: string, userType?: string) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    // Allow access if user is the patient OR the doctor assigned to the appointment OR an admin
+    const isPatient = appointment.patientId === userId;
+    const isDoctor = appointment.doctorId === userId;
+    const isAdmin = userType === 'admin';
+
+    if (!isPatient && !isDoctor && !isAdmin) {
+      throw new BadRequestException('Unauthorized');
+    }
+
+    const payment = await this.prisma.medicationPayment.findUnique({
+      where: { appointmentId },
+    });
+
+    if (!payment) {
+      return {
+        status: 'UNPAID',
+        paid: false,
+      };
+    }
+
+    return {
+      status: payment.status,
+      paid: payment.status === 'SUCCEEDED',
+      amount: Number(payment.amount),
+      paidAt: payment.paidAt,
+      paymentIntent: payment.paymentIntent,
+    };
+  }
 }
