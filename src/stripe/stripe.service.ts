@@ -1384,8 +1384,21 @@ export class StripeService {
           stripeStatus: stripeStatus,
           cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
         };
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error retrieving subscription from Stripe:', error);
+        // If subscription doesn't exist in Stripe, clean up stale data
+        if (error.code === 'resource_missing') {
+          console.log(`⚠️  Subscription ${user.stripeSubscriptionId} not found in Stripe. Cleaning up stale subscription data.`);
+          await this.prisma.user.update({
+            where: { id: userId },
+            data: {
+              stripeSubscriptionId: null,
+              subscriptionStatus: 'canceled',
+              isSubscribed: false,
+              subscriptionCanceledAt: new Date(),
+            },
+          });
+        }
       }
     }
 
@@ -1664,6 +1677,11 @@ export class StripeService {
       throw new BadRequestException('Unauthorized to view this appointment');
     }
 
+    // Check if payment has already been made
+    const existingPayment = await this.prisma.medicationPayment.findUnique({
+      where: { appointmentId },
+    });
+
     // Check if user is subscribed
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -1671,6 +1689,16 @@ export class StripeService {
     });
 
     const isSubscribed = user?.isSubscribed || false;
+    
+    // If payment is already made, determine what prices were paid
+    // We'll calculate both standard and member totals to see which matches the paid amount
+    let usePaidPrices = false;
+    let paidAsSubscribed = false;
+    
+    if (existingPayment && existingPayment.status === 'SUCCEEDED' && existingPayment.amount) {
+      usePaidPrices = true;
+      // We'll determine if they paid as subscribed by comparing amounts
+    }
 
     // Get medications from appointment
     const medicationsData = (appointment as any).medications as Record<string, any[]> | null;
@@ -1711,7 +1739,62 @@ export class StripeService {
       where: { id: { in: medicationIds }, isActive: true },
     });
 
-    // Build invoice items
+    // First pass: calculate both standard and member totals to determine what was paid
+    let standardTotal = 0;
+    let memberTotal = 0;
+    const tempItems: Array<{
+      medicationId: string;
+      name: string;
+      strength?: string | null;
+      dose?: string | null;
+      frequency?: string | null;
+      route?: string | null;
+      standardPrice: number;
+      membershipPrice: number | null;
+    }> = [];
+
+    Object.entries(medicationsData).forEach(([category, meds]) => {
+      meds.forEach((med: any) => {
+        if (typeof med === 'object' && med.id) {
+          const medication = medications.find(m => m.id === med.id);
+          if (medication) {
+            const standardPrice = Number(medication.standardPrice);
+            const membershipPrice = medication.membershipPrice ? Number(medication.membershipPrice) : null;
+            
+            standardTotal += standardPrice;
+            if (membershipPrice !== null) {
+              memberTotal += membershipPrice;
+            } else {
+              memberTotal += standardPrice;
+            }
+
+            tempItems.push({
+              medicationId: medication.id,
+              name: medication.name,
+              strength: medication.strength,
+              dose: medication.dose,
+              frequency: medication.frequency,
+              route: medication.route,
+              standardPrice,
+              membershipPrice,
+            });
+          }
+        }
+      });
+    });
+
+    // Determine if payment was made as subscribed or not
+    if (usePaidPrices && existingPayment && existingPayment.amount) {
+      const paidAmount = Number(existingPayment.amount);
+      // Check which total matches (with small tolerance for rounding)
+      if (Math.abs(paidAmount - memberTotal) < 0.01) {
+        paidAsSubscribed = true;
+      } else {
+        paidAsSubscribed = false;
+      }
+    }
+
+    // Build final items with correct prices
     const items: Array<{
       medicationId: string;
       name: string;
@@ -1728,49 +1811,51 @@ export class StripeService {
     let subtotal = 0;
     let totalDiscount = 0;
 
-    Object.entries(medicationsData).forEach(([category, meds]) => {
-      meds.forEach((med: any) => {
-        if (typeof med === 'object' && med.id) {
-          const medication = medications.find(m => m.id === med.id);
-          if (medication) {
-            const standardPrice = Number(medication.standardPrice);
-            const membershipPrice = medication.membershipPrice ? Number(medication.membershipPrice) : null;
-            
-            const price = isSubscribed && membershipPrice !== null ? membershipPrice : standardPrice;
-            const discount = isSubscribed && membershipPrice !== null ? standardPrice - membershipPrice : 0;
+    tempItems.forEach((tempItem) => {
+      // If payment is made, use the prices that were actually paid
+      // Otherwise, use current subscription status
+      const shouldUseMemberPrice = usePaidPrices 
+        ? paidAsSubscribed 
+        : (isSubscribed && tempItem.membershipPrice !== null);
+      
+      const price = shouldUseMemberPrice && tempItem.membershipPrice !== null 
+        ? tempItem.membershipPrice 
+        : tempItem.standardPrice;
+      
+      const discount = shouldUseMemberPrice && tempItem.membershipPrice !== null 
+        ? tempItem.standardPrice - tempItem.membershipPrice 
+        : 0;
 
-            items.push({
-              medicationId: medication.id,
-              name: medication.name,
-              strength: medication.strength,
-              dose: medication.dose,
-              frequency: medication.frequency,
-              route: medication.route,
-              standardPrice,
-              membershipPrice,
+      items.push({
+        medicationId: tempItem.medicationId,
+        name: tempItem.name,
+        strength: tempItem.strength,
+        dose: tempItem.dose,
+        frequency: tempItem.frequency,
+        route: tempItem.route,
+        standardPrice: tempItem.standardPrice,
+        membershipPrice: tempItem.membershipPrice,
               price,
               discount,
             });
 
             subtotal += price;
             totalDiscount += discount;
-          }
-        }
-      });
     });
 
     return {
       items,
       subtotal,
       total: subtotal,
-      isSubscribed,
+      isSubscribed, // Current subscription status (for UI hints)
       discount: totalDiscount,
       currency: 'usd',
+      isPaid: usePaidPrices, // Indicates if showing paid prices
     };
   }
 
   /**
-   * Create payment intent for medication invoice
+   * Create subscription for medication invoice (monthly billing)
    */
   async createMedicationPaymentIntent(appointmentId: string, userId: string) {
     // Calculate invoice
@@ -1780,26 +1865,303 @@ export class StripeService {
       throw new BadRequestException('No medications to pay for');
     }
 
-    // Check if payment already exists
+    // Check if subscription already exists
     const existingPayment = await this.prisma.medicationPayment.findUnique({
       where: { appointmentId },
     });
 
-    if (existingPayment && existingPayment.status === 'SUCCEEDED') {
-      throw new BadRequestException('Medications already paid for');
+    if (existingPayment && existingPayment.status === 'SUCCEEDED' && existingPayment.stripeSubscriptionId) {
+      throw new BadRequestException('Medication subscription already active');
     }
 
-    // Create payment intent
-    const paymentIntent = await this.stripe.paymentIntents.create({
-      amount: Math.round(invoice.total * 100), // Convert to cents
+    // Get user and appointment
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: { patient: true },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if (appointment.patientId !== userId) {
+      throw new BadRequestException('Unauthorized');
+    }
+
+    const user = appointment.patient;
+    const email = user.primaryEmail || user.email;
+    if (!email) {
+      throw new BadRequestException('User email is required for subscription');
+    }
+
+    // Create or retrieve Stripe customer
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await this.stripe.customers.create({
+        email,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        metadata: {
+          userId: user.id,
+        },
+      });
+      customerId = customer.id;
+
+      // Update user with Stripe customer ID
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { stripeCustomerId: customerId },
+      });
+    } else {
+      // Verify customer still exists in Stripe
+      try {
+        await this.stripe.customers.retrieve(customerId);
+      } catch (error: any) {
+        if (error.code === 'resource_missing') {
+          console.log(`⚠️  Customer ${customerId} not found in Stripe. Creating new customer.`);
+          // Customer doesn't exist, create a new one
+          const customer = await this.stripe.customers.create({
+            email,
+            name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+            metadata: {
+              userId: user.id,
+            },
+          });
+          customerId = customer.id;
+
+          // Update user with new Stripe customer ID
+          await this.prisma.user.update({
+            where: { id: userId },
+            data: { stripeCustomerId: customerId },
+          });
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    // For dynamic pricing, we create a new price each time since the amount varies
+    // We use a base product name but create unique prices for each appointment's medication set
+    // Check if we already have a product for this appointment (in case of retries)
+    let productId: string | undefined;
+    try {
+      // Try to find existing product for this appointment
+      const products = await this.stripe.products.search({
+        query: `metadata['appointmentId']:'${appointmentId}' AND metadata['type']:'medication'`,
+        limit: 1,
+      });
+      
+      if (products.data.length > 0) {
+        productId = products.data[0].id;
+        console.log(`✅ Reusing existing product ${productId} for appointment ${appointmentId}`);
+      }
+    } catch (error) {
+      console.log('Could not search for existing product, will create new one');
+    }
+
+    // Create product if it doesn't exist
+    let product: Stripe.Product;
+    if (productId) {
+      product = await this.stripe.products.retrieve(productId);
+    } else {
+      product = await this.stripe.products.create({
+        name: `Medication Subscription - Appointment ${appointmentId}`,
+        metadata: {
+          appointmentId,
+          userId,
+          type: 'medication',
+          description: `Monthly medication subscription for appointment ${appointmentId}`,
+        },
+      });
+      console.log(`✅ Created new product ${product.id} for appointment ${appointmentId}`);
+    }
+
+    // Create a new price with the current invoice total (amounts can change)
+    // This allows for dynamic pricing per appointment
+    const price = await this.stripe.prices.create({
+      unit_amount: Math.round(invoice.total * 100), // Convert to cents
       currency: invoice.currency,
+      recurring: {
+        interval: 'month',
+      },
+      product: product.id, // Use existing product
+      metadata: {
+        appointmentId,
+        userId,
+        type: 'medication',
+        invoiceTotal: invoice.total.toString(),
+        createdAt: new Date().toISOString(),
+      },
+    });
+    console.log(`✅ Created new price ${price.id} for $${invoice.total} (appointment ${appointmentId})`);
+
+    // Create subscription with payment intent
+    let subscription: Stripe.Subscription;
+    try {
+      subscription = await this.stripe.subscriptions.create({
+      customer: customerId,
+      items: [{ price: price.id }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: {
+        save_default_payment_method: 'on_subscription',
+        payment_method_types: ['card'],
+      },
+      expand: ['latest_invoice.payment_intent'],
       metadata: {
         appointmentId,
         userId,
         type: 'medication',
       },
-      description: `Medication payment for appointment ${appointmentId}`,
     });
+    } catch (error: any) {
+      // If customer doesn't exist, create a new one and retry
+      if (error.code === 'resource_missing' && error.param === 'customer') {
+        console.log(`⚠️  Customer ${customerId} not found in Stripe. Creating new customer and retrying.`);
+        const newCustomer = await this.stripe.customers.create({
+          email,
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          metadata: {
+            userId: user.id,
+          },
+        });
+        customerId = newCustomer.id;
+
+        // Update user with new Stripe customer ID
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { stripeCustomerId: customerId },
+        });
+
+        // Retry subscription creation with new customer
+        subscription = await this.stripe.subscriptions.create({
+          customer: customerId,
+          items: [{ price: price.id }],
+          payment_behavior: 'default_incomplete',
+          payment_settings: {
+            save_default_payment_method: 'on_subscription',
+            payment_method_types: ['card'],
+          },
+          expand: ['latest_invoice.payment_intent'],
+          metadata: {
+            appointmentId,
+            userId,
+            type: 'medication',
+          },
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    // Extract payment intent from the expanded invoice
+    const invoiceRaw = subscription.latest_invoice;
+    let paymentIntent: Stripe.PaymentIntent | null = null;
+    let clientSecret: string | null = null;
+
+    const invoiceId = typeof invoiceRaw === 'string' ? invoiceRaw : (invoiceRaw as Stripe.Invoice)?.id;
+    console.log(`📋 Processing medication subscription ${subscription.id} - Invoice: ${invoiceId}`);
+
+    // Handle case where invoice is an object (expanded)
+    if (invoiceRaw && typeof invoiceRaw === 'object' && 'id' in invoiceRaw) {
+      const invoice = invoiceRaw as Stripe.Invoice;
+      
+      // Check if payment_intent is directly on invoice
+      if ('payment_intent' in invoice && invoice.payment_intent) {
+        if (typeof invoice.payment_intent === 'object') {
+          paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
+          clientSecret = paymentIntent.client_secret || null;
+          console.log(`✅ Found payment intent in expanded invoice: ${paymentIntent.id}`);
+        } else if (typeof invoice.payment_intent === 'string') {
+          // Payment intent is an ID string, need to retrieve it
+          try {
+            paymentIntent = await this.stripe.paymentIntents.retrieve(invoice.payment_intent);
+          clientSecret = paymentIntent.client_secret || null;
+            console.log(`✅ Retrieved payment intent: ${paymentIntent.id}`);
+          } catch (error: any) {
+            console.error(`❌ Failed to retrieve payment intent: ${error.message}`);
+          }
+        }
+      }
+    }
+
+    // If still no client secret, retrieve invoice separately
+    if (!clientSecret && invoiceId) {
+      try {
+        console.log(`🔍 Retrieving invoice ${invoiceId} to find payment intent...`);
+        const fullInvoice = await this.stripe.invoices.retrieve(invoiceId, {
+          expand: ['payment_intent'],
+        }) as Stripe.Invoice & { payment_intent?: Stripe.PaymentIntent | string };
+        
+        if (fullInvoice.payment_intent) {
+          if (typeof fullInvoice.payment_intent === 'object') {
+            paymentIntent = fullInvoice.payment_intent as Stripe.PaymentIntent;
+            clientSecret = paymentIntent.client_secret || null;
+            console.log(`✅ Found payment intent in invoice: ${paymentIntent.id}`);
+          } else if (typeof fullInvoice.payment_intent === 'string') {
+            // Payment intent is an ID, retrieve it
+            paymentIntent = await this.stripe.paymentIntents.retrieve(fullInvoice.payment_intent);
+            clientSecret = paymentIntent.client_secret || null;
+            console.log(`✅ Retrieved payment intent from invoice: ${paymentIntent.id}`);
+          }
+        } else {
+          console.log(`⚠️  Invoice ${invoiceId} has no payment intent attached`);
+        }
+      } catch (error: any) {
+        console.error(`❌ Failed to retrieve invoice: ${error.message}`);
+      }
+    }
+
+    // If still no client secret, create payment intent manually for the invoice
+    if (!clientSecret && invoiceId) {
+      try {
+        console.log(`💰 Creating payment intent manually for invoice ${invoiceId}...`);
+        
+        // Retrieve invoice to get amount and customer
+        const invoiceForPayment = await this.stripe.invoices.retrieve(invoiceId);
+        const amountDue = invoiceForPayment.amount_due / 100; // Convert from cents to dollars
+        
+        if (!invoiceForPayment.amount_due || invoiceForPayment.amount_due === 0) {
+          throw new BadRequestException('Invoice has no amount due');
+        }
+        
+        // Create payment intent for the invoice
+        const invoiceCustomerId = typeof invoiceForPayment.customer === 'string' 
+          ? invoiceForPayment.customer 
+          : invoiceForPayment.customer?.id;
+          
+        if (!invoiceCustomerId) {
+          throw new BadRequestException('Invoice has no customer');
+        }
+        
+        paymentIntent = await this.stripe.paymentIntents.create({
+          amount: invoiceForPayment.amount_due,
+          currency: invoiceForPayment.currency || 'usd',
+          customer: invoiceCustomerId,
+          metadata: {
+            invoiceId: invoiceId,
+            subscriptionId: subscription.id,
+            appointmentId,
+            userId,
+            type: 'medication',
+          },
+          description: `Payment for medication subscription ${subscription.id}`,
+          setup_future_usage: 'off_session', // Save payment method for future subscription payments
+        });
+        
+        clientSecret = paymentIntent.client_secret || null;
+        console.log(`✅ Created payment intent ${paymentIntent.id} for $${amountDue.toFixed(2)}`);
+        
+      } catch (error: any) {
+        console.error(`❌ Failed to create payment intent: ${error.message}`);
+        throw new BadRequestException(
+          `Failed to create payment intent: ${error.message}`
+        );
+      }
+    }
+
+    if (!clientSecret || !paymentIntent) {
+      console.error(`❌ Failed to generate payment client secret for medication subscription ${subscription.id}`);
+      throw new BadRequestException('Failed to generate payment client secret for subscription');
+    }
 
     // Create or update payment record
     if (existingPayment) {
@@ -1807,6 +2169,8 @@ export class StripeService {
         where: { appointmentId },
         data: {
           stripePaymentId: paymentIntent.id,
+          stripeSubscriptionId: subscription.id,
+          stripeCustomerId: customerId,
           amount: invoice.total,
           currency: invoice.currency,
           status: 'PENDING',
@@ -1818,6 +2182,8 @@ export class StripeService {
         data: {
           appointmentId,
           stripePaymentId: paymentIntent.id,
+          stripeSubscriptionId: subscription.id,
+          stripeCustomerId: customerId,
           amount: invoice.total,
           currency: invoice.currency,
           status: 'PENDING',
@@ -1827,15 +2193,16 @@ export class StripeService {
     }
 
     return {
-      clientSecret: paymentIntent.client_secret,
+      clientSecret: clientSecret,
       paymentIntentId: paymentIntent.id,
+      subscriptionId: subscription.id,
       amount: invoice.total,
       currency: invoice.currency,
     };
   }
 
   /**
-   * Confirm medication payment
+   * Confirm medication payment (subscription setup)
    */
   async confirmMedicationPayment(paymentIntentId: string, userId: string) {
     // Verify payment intent
@@ -1866,12 +2233,121 @@ export class StripeService {
       throw new BadRequestException('Unauthorized');
     }
 
+    // Handle subscription activation if exists
+    if (payment.stripeSubscriptionId) {
+      try {
+      const subscription = await this.stripe.subscriptions.retrieve(payment.stripeSubscriptionId);
+        
+        // If subscription is incomplete, we need to pay the invoice to activate it
+        if (subscription.status === 'incomplete' || subscription.status === 'incomplete_expired') {
+          console.log(`📋 Subscription ${subscription.id} is incomplete. Paying invoice to activate...`);
+          
+          // Get the latest invoice for this subscription
+          const invoiceId = typeof subscription.latest_invoice === 'string' 
+            ? subscription.latest_invoice 
+            : subscription.latest_invoice?.id;
+          
+          if (invoiceId) {
+            try {
+              // Pay the invoice using the payment intent
+              const invoice = await this.stripe.invoices.retrieve(invoiceId);
+              
+              if (invoice.status === 'open' || invoice.status === 'draft') {
+                // Get payment method from payment intent
+                let paymentMethodId: string | undefined;
+                
+                if (paymentIntent.payment_method) {
+                  if (typeof paymentIntent.payment_method === 'string') {
+                    paymentMethodId = paymentIntent.payment_method;
+                  } else if (typeof paymentIntent.payment_method === 'object' && 'id' in paymentIntent.payment_method) {
+                    paymentMethodId = (paymentIntent.payment_method as any).id;
+                  }
+                }
+                
+                if (paymentMethodId) {
+                  // Pay the invoice with the payment method
+                  await this.stripe.invoices.pay(invoiceId, {
+                    payment_method: paymentMethodId,
+                  });
+                  console.log(`✅ Invoice ${invoiceId} paid successfully with payment method ${paymentMethodId}`);
+                } else {
+                  // If no payment method, try to finalize and pay the invoice
+                  // This will use the default payment method or prompt for one
+                  console.log(`⚠️  No payment method found on payment intent. Attempting to pay invoice directly...`);
+                  try {
+                    await this.stripe.invoices.pay(invoiceId);
+                    console.log(`✅ Invoice ${invoiceId} paid successfully`);
+                  } catch (payError: any) {
+                    console.error(`❌ Failed to pay invoice directly: ${payError.message}`);
+                    // If invoice can't be paid automatically, it's okay - subscription might activate via webhook
+                  }
+                }
+                
+                // Retrieve subscription again to get updated status
+                const updatedSubscription = await this.stripe.subscriptions.retrieve(payment.stripeSubscriptionId);
+                console.log(`📊 Subscription status after payment: ${updatedSubscription.status}`);
+                
+                // Check if subscription is now active
+                if (updatedSubscription.status !== 'active' && updatedSubscription.status !== 'trialing') {
+                  console.warn(`⚠️  Subscription ${payment.stripeSubscriptionId} is still not active after payment. Status: ${updatedSubscription.status}`);
+                  // Don't throw error - subscription might activate asynchronously
+                }
+              } else if (invoice.status === 'paid') {
+                console.log(`✅ Invoice ${invoiceId} is already paid`);
+              } else {
+                console.log(`ℹ️  Invoice ${invoiceId} status: ${invoice.status}`);
+              }
+            } catch (invoiceError: any) {
+              console.error(`❌ Failed to pay invoice: ${invoiceError.message}`);
+              // Don't throw - subscription might still activate
+            }
+          }
+        } else if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+          // Subscription exists but is not in a valid state
+          console.warn(`⚠️  Subscription ${payment.stripeSubscriptionId} status: ${subscription.status}`);
+          // Don't throw error for other statuses like 'past_due' - allow payment confirmation
+        }
+      } catch (error: any) {
+        // If subscription doesn't exist in Stripe, clean up stale data
+        if (error.code === 'resource_missing') {
+          console.log(`⚠️  Medication subscription ${payment.stripeSubscriptionId} not found in Stripe. Cleaning up stale data.`);
+          await this.prisma.medicationPayment.update({
+            where: { id: payment.id },
+            data: {
+              stripeSubscriptionId: null,
+            },
+          });
+          throw new BadRequestException('Subscription not found in Stripe. Please create a new payment intent.');
+        }
+        throw error;
+      }
+    }
+
+    // Get updated subscription status
+    let subscriptionStatus: string | null = null;
+    let subscriptionEndDate: Date | null = null;
+    if (payment.stripeSubscriptionId) {
+      try {
+        const subscription = await this.stripe.subscriptions.retrieve(payment.stripeSubscriptionId);
+        subscriptionStatus = subscription.status;
+        subscriptionEndDate = (subscription as any).current_period_end
+          ? new Date((subscription as any).current_period_end * 1000)
+          : null;
+      } catch (error) {
+        console.error('Error retrieving subscription status after confirmation:', error);
+      }
+    }
+
     // Update payment status
+    // Note: These fields will be available after Prisma client regeneration
     await this.prisma.medicationPayment.update({
       where: { id: payment.id },
       data: {
         status: 'SUCCEEDED',
         paidAt: new Date(),
+        subscriptionStatus: subscriptionStatus as any,
+        subscriptionEndDate: subscriptionEndDate as any,
+        subscriptionCanceledAt: null as any, // Clear any previous cancellation
       },
     });
 
@@ -1936,15 +2412,414 @@ export class StripeService {
       return {
         status: 'UNPAID',
         paid: false,
+        isSubscription: false,
       };
     }
 
+    // Check subscription status if exists
+    let subscriptionStatus: Stripe.Subscription.Status | null = null;
+    let cancelAtPeriodEnd = false;
+    let currentPeriodEnd: Date | null = null;
+    
+    if (payment.stripeSubscriptionId) {
+      try {
+        const subscription = await this.stripe.subscriptions.retrieve(payment.stripeSubscriptionId);
+        subscriptionStatus = subscription.status;
+        cancelAtPeriodEnd = subscription.cancel_at_period_end || false;
+        currentPeriodEnd = (subscription as any).current_period_end
+          ? new Date((subscription as any).current_period_end * 1000)
+          : null;
+        
+        // Update database with latest subscription status
+        // If cancel_at_period_end is true, set status to 'canceling' even if Stripe shows 'active'
+        const dbSubscriptionStatus = cancelAtPeriodEnd ? 'canceling' : subscription.status;
+        
+        // Get period dates with fallback logic
+        const sub = subscription as any;
+        let periodStart: number | null = sub.current_period_start || null;
+        let periodEnd: number | null = sub.current_period_end || null;
+
+        // If subscription doesn't have period dates, try to get from latest invoice
+        if ((!periodStart || !periodEnd) && sub.latest_invoice) {
+          try {
+            const invoiceId = typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice?.id;
+            if (invoiceId) {
+              const invoice = await this.stripe.invoices.retrieve(invoiceId);
+              const inv = invoice as any;
+              if (inv.period_start) periodStart = inv.period_start;
+              if (inv.period_end) periodEnd = inv.period_end;
+            }
+          } catch (invError: any) {
+            console.log(`⚠️  Could not retrieve invoice for period dates: ${invError.message}`);
+          }
+        }
+
+        // Convert to Date objects
+        let subscriptionStartDate: Date | null = periodStart ? new Date(periodStart * 1000) : null;
+        let calculatedPeriodEnd: Date | null = periodEnd ? new Date(periodEnd * 1000) : null;
+
+        // If start and end dates are the same, calculate end as start + 1 month
+        if (subscriptionStartDate && calculatedPeriodEnd && 
+            subscriptionStartDate.getTime() === calculatedPeriodEnd.getTime()) {
+          calculatedPeriodEnd = new Date(subscriptionStartDate);
+          calculatedPeriodEnd.setMonth(calculatedPeriodEnd.getMonth() + 1);
+        }
+
+        // Use calculated period end or fallback to currentPeriodEnd
+        const finalPeriodEnd = calculatedPeriodEnd || currentPeriodEnd;
+
+        // Note: These fields will be available after Prisma client regeneration
+        await this.prisma.medicationPayment.update({
+          where: { appointmentId },
+          data: {
+            subscriptionStatus: dbSubscriptionStatus as any,
+            subscriptionEndDate: finalPeriodEnd as any,
+            subscriptionCanceledAt: (cancelAtPeriodEnd ? ((payment as any).subscriptionCanceledAt || new Date()) : null) as any,
+          },
+        });
+      } catch (error: any) {
+        console.error('Error retrieving subscription status:', error);
+        // If subscription doesn't exist in Stripe, clean up stale data
+        if (error.code === 'resource_missing') {
+          console.log(`⚠️  Medication subscription ${payment.stripeSubscriptionId} not found in Stripe. Cleaning up stale data.`);
+          await this.prisma.medicationPayment.update({
+            where: { appointmentId },
+            data: {
+              stripeSubscriptionId: null,
+              status: 'PENDING', // Reset to pending so user can retry
+              subscriptionStatus: null as any,
+              subscriptionCanceledAt: null as any,
+              subscriptionEndDate: null as any,
+            },
+          });
+        }
+      }
+    }
+
+    // Return the database status if cancel_at_period_end is true, otherwise use Stripe status
+    const finalSubscriptionStatus = cancelAtPeriodEnd ? 'canceling' : subscriptionStatus;
+    
+    // Get the end date from database first, then fallback to calculated
+    const finalEndDate = (payment as any).subscriptionEndDate || currentPeriodEnd;
+
     return {
       status: payment.status,
-      paid: payment.status === 'SUCCEEDED',
+      paid: payment.status === 'SUCCEEDED' && (subscriptionStatus === 'active' || subscriptionStatus === 'trialing'),
+      isSubscription: !!payment.stripeSubscriptionId,
+      subscriptionStatus: finalSubscriptionStatus,
+      cancelAtPeriodEnd: cancelAtPeriodEnd,
+      subscriptionEndDate: finalEndDate,
+      subscriptionCanceledAt: (payment as any).subscriptionCanceledAt,
       amount: Number(payment.amount),
       paidAt: payment.paidAt,
       paymentIntent: payment.paymentIntent,
+      subscriptionId: payment.stripeSubscriptionId,
     };
+  }
+
+  /**
+   * Cancel medication subscription for an appointment
+   * This cancels the Stripe subscription and updates the payment record
+   */
+  async cancelMedicationSubscription(appointmentId: string, userId: string, userType?: string) {
+    // Get appointment to verify authorization
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            primaryEmail: true,
+          },
+        },
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    // Allow access if user is the doctor assigned to the appointment OR an admin
+    const isDoctor = appointment.doctorId === userId;
+    const isAdmin = userType === 'admin';
+
+    if (!isDoctor && !isAdmin) {
+      throw new BadRequestException('Unauthorized. Only the assigned doctor or admin can cancel medication subscriptions.');
+    }
+
+    // Get medication payment record
+    const payment = await this.prisma.medicationPayment.findUnique({
+      where: { appointmentId },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('No medication subscription found for this appointment');
+    }
+
+    if (!payment.stripeSubscriptionId) {
+      throw new BadRequestException('No active subscription found for this appointment');
+    }
+
+    // Cancel subscription in Stripe at period end (same as monthly membership)
+    try {
+      const subscription = await this.stripe.subscriptions.retrieve(payment.stripeSubscriptionId);
+      
+      if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') {
+        // Subscription already canceled
+        console.log(`Subscription ${payment.stripeSubscriptionId} is already canceled`);
+        await this.prisma.medicationPayment.update({
+          where: { appointmentId },
+          data: {
+            status: 'CANCELLED',
+            subscriptionStatus: 'canceled' as any,
+          },
+        });
+        return {
+          success: true,
+          message: 'Medication subscription was already canceled',
+          appointmentId,
+          subscriptionId: payment.stripeSubscriptionId,
+        };
+      } else {
+        // Cancel subscription at period end (same as monthly membership)
+        const updatedSubscription = await this.stripe.subscriptions.update(
+          payment.stripeSubscriptionId,
+          {
+            cancel_at_period_end: true,
+          }
+        );
+        console.log(`✅ Set medication subscription ${payment.stripeSubscriptionId} to cancel at period end for appointment ${appointmentId}`);
+        
+        // Get subscription end date with robust fallback logic (same as monthly subscription)
+        const sub = updatedSubscription as any;
+        let periodStart: number | null = sub.current_period_start || null;
+        let periodEnd: number | null = sub.current_period_end || null;
+
+        console.log(`🔍 Subscription ${sub.id} - current_period_start: ${periodStart}, current_period_end: ${periodEnd}`);
+
+        // If subscription doesn't have period dates, try to get from latest invoice
+        if ((!periodStart || !periodEnd) && sub.latest_invoice) {
+          try {
+            const invoiceId = typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice?.id;
+            if (invoiceId) {
+              const invoice = await this.stripe.invoices.retrieve(invoiceId);
+              const inv = invoice as any;
+              if (inv.period_start) periodStart = inv.period_start;
+              if (inv.period_end) periodEnd = inv.period_end;
+              console.log(`📅 Using period_start from invoice: ${periodStart}`);
+              console.log(`📅 Using period_end from invoice: ${periodEnd}`);
+            }
+          } catch (invError: any) {
+            console.log(`⚠️  Could not retrieve invoice for period dates: ${invError.message}`);
+          }
+        }
+
+        // Convert to Date objects
+        let subscriptionStartDate: Date | null = periodStart ? new Date(periodStart * 1000) : null;
+        let subscriptionEndDate: Date | null = periodEnd ? new Date(periodEnd * 1000) : null;
+
+        // If start and end dates are the same, calculate end as start + 1 month
+        if (subscriptionStartDate && subscriptionEndDate && 
+            subscriptionStartDate.getTime() === subscriptionEndDate.getTime()) {
+          console.log(`⚠️  Start and end dates are identical. Calculating end date as start + 1 month.`);
+          subscriptionEndDate = new Date(subscriptionStartDate);
+          subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
+          console.log(`📅 Calculated end date: ${subscriptionEndDate.toISOString()}`);
+        }
+
+        // If we still don't have an end date, calculate it as current date + 1 month
+        if (!subscriptionEndDate) {
+          console.warn(`⚠️  No period end found, calculating as current date + 1 month`);
+          subscriptionEndDate = new Date();
+          subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
+        }
+
+        console.log(`📅 Final subscription end date: ${subscriptionEndDate.toISOString()}`);
+
+        // Update payment record to reflect cancellation at period end
+        // Note: These fields will be available after Prisma client regeneration
+        const updateData: any = {
+          subscriptionStatus: 'canceling', // Set to canceling when cancel_at_period_end is true
+          subscriptionCanceledAt: new Date(),
+          subscriptionEndDate: subscriptionEndDate, // Always set the end date
+          // Keep status as SUCCEEDED since subscription is still active until period end
+        };
+
+        console.log(`💾 Updating medication payment with:`, {
+          subscriptionStatus: 'canceling',
+          subscriptionCanceledAt: updateData.subscriptionCanceledAt.toISOString(),
+          subscriptionEndDate: subscriptionEndDate.toISOString(),
+        });
+
+        const updated = await this.prisma.medicationPayment.update({
+          where: { appointmentId },
+          data: updateData,
+        });
+
+        // Verify the update
+        const verifyUpdated = await this.prisma.medicationPayment.findUnique({
+          where: { appointmentId },
+        });
+
+        console.log(`✅ Updated medication payment. Verification:`, {
+          subscriptionStatus: (verifyUpdated as any)?.subscriptionStatus,
+          subscriptionEndDate: (verifyUpdated as any)?.subscriptionEndDate?.toISOString() || 'NULL',
+          subscriptionCanceledAt: (verifyUpdated as any)?.subscriptionCanceledAt?.toISOString() || 'NULL',
+        });
+
+        // Send cancellation email to patient with end date
+        try {
+          const patient = appointment.patient;
+          if (patient.primaryEmail) {
+            const patientName = `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || 'Valued Patient';
+            
+            await this.mailerService.sendMedicationSubscriptionCancellationEmail(
+              patient.primaryEmail,
+              patientName,
+              appointmentId,
+              Number(payment.amount),
+              subscriptionEndDate || undefined,
+            );
+            console.log(`✅ Medication subscription cancellation email sent to ${patient.primaryEmail}`);
+          }
+        } catch (emailError) {
+          console.error('Failed to send medication subscription cancellation email:', emailError);
+          // Don't throw - cancellation is already processed
+        }
+
+        return {
+          success: true,
+          message: 'Medication subscription will be canceled at the end of the billing period',
+          appointmentId,
+          subscriptionId: payment.stripeSubscriptionId,
+          endsAt: subscriptionEndDate,
+        };
+      }
+    } catch (error: any) {
+      console.error(`❌ Error canceling medication subscription: ${error.message}`);
+      
+      // If subscription doesn't exist in Stripe, clean up stale data
+      if (error.code === 'resource_missing') {
+        console.log(`⚠️  Medication subscription ${payment.stripeSubscriptionId} not found in Stripe. Cleaning up stale data.`);
+        await this.prisma.medicationPayment.update({
+          where: { appointmentId },
+          data: {
+            stripeSubscriptionId: null,
+            status: 'CANCELLED',
+          },
+        });
+        return {
+          success: true,
+          message: 'Medication subscription canceled (subscription was already removed in Stripe)',
+          appointmentId,
+        };
+      }
+      
+      throw new BadRequestException(`Failed to cancel medication subscription: ${error.message}`);
+    }
+  }
+
+  /**
+   * Reactivate a canceled medication subscription
+   */
+  async reactivateMedicationSubscription(appointmentId: string, userId: string) {
+    // Get appointment to verify authorization
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    // Verify user owns this appointment
+    if (appointment.patientId !== userId) {
+      throw new BadRequestException('Unauthorized');
+    }
+
+    // Get medication payment record
+    const payment = await this.prisma.medicationPayment.findUnique({
+      where: { appointmentId },
+    });
+
+    if (!payment || !payment.stripeSubscriptionId) {
+      throw new NotFoundException('No medication subscription found for this appointment');
+    }
+
+    try {
+      const subscription = await this.stripe.subscriptions.retrieve(payment.stripeSubscriptionId);
+      
+      if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') {
+        throw new BadRequestException('Subscription is already canceled and cannot be reactivated');
+      }
+
+      // Reactivate subscription if it's set to cancel at period end
+      if (subscription.cancel_at_period_end) {
+        const updatedSubscription = await this.stripe.subscriptions.update(
+          payment.stripeSubscriptionId,
+          {
+            cancel_at_period_end: false,
+          }
+        );
+
+        // Get subscription end date with robust fallback logic
+        const sub = updatedSubscription as any;
+        let periodEnd: number | null = sub.current_period_end || null;
+
+        // If subscription doesn't have period_end, try to get from latest invoice
+        if (!periodEnd && sub.latest_invoice) {
+          try {
+            const invoiceId = typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice?.id;
+            if (invoiceId) {
+              const invoice = await this.stripe.invoices.retrieve(invoiceId);
+              const inv = invoice as any;
+              if (inv.period_end) periodEnd = inv.period_end;
+            }
+          } catch (invError: any) {
+            console.log(`⚠️  Could not retrieve invoice for period end: ${invError.message}`);
+          }
+        }
+
+        // Convert to Date object
+        let subscriptionEndDate: Date | null = periodEnd ? new Date(periodEnd * 1000) : null;
+
+        // If we still don't have an end date, calculate it as current date + 1 month
+        if (!subscriptionEndDate) {
+          subscriptionEndDate = new Date();
+          subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
+        }
+
+        // Update payment record
+        await this.prisma.medicationPayment.update({
+          where: { appointmentId },
+          data: {
+            subscriptionStatus: 'active' as any,
+            subscriptionCanceledAt: null as any,
+            subscriptionEndDate: subscriptionEndDate as any,
+          },
+        });
+
+        return {
+          success: true,
+          message: 'Medication subscription reactivated successfully',
+          appointmentId,
+          subscriptionId: payment.stripeSubscriptionId,
+          endsAt: subscriptionEndDate,
+        };
+      } else {
+        // Subscription is already active
+        return {
+          success: true,
+          message: 'Subscription is already active',
+          appointmentId,
+          subscriptionId: payment.stripeSubscriptionId,
+        };
+      }
+    } catch (error: any) {
+      console.error(`❌ Error reactivating medication subscription: ${error.message}`);
+      throw new BadRequestException(`Failed to reactivate medication subscription: ${error.message}`);
+    }
   }
 }

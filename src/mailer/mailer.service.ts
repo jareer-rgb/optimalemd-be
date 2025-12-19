@@ -3153,13 +3153,13 @@ export class MailerService implements OnModuleInit {
             </div>
           </div>
           <div class="content">
-            <h2 class="title">Medication Payment Confirmed!</h2>
+            <h2 class="title">Medication Subscription Activated!</h2>
             <p class="description">Hi ${name},</p>
-            <p class="description">Thank you for your payment! Your medication order has been successfully processed.</p>
+            <p class="description">Thank you for subscribing! Your medication subscription has been successfully activated and will be billed monthly.</p>
             
             <div class="success-message">
               <span style="font-size: 32px; display: block; margin-bottom: 10px;">💊</span>
-              <p style="margin: 0; color: #155724; font-weight: bold; font-size: 18px;">Your payment was successful!</p>
+              <p style="margin: 0; color: #155724; font-weight: bold; font-size: 18px;">Your subscription is now active!</p>
             </div>
             
             <h3 style="color: #333333; font-size: 18px; margin-top: 30px; margin-bottom: 15px;">Invoice Details</h3>
@@ -3187,7 +3187,7 @@ export class MailerService implements OnModuleInit {
                 </div>
               ` : ''}
               <div class="summary-row">
-                <span>Total Paid:</span>
+                <span>Monthly Subscription Amount:</span>
                 <span>${formatPrice(amount)}</span>
               </div>
             </div>
@@ -3195,6 +3195,8 @@ export class MailerService implements OnModuleInit {
             <div class="info-box">
               <p style="margin: 0;"><strong>ℹ️ Important Information:</strong></p>
               <ul style="text-align: left; margin: 10px 0 0 20px; padding: 0;">
+                <li><strong>Monthly Billing:</strong> You will be charged ${formatPrice(amount)} each month automatically</li>
+                <li>Your payment method has been saved for automatic monthly billing</li>
                 <li>Your medications will be processed and shipped according to your prescription</li>
                 <li>You will receive tracking information once your order ships</li>
                 <li>If you have any questions about your medications, please contact your healthcare provider</li>
@@ -3222,12 +3224,233 @@ export class MailerService implements OnModuleInit {
       await this.transporter.sendMail({
         from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Medication Payment Confirmed - OptimaleMD',
+        subject: 'Medication Subscription Activated - OptimaleMD',
         html,
       });
       console.log(`Medication payment confirmation email sent successfully to ${to}`);
     } catch (error) {
       console.error('Failed to send medication payment confirmation email:', error);
+      throw error;
+    }
+  }
+
+  async sendMedicationSubscriptionCancellationEmail(
+    to: string,
+    name: string,
+    appointmentId: string,
+    monthlyAmount: number,
+    subscriptionEndDate?: Date,
+  ): Promise<void> {
+    const formattedDate = new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const formattedEndDate = subscriptionEndDate
+      ? subscriptionEndDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+      : 'N/A';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333333;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .header {
+            background-color: #000000;
+            padding: 25px;
+            text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+          }
+          .logo {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+          }
+          .content {
+            padding: 30px;
+            text-align: center;
+          }
+          .title {
+            color: #333333;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+          }
+          .description {
+            color: #666666;
+            font-size: 16px;
+            margin-bottom: 25px;
+            line-height: 1.6;
+          }
+          .warning-message {
+            background-color: #fff3cd;
+            padding: 25px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+            text-align: left;
+          }
+          .subscription-details {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #000000;
+            text-align: left;
+          }
+          .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+          }
+          .detail-row:last-child {
+            border-bottom: none;
+          }
+          .detail-label {
+            font-weight: bold;
+            color: #333333;
+          }
+          .detail-value {
+            color: #666666;
+          }
+          .info-box {
+            background-color: #e7f3ff;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+            color: #004085;
+            font-size: 14px;
+            text-align: left;
+          }
+          .footer {
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 20px;
+            color: #666666;
+            font-size: 14px;
+            border-top: 1px solid #e9ecef;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
+          </div>
+          <div class="content">
+            <h2 class="title">Medication Subscription Canceled</h2>
+            <p class="description">Hi ${name},</p>
+            <p class="description">Your healthcare provider has canceled your medication subscription for the appointment below.</p>
+            
+            <div class="warning-message">
+              <span style="font-size: 32px; display: block; margin-bottom: 10px;">⚠️</span>
+              <p style="margin: 0; color: #856404; font-weight: bold; font-size: 18px;">${subscriptionEndDate ? 'Your medication subscription will remain active until the end of your current billing period.' : 'Your medication subscription has been canceled'}</p>
+            </div>
+            
+            <div class="subscription-details">
+              <div class="detail-row">
+                <span class="detail-label">Appointment ID:</span>
+                <span class="detail-value">${appointmentId}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Monthly Amount:</span>
+                <span class="detail-value">$${monthlyAmount.toFixed(2)}</span>
+              </div>
+              ${subscriptionEndDate ? `
+              <div class="detail-row">
+                <span class="detail-label">Subscription End Date:</span>
+                <span class="detail-value">${formattedEndDate}</span>
+              </div>
+              ` : ''}
+              <div class="detail-row">
+                <span class="detail-label">Cancellation Requested:</span>
+                <span class="detail-value">${formattedDate}</span>
+              </div>
+            </div>
+            
+            <div class="info-box">
+              <p style="margin: 0;"><strong>ℹ️ Important Information:</strong></p>
+              <ul style="text-align: left; margin: 10px 0 0 20px; padding: 0;">
+                ${subscriptionEndDate ? `
+                <li>Your medication subscription will remain active until ${formattedEndDate}</li>
+                <li>You will continue to receive medications until the end of your current billing period</li>
+                <li>You will not be charged for future billing cycles after ${formattedEndDate}</li>
+                ` : `
+                <li>Your medication subscription has been canceled and will not renew</li>
+                <li>You will not be charged for future billing cycles</li>
+                `}
+                <li>If you have any questions about this cancellation, please contact your healthcare provider</li>
+                <li>If you need to restart your medication subscription, please contact your provider</li>
+              </ul>
+            </div>
+            
+            <p class="description">If you have any questions or concerns about this cancellation, please don't hesitate to contact our support team or your healthcare provider.</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email, please do not reply.</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to,
+        subject: 'Medication Subscription Cancellation Request - OptimaleMD',
+        html,
+      });
+      console.log(`Medication subscription cancellation email sent successfully to ${to}`);
+    } catch (error) {
+      console.error('Failed to send medication subscription cancellation email:', error);
       throw error;
     }
   }

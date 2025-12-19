@@ -362,15 +362,20 @@ model MedicationPayment {
   amount            Decimal  @db.Decimal(10, 2)
   currency          String   @default("usd")
   status            PaymentStatus @default(PENDING)
-  paymentIntent     String?  @unique // Stripe payment intent ID
+  paymentIntent     String?  @unique // Stripe payment intent ID (for initial setup)
+  stripeSubscriptionId String? @unique // Stripe subscription ID for monthly billing
+  stripeCustomerId String? // Stripe customer ID
   paidAt            DateTime?
+  subscriptionStatus String? // active, canceling, canceled, etc.
+  subscriptionCanceledAt DateTime? // When cancellation was requested
+  subscriptionEndDate DateTime? // When subscription will end (current_period_end)
   
   // Timestamps
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
   // Relations
-  appointment       Appointment @relation("MedicationPayments", fields: [appointmentId], references: [id], onDelete: Cascade)
+  appointment       Appointment @relation("MedicationPayments", fields: [appointmentId], references: [id], onDelete: Restrict)
   
   @@map("medication_payments")
 }

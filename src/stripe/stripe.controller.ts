@@ -213,6 +213,35 @@ export class StripeController {
       data: status,
     };
   }
+
+  @Post('medications/cancel-subscription/:appointmentId')
+  @ApiOperation({ summary: 'Cancel medication subscription for an appointment (Doctor/Admin only)' })
+  @ApiResponse({ status: 200, description: 'Subscription canceled successfully' })
+  @ApiResponse({ status: 404, description: 'Appointment or subscription not found' })
+  @ApiResponse({ status: 403, description: 'Unauthorized' })
+  async cancelMedicationSubscription(@Param('appointmentId') appointmentId: string, @Request() req) {
+    const userId = req.user.id;
+    const userType = req.user.userType;
+    const result = await this.stripeService.cancelMedicationSubscription(appointmentId, userId, userType);
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Post('medications/reactivate-subscription/:appointmentId')
+  @ApiOperation({ summary: 'Reactivate a canceled medication subscription' })
+  @ApiResponse({ status: 200, description: 'Subscription reactivated successfully' })
+  @ApiResponse({ status: 404, description: 'Appointment or subscription not found' })
+  @ApiResponse({ status: 403, description: 'Unauthorized' })
+  async reactivateMedicationSubscription(@Param('appointmentId') appointmentId: string, @Request() req) {
+    const userId = req.user.id;
+    const result = await this.stripeService.reactivateMedicationSubscription(appointmentId, userId);
+    return {
+      success: true,
+      data: result,
+    };
+  }
 }
 
 // Separate controller for webhook (no auth guard)
