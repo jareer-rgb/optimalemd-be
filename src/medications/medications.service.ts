@@ -42,12 +42,10 @@ export class MedicationsService {
     }
 
     // Create medication
-    // standardPrice is required, use price value for it (price is legacy field)
     const medication = await this.prisma.medication.create({
       data: {
         name,
-        standardPrice: price, // Required field
-        price, // Legacy field, keep for backward compatibility
+        price,
         discountedPrice: discountedPrice || null,
         isActive
       }
@@ -165,102 +163,6 @@ export class MedicationsService {
     await this.prisma.medication.delete({
       where: { id }
     });
-  }
-
-  /**
-   * Map medication name to category based on medication type
-   */
-  private getMedicationCategory(medicationName: string): string {
-    const name = medicationName.toLowerCase();
-    
-    // Hair Loss Treatments
-    if (name.includes('finasteride') || name.includes('minoxidil')) {
-      return 'Hair Loss Treatments';
-    }
-    
-    // Hormone Optimization / TRT
-    if (name.includes('testosterone') || name.includes('enclomiphene')) {
-      return 'Hormone Optimization / TRT';
-    }
-    
-    // Weight Loss & Obesity Medicine
-    if (name.includes('semaglutide') || name.includes('tirzepatide')) {
-      return 'Weight Loss & Obesity Medicine';
-    }
-    
-    // Sexual Health
-    if (name.includes('sildenafil') || name.includes('tadalafil')) {
-      return 'Sexual Health';
-    }
-    
-    // Peptides & Longevity
-    if (name.includes('cjc') || name.includes('ipamorelin') || name.includes('sermorelin')) {
-      return 'Peptides & Longevity';
-    }
-    
-    // Supplements
-    if (name.includes('vitamin') || name.includes('multivitamin')) {
-      return 'Supplements';
-    }
-    
-    // Default to Supplements for unknown medications
-    return 'Supplements';
-  }
-
-  /**
-   * Get medications grouped by category
-   * Medications are categorized based on their names
-   * Includes prescription fields (strength, dose, frequency, route, prescription) as null
-   * since they're not stored in the Medication model
-   */
-  async getMedicationsByCategory(): Promise<Record<string, any[]>> {
-    const medications = await this.prisma.medication.findMany({
-      where: {
-        isActive: true,
-      },
-      orderBy: {
-        name: 'asc',
-      },
-    });
-
-    // Initialize all categories (matching frontend SERVICE_TABS)
-    const categories: Record<string, any[]> = {
-      'Hair Loss Treatments': [],
-      'Hormone Optimization / TRT': [],
-      'Weight Loss & Obesity Medicine': [],
-      'Sexual Health': [],
-      'Peptides & Longevity': [],
-      'Lab Testing': [],
-      'Supplements': [],
-    };
-
-    // Map medications - return ALL fields from the database
-    medications.forEach(med => {
-      // Return all fields from the database record (including strength, dose, frequency, route, prescription, etc.)
-      // Using spread operator to include all fields automatically
-      const medicationData = {
-        ...med, // This includes ALL fields: id, name, price, standardPrice, discountedPrice, membershipPrice, 
-                // isActive, strength, dose, frequency, route, prescription, directions, pricingNotes, createdAt, updatedAt
-      };
-
-      // Categorize medication
-      const category = this.getMedicationCategory(med.name);
-      if (categories[category]) {
-        categories[category].push(medicationData);
-      } else {
-        // Fallback to Supplements if category not found
-        categories['Supplements'].push(medicationData);
-      }
-    });
-
-    // Remove empty categories to keep response clean
-    Object.keys(categories).forEach(category => {
-      if (categories[category].length === 0) {
-        delete categories[category];
-      }
-    });
-
-    return categories;
   }
 }
 

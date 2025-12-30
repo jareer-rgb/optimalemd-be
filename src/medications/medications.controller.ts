@@ -191,30 +191,6 @@ export class MedicationsController {
     };
   }
 
-  @Get('by-category')
-  @ApiOperation({
-    summary: 'Get Medications by Category',
-    description: 'Retrieve all active medications grouped by category.',
-  })
-  @ApiOkResponse({
-    description: 'Medications by category retrieved successfully',
-    type: BaseApiResponse<Record<string, MedicationResponseDto[]>>,
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Unauthorized - invalid or missing JWT token',
-  })
-  async getMedicationsByCategory(): Promise<BaseApiResponse<Record<string, MedicationResponseDto[]>>> {
-    const data = await this.medicationsService.getMedicationsByCategory();
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      message: 'Medications by category retrieved successfully',
-      data,
-      timestamp: new Date().toISOString(),
-      path: '/api/medications/by-category',
-    };
-  }
-
   @Get(':id')
   @ApiOperation({
     summary: 'Get Medication by ID',

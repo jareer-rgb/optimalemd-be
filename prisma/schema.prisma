@@ -783,20 +783,9 @@ model MedicationPrescription {
 model Medication {
   id              String   @id @default(uuid())
   name            String   @unique // Medication name
-  standardPrice   Decimal  @db.Decimal(10, 2) // Standard price
-  price           Decimal  @db.Decimal(10, 2) // Regular price (legacy)
+  price           Decimal  @db.Decimal(10, 2) // Regular price
   discountedPrice Decimal? @db.Decimal(10, 2) // Discounted price (optional)
-  membershipPrice Decimal? @db.Decimal(10, 2) // Membership price (optional)
   isActive        Boolean  @default(true)
-  
-  // Prescription details
-  strength        String?
-  dose            String?
-  frequency       String?
-  route           String?
-  prescription    String?
-  directions      String?
-  pricingNotes    String?
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
