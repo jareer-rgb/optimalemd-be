@@ -215,7 +215,7 @@ export class StripeController {
   }
 
   @Post('medications/cancel-subscription/:appointmentId')
-  @ApiOperation({ summary: 'Cancel medication subscription for an appointment (Doctor/Admin only)' })
+  @ApiOperation({ summary: 'Cancel medication subscription for an appointment (Doctor/Patient/Admin)' })
   @ApiResponse({ status: 200, description: 'Subscription canceled successfully' })
   @ApiResponse({ status: 404, description: 'Appointment or subscription not found' })
   @ApiResponse({ status: 403, description: 'Unauthorized' })

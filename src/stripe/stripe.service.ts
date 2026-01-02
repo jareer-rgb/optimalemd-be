@@ -2534,6 +2534,11 @@ export class StripeService {
             primaryEmail: true,
           },
         },
+        service: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 
@@ -2541,12 +2546,13 @@ export class StripeService {
       throw new NotFoundException('Appointment not found');
     }
 
-    // Allow access if user is the doctor assigned to the appointment OR an admin
+    // Allow access if user is the doctor assigned to the appointment, the patient, OR an admin
     const isDoctor = appointment.doctorId === userId;
+    const isPatient = appointment.patientId === userId;
     const isAdmin = userType === 'admin';
 
-    if (!isDoctor && !isAdmin) {
-      throw new BadRequestException('Unauthorized. Only the assigned doctor or admin can cancel medication subscriptions.');
+    if (!isDoctor && !isPatient && !isAdmin) {
+      throw new BadRequestException('Unauthorized. Only the assigned doctor, patient, or admin can cancel medication subscriptions.');
     }
 
     // Get medication payment record
@@ -2675,12 +2681,37 @@ export class StripeService {
           if (patient.primaryEmail) {
             const patientName = `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || 'Valued Patient';
             
+            // Get service name and medication names
+            const serviceName = appointment.service?.name || undefined;
+            
+            // Get medication names from appointment medications
+            let oldMedicationName: string | undefined = undefined;
+            if (appointment.medications && typeof appointment.medications === 'object') {
+              const medicationNames: string[] = [];
+              Object.values(appointment.medications).forEach((meds: any) => {
+                if (Array.isArray(meds)) {
+                  meds.forEach((med: any) => {
+                    if (typeof med === 'string') {
+                      medicationNames.push(med);
+                    } else if (med && typeof med === 'object' && med.name) {
+                      medicationNames.push(med.name);
+                    }
+                  });
+                }
+              });
+              if (medicationNames.length > 0) {
+                oldMedicationName = medicationNames.join(', ');
+              }
+            }
+            
             await this.mailerService.sendMedicationSubscriptionCancellationEmail(
               patient.primaryEmail,
               patientName,
               appointmentId,
               Number(payment.amount),
               subscriptionEndDate || undefined,
+              serviceName,
+              oldMedicationName,
             );
             console.log(`✅ Medication subscription cancellation email sent to ${patient.primaryEmail}`);
           }

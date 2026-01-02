@@ -677,6 +677,11 @@ export class AppointmentsService {
       throw new NotFoundException('Appointment not found or you do not have permission to update this appointment');
     }
 
+    // Check if notes are already signed
+    if (appointment.notesSignedAt) {
+      throw new BadRequestException('Cannot update notes. Appointment has already been signed.');
+    }
+
     // Update the internal notes
     const updatedAppointment = await this.prisma.appointment.update({
       where: { id: appointmentId },
@@ -700,6 +705,11 @@ export class AppointmentsService {
 
     if (!appointment) {
       throw new NotFoundException('Appointment not found or you do not have permission to update this appointment');
+    }
+
+    // Check if notes are already signed
+    if (appointment.notesSignedAt) {
+      throw new BadRequestException('Cannot update notes. Appointment has already been signed.');
     }
 
     // Update the care plan
@@ -734,6 +744,36 @@ export class AppointmentsService {
   }
 
   /**
+   * Sign notes for an appointment (sets notesSignedAt timestamp)
+   */
+  async signNotes(appointmentId: string, doctorId: string): Promise<AppointmentResponseDto> {
+    // Check if appointment exists and belongs to the doctor
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id: appointmentId,
+        doctorId: doctorId
+      }
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found or you do not have permission to sign this appointment');
+    }
+
+    // Check if notes are already signed
+    if (appointment.notesSignedAt) {
+      throw new BadRequestException('Notes have already been signed for this appointment.');
+    }
+
+    // Set notesSignedAt timestamp
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { notesSignedAt: new Date() },
+    });
+
+    return updatedAppointment;
+  }
+
+  /**
    * Update medications JSON for an appointment (doctor only)
    * Supports both old format (string[]) and new format (MedicationObject[]) for backward compatibility
    */
@@ -743,12 +783,24 @@ export class AppointmentsService {
     merge: boolean,
     doctorId: string,
   ): Promise<AppointmentResponseDto> {
-    const appointment = await this.prisma.appointment.findUnique({ where: { id: appointmentId } });
+    // Check if appointment exists and belongs to the doctor
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id: appointmentId,
+        doctorId: doctorId
+      },
+      include: {
+        medicationPayment: true,
+      }
+    });
+
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      throw new NotFoundException('Appointment not found or you do not have permission to update this appointment');
     }
-    if (appointment.doctorId && appointment.doctorId !== doctorId) {
-      // Optional ownership check: only the assigned doctor can update
+
+    // Check if medications have been paid/submitted
+    if (appointment.medicationPayment && appointment.medicationPayment.status === 'SUCCEEDED') {
+      throw new BadRequestException('Cannot modify medications. Medications have already been submitted and paid.');
     }
 
     console.log('=== Backend updateMedications Debug ===');

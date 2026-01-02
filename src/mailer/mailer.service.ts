@@ -3240,6 +3240,8 @@ export class MailerService implements OnModuleInit {
     appointmentId: string,
     monthlyAmount: number,
     subscriptionEndDate?: Date,
+    serviceName?: string,
+    oldMedicationName?: string,
   ): Promise<void> {
     const formattedDate = new Date().toLocaleDateString('en-US', {
       weekday: 'long',
@@ -3386,21 +3388,14 @@ export class MailerService implements OnModuleInit {
           <div class="content">
             <h2 class="title">Medication Subscription Canceled</h2>
             <p class="description">Hi ${name},</p>
-            <p class="description">Your healthcare provider has canceled your medication subscription for the appointment below.</p>
+            <p class="description">We are reaching out to inform you of a supervised change to your current medication regimen. After a thorough review of your latest ${serviceName || 'appointment'}, the clinical team at OptimaleMD has decided to transition your treatment from ${oldMedicationName || 'your current medication'}. The new medication will be discussed in the upcoming appointment.</p>
             
-            <div class="warning-message">
-              <span style="font-size: 32px; display: block; margin-bottom: 10px;">⚠️</span>
-              <p style="margin: 0; color: #856404; font-weight: bold; font-size: 18px;">${subscriptionEndDate ? 'Your medication subscription will remain active until the end of your current billing period.' : 'Your medication subscription has been canceled'}</p>
-            </div>
+            <p class="description">Our primary goal is to ensure your treatment remains as effective and safe as possible. If you have any questions regarding this change or how to transition between these medications, please reply to this email or schedule a brief check-in via the patient portal.</p>
             
             <div class="subscription-details">
               <div class="detail-row">
                 <span class="detail-label">Appointment ID:</span>
                 <span class="detail-value">${appointmentId}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Monthly Amount:</span>
-                <span class="detail-value">$${monthlyAmount.toFixed(2)}</span>
               </div>
               ${subscriptionEndDate ? `
               <div class="detail-row">
@@ -3408,29 +3403,10 @@ export class MailerService implements OnModuleInit {
                 <span class="detail-value">${formattedEndDate}</span>
               </div>
               ` : ''}
-              <div class="detail-row">
-                <span class="detail-label">Cancellation Requested:</span>
-                <span class="detail-value">${formattedDate}</span>
-              </div>
             </div>
             
-            <div class="info-box">
-              <p style="margin: 0;"><strong>ℹ️ Important Information:</strong></p>
-              <ul style="text-align: left; margin: 10px 0 0 20px; padding: 0;">
-                ${subscriptionEndDate ? `
-                <li>Your medication subscription will remain active until ${formattedEndDate}</li>
-                <li>You will continue to receive medications until the end of your current billing period</li>
-                <li>You will not be charged for future billing cycles after ${formattedEndDate}</li>
-                ` : `
-                <li>Your medication subscription has been canceled and will not renew</li>
-                <li>You will not be charged for future billing cycles</li>
-                `}
-                <li>If you have any questions about this cancellation, please contact your healthcare provider</li>
-                <li>If you need to restart your medication subscription, please contact your provider</li>
-              </ul>
-            </div>
-            
-            <p class="description">If you have any questions or concerns about this cancellation, please don't hesitate to contact our support team or your healthcare provider.</p>
+            <p class="description" style="margin-top: 30px;">Best regards,</p>
+            <p class="description" style="margin-top: 10px;"><strong>The Clinical Support Team</strong><br>OptimaleMD</p>
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
