@@ -2166,7 +2166,7 @@ export class MailerService implements OnModuleInit {
             overflow: hidden;
           }
           .header {
-            background: linear-gradient(135deg, #000000, #b91c1c);
+            background-color: #000000;
             color: white;
             padding: 30px 20px;
             text-align: center;
@@ -2227,8 +2227,8 @@ export class MailerService implements OnModuleInit {
           }
           .button {
             display: inline-block;
-            background: linear-gradient(135deg, #000000, #b91c1c);
-            color: white;
+            background-color: #000000;
+            color: #ffffff !important;
             text-decoration: none;
             padding: 15px 30px;
             border-radius: 8px;
@@ -2236,11 +2236,6 @@ export class MailerService implements OnModuleInit {
             font-size: 16px;
             text-align: center;
             margin: 20px 0;
-            transition: all 0.3s ease;
-          }
-          .button:hover {
-            background: linear-gradient(135deg, #b91c1c, #991b1b);
-            transform: translateY(-2px);
           }
           .warning {
             background-color: #fff3cd;
@@ -2290,15 +2285,15 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimalMD</div>
-            <h1>Welcome to OptimalMD!</h1>
+            <div class="logo">OptimaleMD</div>
+            <h1>Welcome to OptimaleMD!</h1>
             <p>Your account has been created by our admin team</p>
           </div>
           
           <div class="content">
             <h2>Hello ${name}!</h2>
             
-            <p>Great news! Your OptimalMD patient account has been successfully created by our administrative team. You can now access our platform to manage your healthcare journey.</p>
+            <p>Great news! Your OptimaleMD patient account has been successfully created by our administrative team. You can now access our platform to manage your healthcare journey.</p>
             
             <div class="credentials-box">
               <h3>🔐 Your Login Credentials</h3>
@@ -2332,20 +2327,20 @@ export class MailerService implements OnModuleInit {
               </a>
             </div>
             
-            <p>If you have any questions or need assistance, please don't hesitate to contact our support team. We're here to help you every step of the way!</p>
+            <p>If you have any questions or need assistance, please don't hesitate to contact our support team at <a href="mailto:support@optimalemd.health" style="color: #000000; font-weight: bold;">support@optimalemd.health</a>. We're here to help you every step of the way!</p>
             
             <p style="margin-top: 30px;">
-              <strong>The OptimalMD Team</strong><br>
+              <strong>The OptimaleMD Team</strong><br>
               <em>Optimizing your health, one step at a time</em>
             </p>
           </div>
           
           <div class="footer">
-            <p><strong>OptimalMD</strong></p>
+            <p><strong>OptimaleMD</strong></p>
             <p>This email was sent because an account was created for you by our admin team.</p>
-            <p>If you believe this was sent in error, please contact our support team immediately.</p>
+            <p>If you believe this was sent in error, please contact our support team at <a href="mailto:support@optimalemd.health" style="color: #000000; font-weight: bold;">support@optimalemd.health</a> immediately.</p>
             <p style="margin-top: 20px; font-size: 12px; color: #999999;">
-              © 2024 OptimalMD. All rights reserved.
+              © 2026 OptimaleMD. All rights reserved.
             </p>
           </div>
         </div>
@@ -2354,9 +2349,9 @@ export class MailerService implements OnModuleInit {
     `;
 
     const mailOptions = {
-      from: `"OptimalMD" <${this.configService.get<string>('SMTP_USER')}>`,
+      from: `"OptimaleMD" <${this.configService.get<string>('SMTP_USER')}>`,
       to,
-      subject: '🎉 Welcome to OptimalMD - Your Account is Ready!',
+      subject: '🎉 Welcome to OptimaleMD - Your Account is Ready!',
       html,
     };
 
