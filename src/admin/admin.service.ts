@@ -518,6 +518,37 @@ export class AdminService {
   }
 
   /**
+   * Toggle premium/subscription status for a patient
+   */
+  async togglePremiumStatus(patientId: string, isPremium: boolean): Promise<PatientWithMedicalFormResponseDto> {
+    // Check if patient exists
+    const existingPatient = await this.prisma.user.findUnique({
+      where: { id: patientId },
+    });
+
+    if (!existingPatient) {
+      throw new NotFoundException('Patient not found');
+    }
+
+    // Update subscription status
+    const updatedPatient = await this.prisma.user.update({
+      where: { id: patientId },
+      data: {
+        isSubscribed: isPremium,
+        subscriptionStatus: isPremium ? 'active' : null,
+        subscriptionStartDate: isPremium ? new Date() : null,
+        subscriptionEndDate: null,
+        subscriptionCanceledAt: null,
+        // Clear Stripe subscription ID when removing premium to avoid conflicts with Stripe data
+        stripeSubscriptionId: isPremium ? existingPatient.stripeSubscriptionId : null,
+        stripeCustomerId: isPremium ? existingPatient.stripeCustomerId : null,
+      },
+    });
+
+    return this.mapToResponseDto(updatedPatient);
+  }
+
+  /**
    * Delete patient (hard delete - permanently removes from database)
    */
   async deletePatient(patientId: string): Promise<void> {
@@ -599,6 +630,9 @@ export class AdminService {
       emergencyContactPhone: user.emergencyContactPhone,
       isActive: user.isActive,
       isEmailVerified: user.isEmailVerified,
+      isSubscribed: user.isSubscribed,
+      subscriptionStatus: user.subscriptionStatus,
+      subscriptionStartDate: user.subscriptionStartDate,
       createdAt: user.createdAt,
     };
   }
