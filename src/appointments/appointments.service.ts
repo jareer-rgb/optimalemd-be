@@ -740,6 +740,11 @@ export class AppointmentsService {
       throw new NotFoundException('Appointment not found or you do not have permission to update this appointment');
     }
 
+    // Check if notes are already signed
+    if (appointment.notesSignedAt) {
+      throw new BadRequestException('Cannot update notes. Appointment has already been signed.');
+    }
+
     // Update the subjective notes
     const updatedAppointment = await this.prisma.appointment.update({
       where: { id: appointmentId },
