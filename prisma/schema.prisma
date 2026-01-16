@@ -96,6 +96,10 @@ model User {
   // DoseSpot integration
   doseSpotPatientId String? @unique // DoseSpot patient ID after syncing
 
+  // Identity verification files
+  drivingLicensePath String? // Path to uploaded driving license
+  photoPath String? // Path to uploaded photo
+
   // Relations
   bookings Booking[]
   patientAppointments Appointment[]

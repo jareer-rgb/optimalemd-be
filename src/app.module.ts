@@ -21,6 +21,7 @@ import { ContactModule } from './contact/contact.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { MedicationsModule } from './medications/medications.module';
 import { DoseSpotModule } from './dosespot/dosespot.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({ 
   imports: [
@@ -46,6 +47,7 @@ import { DoseSpotModule } from './dosespot/dosespot.module';
     PrescriptionsModule,
     MedicationsModule,
     DoseSpotModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

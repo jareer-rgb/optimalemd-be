@@ -25,19 +25,22 @@ export class AppointmentsService {
   /**
    * Create a temporary appointment for payment processing
    */
-  async createTemporaryAppointment(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
+    async createTemporaryAppointment(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
     const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount, primaryServiceId, selectedSlotTime, patientTimezone, additionalServiceIds } = createAppointmentDto;
 
     // Check if patient exists and is active
     const patient = await this.prisma.user.findUnique({
       where: { id: patientId },
-      select: { id: true, isActive: true }
+      select: { id: true, isActive: true, drivingLicensePath: true, photoPath: true }
     });
     if (!patient) {
       throw new NotFoundException('Patient not found');
     }
     if (!patient.isActive) {
       throw new BadRequestException('Patient account is not active');
+    }
+    if (!patient.drivingLicensePath || !patient.photoPath) {
+      throw new BadRequestException('Please upload your driving license and photo before booking appointments. You can upload them from the dashboard.');
     }
     // Note: We don't check hasCompletedMedicalForm here because the patient only needs to complete Screen 2
     // before booking. The full medical form is completed AFTER booking the first appointment.
@@ -212,7 +215,7 @@ export class AppointmentsService {
     // Check if patient exists and is active
     const patient = await this.prisma.user.findUnique({
       where: { id: patientId },
-      select: { id: true, isActive: true, hasCompletedMedicalForm: true }
+      select: { id: true, isActive: true, hasCompletedMedicalForm: true, drivingLicensePath: true, photoPath: true }
     });
     if (!patient) {
       throw new NotFoundException('Patient not found');
@@ -222,6 +225,9 @@ export class AppointmentsService {
     }
     if (!patient.hasCompletedMedicalForm) {
       throw new BadRequestException('Patient must complete the medical consultation form before booking appointments. Please complete the form and try again.');
+    }
+    if (!patient.drivingLicensePath || !patient.photoPath) {
+      throw new BadRequestException('Please upload your driving license and photo before booking appointments. You can upload them from the dashboard.');
     }
 
     // Check if doctor exists and is active
