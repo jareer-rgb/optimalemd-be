@@ -173,6 +173,11 @@ export class AdminCreatePatientDto {
   @IsBoolean()
   @IsOptional()
   sendWelcomeEmail?: boolean;
+
+  @ApiProperty({ description: 'Make patient a premium member', example: false, default: false })
+  @IsBoolean()
+  @IsOptional()
+  makePremiumMember?: boolean;
 }
 
 export class AdminUpdatePatientDto {
