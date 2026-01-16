@@ -16,11 +16,15 @@ export class AdminService {
    * Create a new patient from admin side with auto-generated password and email
    */
   async createPatient(createPatientDto: AdminCreatePatientDto): Promise<PatientWithMedicalFormResponseDto> {
-    const { sendWelcomeEmail = true, ...patientData } = createPatientDto;
+    const { sendWelcomeEmail = true, makePremiumMember = false, ...patientData } = createPatientDto;
+
+    // Normalize emails to lowercase for case-insensitive matching
+    const normalizedPrimaryEmail = patientData.primaryEmail.toLowerCase();
+    const normalizedAlternativeEmail = patientData.alternativeEmail?.toLowerCase();
 
     // Check if user already exists by primary email
     const existingUser = await this.prisma.user.findUnique({
-      where: { primaryEmail: patientData.primaryEmail },
+      where: { primaryEmail: normalizedPrimaryEmail },
     });
 
     if (existingUser) {
@@ -38,6 +42,8 @@ export class AdminService {
     // Prepare user data for creation
     const userCreateData: any = {
       ...patientData,
+      primaryEmail: normalizedPrimaryEmail,
+      alternativeEmail: normalizedAlternativeEmail,
       password: hashedPassword,
       dateOfBirth: new Date(patientData.dateOfBirth),
       dateOfFirstVisitPlanned: patientData.dateOfFirstVisitPlanned && patientData.dateOfFirstVisitPlanned.trim() !== '' 
@@ -46,10 +52,14 @@ export class AdminService {
       emailVerificationToken,
       emailVerificationTokenExpiry,
       // Map legacy fields for backward compatibility
-      email: patientData.primaryEmail,
+      email: normalizedPrimaryEmail,
       phone: patientData.primaryPhone,
       isActive: true,
       isEmailVerified: false, // Admin created patients need to verify their email
+      // Set premium membership if requested
+      isSubscribed: makePremiumMember,
+      subscriptionStatus: makePremiumMember ? 'active' : null,
+      subscriptionStartDate: makePremiumMember ? new Date() : null,
     };
 
     // Create user
@@ -63,7 +73,7 @@ export class AdminService {
         const verificationLink = `https://optimalemd.health/verify-email?token=${emailVerificationToken}`;
         
         await this.mailerService.sendAdminCreatedPatientEmail(
-          patientData.primaryEmail,
+          normalizedPrimaryEmail,
           patientData.firstName,
           generatedPassword,
           verificationLink
@@ -88,6 +98,14 @@ export class AdminService {
 
     if (!existingPatient) {
       throw new NotFoundException('Patient not found');
+    }
+
+    // Normalize emails to lowercase if they're being updated
+    if (updatePatientDto.primaryEmail) {
+      updatePatientDto.primaryEmail = updatePatientDto.primaryEmail.toLowerCase();
+    }
+    if (updatePatientDto.alternativeEmail) {
+      updatePatientDto.alternativeEmail = updatePatientDto.alternativeEmail.toLowerCase();
     }
 
     // If email is being updated, check for conflicts
