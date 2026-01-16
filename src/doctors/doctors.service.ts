@@ -794,6 +794,14 @@ export class DoctorsService {
               dateOfBirth: true,
             }
           },
+          doctor: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          },
           service: {
             select: {
               name: true
@@ -873,6 +881,17 @@ export class DoctorsService {
         medicalForm: appointment.medicalForm,
         additionalServices: additionalServices || null, // Include additional services in response
         googleMeetLink: appointment.googleMeetLink || null,
+        doctor: appointment.doctor ? {
+          id: appointment.doctor.id,
+          firstName: appointment.doctor.firstName,
+          lastName: appointment.doctor.lastName,
+          email: appointment.doctor.email
+        } : null,
+        notesSignedAt: (appointment as any).notesSignedAt || null,
+        medications: (appointment as any).medications || null,
+        service: appointment.service ? {
+          name: appointment.service.name
+        } : null,
       });
       patientData.totalAppointments = patientData.appointments.length;
 

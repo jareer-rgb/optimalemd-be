@@ -25,19 +25,22 @@ export class AppointmentsService {
   /**
    * Create a temporary appointment for payment processing
    */
-  async createTemporaryAppointment(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
+    async createTemporaryAppointment(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
     const { patientId, doctorId, serviceId, slotId, appointmentDate, appointmentTime, duration, patientNotes, symptoms, amount, primaryServiceId, selectedSlotTime, patientTimezone, additionalServiceIds } = createAppointmentDto;
 
     // Check if patient exists and is active
     const patient = await this.prisma.user.findUnique({
       where: { id: patientId },
-      select: { id: true, isActive: true }
+      select: { id: true, isActive: true, drivingLicensePath: true, photoPath: true }
     });
     if (!patient) {
       throw new NotFoundException('Patient not found');
     }
     if (!patient.isActive) {
       throw new BadRequestException('Patient account is not active');
+    }
+    if (!patient.drivingLicensePath || !patient.photoPath) {
+      throw new BadRequestException('Please upload your driving license and photo before booking appointments. You can upload them from the dashboard.');
     }
     // Note: We don't check hasCompletedMedicalForm here because the patient only needs to complete Screen 2
     // before booking. The full medical form is completed AFTER booking the first appointment.
@@ -212,7 +215,7 @@ export class AppointmentsService {
     // Check if patient exists and is active
     const patient = await this.prisma.user.findUnique({
       where: { id: patientId },
-      select: { id: true, isActive: true, hasCompletedMedicalForm: true }
+      select: { id: true, isActive: true, hasCompletedMedicalForm: true, drivingLicensePath: true, photoPath: true }
     });
     if (!patient) {
       throw new NotFoundException('Patient not found');
@@ -222,6 +225,9 @@ export class AppointmentsService {
     }
     if (!patient.hasCompletedMedicalForm) {
       throw new BadRequestException('Patient must complete the medical consultation form before booking appointments. Please complete the form and try again.');
+    }
+    if (!patient.drivingLicensePath || !patient.photoPath) {
+      throw new BadRequestException('Please upload your driving license and photo before booking appointments. You can upload them from the dashboard.');
     }
 
     // Check if doctor exists and is active
@@ -677,6 +683,11 @@ export class AppointmentsService {
       throw new NotFoundException('Appointment not found or you do not have permission to update this appointment');
     }
 
+    // Check if notes are already signed
+    if (appointment.notesSignedAt) {
+      throw new BadRequestException('Cannot update notes. Appointment has already been signed.');
+    }
+
     // Update the internal notes
     const updatedAppointment = await this.prisma.appointment.update({
       where: { id: appointmentId },
@@ -700,6 +711,11 @@ export class AppointmentsService {
 
     if (!appointment) {
       throw new NotFoundException('Appointment not found or you do not have permission to update this appointment');
+    }
+
+    // Check if notes are already signed
+    if (appointment.notesSignedAt) {
+      throw new BadRequestException('Cannot update notes. Appointment has already been signed.');
     }
 
     // Update the care plan
@@ -734,20 +750,63 @@ export class AppointmentsService {
   }
 
   /**
+   * Sign notes for an appointment (sets notesSignedAt timestamp)
+   */
+  async signNotes(appointmentId: string, doctorId: string): Promise<AppointmentResponseDto> {
+    // Check if appointment exists and belongs to the doctor
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id: appointmentId,
+        doctorId: doctorId
+      }
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found or you do not have permission to sign this appointment');
+    }
+
+    // Check if notes are already signed
+    if (appointment.notesSignedAt) {
+      throw new BadRequestException('Notes have already been signed for this appointment.');
+    }
+
+    // Set notesSignedAt timestamp
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { notesSignedAt: new Date() },
+    });
+
+    return updatedAppointment;
+  }
+
+  /**
    * Update medications JSON for an appointment (doctor only)
+   * Supports both old format (string[]) and new format (MedicationObject[]) for backward compatibility
    */
   async updateMedications(
     appointmentId: string,
-    medications: Record<string, string[]>,
+    medications: Record<string, string[] | any[]>, // Can be string[] (old) or MedicationObject[] (new)
     merge: boolean,
     doctorId: string,
   ): Promise<AppointmentResponseDto> {
-    const appointment = await this.prisma.appointment.findUnique({ where: { id: appointmentId } });
+    // Check if appointment exists and belongs to the doctor
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id: appointmentId,
+        doctorId: doctorId
+      },
+      include: {
+        medicationPayment: true,
+      }
+    });
+
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      throw new NotFoundException('Appointment not found or you do not have permission to update this appointment');
     }
-    if (appointment.doctorId && appointment.doctorId !== doctorId) {
-      // Optional ownership check: only the assigned doctor can update
+
+    // Check if medications have been paid/submitted
+    if (appointment.medicationPayment && appointment.medicationPayment.status === 'SUCCEEDED') {
+      throw new BadRequestException('Cannot modify medications. Medications have already been submitted and paid.');
     }
 
     console.log('=== Backend updateMedications Debug ===');
@@ -762,7 +821,7 @@ export class AppointmentsService {
     
     if (merge && appointmentAny.medications) {
       // When merging, we keep existing services and replace/update the specified services
-      const existing = appointmentAny.medications as Record<string, string[]>;
+      const existing = appointmentAny.medications as Record<string, string[] | any[]>;
       updatedMedications = { ...existing };
       
       console.log('After copying existing:', JSON.stringify(updatedMedications, null, 2));
@@ -771,6 +830,7 @@ export class AppointmentsService {
       // This allows updating a specific service while preserving all other services
       for (const [serviceName, meds] of Object.entries(medications)) {
         console.log(`Updating service "${serviceName}" with:`, meds);
+        // Store medications as-is (can be string[] or MedicationObject[])
         updatedMedications[serviceName] = meds; // Replace medications for this service
       }
     }

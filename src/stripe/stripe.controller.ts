@@ -157,6 +157,91 @@ export class StripeController {
       data: result,
     };
   }
+
+  @Get('medications/invoice/:appointmentId')
+  @ApiOperation({ summary: 'Calculate medication invoice for an appointment' })
+  @ApiResponse({ status: 200, description: 'Invoice calculated successfully' })
+  @ApiResponse({ status: 404, description: 'Appointment not found' })
+  async getMedicationInvoice(@Param('appointmentId') appointmentId: string, @Request() req) {
+    const userId = req.user.id;
+    const invoice = await this.stripeService.calculateMedicationInvoice(appointmentId, userId);
+    return {
+      success: true,
+      data: invoice,
+    };
+  }
+
+  @Post('medications/payment-intent/:appointmentId')
+  @ApiOperation({ summary: 'Create payment intent for medication invoice' })
+  @ApiResponse({ status: 201, description: 'Payment intent created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async createMedicationPaymentIntent(@Param('appointmentId') appointmentId: string, @Request() req) {
+    const userId = req.user.id;
+    const result = await this.stripeService.createMedicationPaymentIntent(appointmentId, userId);
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Post('medications/confirm-payment')
+  @ApiOperation({ summary: 'Confirm medication payment' })
+  @ApiResponse({ status: 200, description: 'Payment confirmed successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async confirmMedicationPayment(
+    @Body() body: { paymentIntentId: string },
+    @Request() req,
+  ) {
+    const userId = req.user.id;
+    const result = await this.stripeService.confirmMedicationPayment(body.paymentIntentId, userId);
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Get('medications/payment-status/:appointmentId')
+  @ApiOperation({ summary: 'Get medication payment status for an appointment' })
+  @ApiResponse({ status: 200, description: 'Payment status retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Appointment not found' })
+  async getMedicationPaymentStatus(@Param('appointmentId') appointmentId: string, @Request() req) {
+    const userId = req.user.id;
+    const userType = req.user.userType;
+    const status = await this.stripeService.getMedicationPaymentStatus(appointmentId, userId, userType);
+    return {
+      success: true,
+      data: status,
+    };
+  }
+
+  @Post('medications/cancel-subscription/:appointmentId')
+  @ApiOperation({ summary: 'Cancel medication subscription for an appointment (Doctor/Patient/Admin)' })
+  @ApiResponse({ status: 200, description: 'Subscription canceled successfully' })
+  @ApiResponse({ status: 404, description: 'Appointment or subscription not found' })
+  @ApiResponse({ status: 403, description: 'Unauthorized' })
+  async cancelMedicationSubscription(@Param('appointmentId') appointmentId: string, @Request() req) {
+    const userId = req.user.id;
+    const userType = req.user.userType;
+    const result = await this.stripeService.cancelMedicationSubscription(appointmentId, userId, userType);
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Post('medications/reactivate-subscription/:appointmentId')
+  @ApiOperation({ summary: 'Reactivate a canceled medication subscription' })
+  @ApiResponse({ status: 200, description: 'Subscription reactivated successfully' })
+  @ApiResponse({ status: 404, description: 'Appointment or subscription not found' })
+  @ApiResponse({ status: 403, description: 'Unauthorized' })
+  async reactivateMedicationSubscription(@Param('appointmentId') appointmentId: string, @Request() req) {
+    const userId = req.user.id;
+    const result = await this.stripeService.reactivateMedicationSubscription(appointmentId, userId);
+    return {
+      success: true,
+      data: result,
+    };
+  }
 }
 
 // Separate controller for webhook (no auth guard)

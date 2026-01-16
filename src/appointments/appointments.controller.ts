@@ -736,6 +736,32 @@ export class AppointmentsController {
     };
   }
 
+  @Post(':id/sign-notes')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Sign notes for an appointment',
+    description: 'Sign notes for an appointment, which locks editing (doctor only).',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Appointment ID',
+  })
+  async signNotes(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
+    const data = await this.appointmentsService.signNotes(id, user.id);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Notes signed successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: `/api/appointments/${id}/sign-notes`,
+    };
+  }
+
   @Put(':id/medications')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -767,7 +793,7 @@ export class AppointmentsController {
   })
   async updateMedications(
     @Param('id') id: string,
-    @Body() body: { medications: Record<string, string[]>; merge?: boolean },
+    @Body() body: { medications: Record<string, string[] | any[]>; merge?: boolean }, // Supports both old (string[]) and new (MedicationObject[]) formats
     @CurrentUser() user: any,
   ): Promise<BaseApiResponse<AppointmentResponseDto>> {
     const data = await this.appointmentsService.updateMedications(

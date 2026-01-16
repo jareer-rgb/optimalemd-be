@@ -2936,6 +2936,496 @@ export class MailerService implements OnModuleInit {
     }
   }
 
+  async sendMedicationPaymentConfirmationEmail(
+    to: string,
+    name: string,
+    amount: number,
+    appointmentId: string,
+    invoiceItems: Array<{
+      name: string;
+      strength?: string | null;
+      dose?: string | null;
+      frequency?: string | null;
+      route?: string | null;
+      standardPrice: number;
+      membershipPrice: number | null;
+      price: number;
+      discount: number;
+    }>,
+    isSubscribed: boolean,
+    totalDiscount: number,
+  ): Promise<void> {
+    const formattedDate = new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const formatPrice = (price: number) => {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      }).format(price);
+    };
+
+    const formatVariationDetails = (item: typeof invoiceItems[0]) => {
+      const parts: string[] = [];
+      if (item.strength) parts.push(item.strength);
+      if (item.dose) parts.push(item.dose);
+      if (item.frequency) parts.push(item.frequency);
+      if (item.route) parts.push(`(${item.route})`);
+      return parts.length > 0 ? parts.join(' • ') : null;
+    };
+
+    const itemsHtml = invoiceItems.map((item) => {
+      const variationDetails = formatVariationDetails(item);
+      const hasDiscount = isSubscribed && item.membershipPrice !== null && item.discount > 0;
+      
+      return `
+        <tr style="border-bottom: 1px solid #e9ecef;">
+          <td style="padding: 15px; text-align: left;">
+            <div style="font-weight: bold; color: #333333; margin-bottom: 5px;">${item.name}</div>
+            ${variationDetails ? `<div style="font-size: 12px; color: #666666; margin-top: 3px;">${variationDetails}</div>` : ''}
+          </td>
+          <td style="padding: 15px; text-align: right;">
+            ${hasDiscount ? `
+              <div style="text-decoration: line-through; color: #999999; font-size: 14px;">${formatPrice(item.standardPrice)}</div>
+              <div style="color: #28a745; font-weight: bold; font-size: 16px;">${formatPrice(item.price)}</div>
+              <div style="color: #28a745; font-size: 12px; margin-top: 3px;">Member Discount: ${formatPrice(item.discount)}</div>
+            ` : `
+              <div style="font-weight: bold; color: #333333; font-size: 16px;">${formatPrice(item.price)}</div>
+            `}
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333333;
+          }
+          .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .header {
+            background-color: #000000;
+            padding: 25px;
+            text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+          }
+          .logo {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+          }
+          .content {
+            padding: 30px;
+          }
+          .title {
+            color: #333333;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+          }
+          .description {
+            color: #666666;
+            font-size: 16px;
+            margin-bottom: 25px;
+            line-height: 1.6;
+          }
+          .success-message {
+            background-color: #d4edda;
+            padding: 25px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #28a745;
+            color: #155724;
+            text-align: center;
+          }
+          .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            overflow: hidden;
+          }
+          .invoice-table thead {
+            background-color: #000000;
+            color: #ffffff;
+          }
+          .invoice-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: bold;
+          }
+          .invoice-table th:last-child {
+            text-align: right;
+          }
+          .invoice-summary {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #000000;
+          }
+          .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+          }
+          .summary-row:last-child {
+            border-bottom: none;
+            font-weight: bold;
+            color: #000000;
+            font-size: 18px;
+            margin-top: 10px;
+            padding-top: 15px;
+            border-top: 2px solid #000000;
+          }
+          .discount-row {
+            color: #28a745;
+          }
+          .info-box {
+            background-color: #e7f3ff;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+            color: #004085;
+            font-size: 14px;
+          }
+          .footer {
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 20px;
+            color: #666666;
+            font-size: 14px;
+            border-top: 1px solid #e9ecef;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
+          </div>
+          <div class="content">
+            <h2 class="title">Medication Subscription Activated!</h2>
+            <p class="description">Hi ${name},</p>
+            <p class="description">Thank you for subscribing! Your medication subscription has been successfully activated and will be billed monthly.</p>
+            
+            <div class="success-message">
+              <span style="font-size: 32px; display: block; margin-bottom: 10px;">💊</span>
+              <p style="margin: 0; color: #155724; font-weight: bold; font-size: 18px;">Your subscription is now active!</p>
+            </div>
+            
+            <h3 style="color: #333333; font-size: 18px; margin-top: 30px; margin-bottom: 15px;">Invoice Details</h3>
+            <table class="invoice-table">
+              <thead>
+                <tr>
+                  <th>Medication</th>
+                  <th>Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsHtml}
+              </tbody>
+            </table>
+            
+            <div class="invoice-summary">
+              ${totalDiscount > 0 ? `
+                <div class="summary-row">
+                  <span>Subtotal:</span>
+                  <span>${formatPrice(amount + totalDiscount)}</span>
+                </div>
+                <div class="summary-row discount-row">
+                  <span>🎁 Member Discount:</span>
+                  <span>-${formatPrice(totalDiscount)}</span>
+                </div>
+              ` : ''}
+              <div class="summary-row">
+                <span>Monthly Subscription Amount:</span>
+                <span>${formatPrice(amount)}</span>
+              </div>
+            </div>
+            
+            <div class="info-box">
+              <p style="margin: 0;"><strong>ℹ️ Important Information:</strong></p>
+              <ul style="text-align: left; margin: 10px 0 0 20px; padding: 0;">
+                <li><strong>Monthly Billing:</strong> You will be charged ${formatPrice(amount)} each month automatically</li>
+                <li>Your payment method has been saved for automatic monthly billing</li>
+                <li>Your medications will be processed and shipped according to your prescription</li>
+                <li>You will receive tracking information once your order ships</li>
+                <li>If you have any questions about your medications, please contact your healthcare provider</li>
+                <li>Keep this email as your receipt for your records</li>
+              </ul>
+            </div>
+            
+            <p class="description" style="text-align: center; margin-top: 30px;">
+              <strong>Appointment ID:</strong> ${appointmentId}<br>
+              <strong>Payment Date:</strong> ${formattedDate}
+            </p>
+            
+            <p class="description">If you have any questions or concerns, please don't hesitate to contact our support team.</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email, please do not reply.</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to,
+        subject: 'Medication Subscription Activated - OptimaleMD',
+        html,
+      });
+      console.log(`Medication payment confirmation email sent successfully to ${to}`);
+    } catch (error) {
+      console.error('Failed to send medication payment confirmation email:', error);
+      throw error;
+    }
+  }
+
+  async sendMedicationSubscriptionCancellationEmail(
+    to: string,
+    name: string,
+    appointmentId: string,
+    monthlyAmount: number,
+    subscriptionEndDate?: Date,
+    serviceName?: string,
+    oldMedicationName?: string,
+  ): Promise<void> {
+    const formattedDate = new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const formattedEndDate = subscriptionEndDate
+      ? subscriptionEndDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+      : 'N/A';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333333;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .header {
+            background-color: #000000;
+            padding: 25px;
+            text-align: center;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 0 auto;
+            width: fit-content;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+          }
+          .logo {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+          }
+          .content {
+            padding: 30px;
+            text-align: center;
+          }
+          .title {
+            color: #333333;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+          }
+          .description {
+            color: #666666;
+            font-size: 16px;
+            margin-bottom: 25px;
+            line-height: 1.6;
+          }
+          .warning-message {
+            background-color: #fff3cd;
+            padding: 25px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+            text-align: left;
+          }
+          .subscription-details {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #000000;
+            text-align: left;
+          }
+          .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+          }
+          .detail-row:last-child {
+            border-bottom: none;
+          }
+          .detail-label {
+            font-weight: bold;
+            color: #333333;
+          }
+          .detail-value {
+            color: #666666;
+          }
+          .info-box {
+            background-color: #e7f3ff;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+            color: #004085;
+            font-size: 14px;
+            text-align: left;
+          }
+          .footer {
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 20px;
+            color: #666666;
+            font-size: 14px;
+            border-top: 1px solid #e9ecef;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo-container">
+              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
+              <div class="logo">OptimaleMD</div>
+            </div>
+          </div>
+          <div class="content">
+            <h2 class="title">Medication Subscription Canceled</h2>
+            <p class="description">Hi ${name},</p>
+            <p class="description">We are reaching out to inform you of a supervised change to your current medication regimen. After a thorough review of your latest ${serviceName || 'appointment'}, the clinical team at OptimaleMD has decided to transition your treatment from ${oldMedicationName || 'your current medication'}. The new medication will be discussed in the upcoming appointment.</p>
+            
+            <p class="description">Our primary goal is to ensure your treatment remains as effective and safe as possible. If you have any questions regarding this change or how to transition between these medications, please reply to this email or schedule a brief check-in via the patient portal.</p>
+            
+            <div class="subscription-details">
+              <div class="detail-row">
+                <span class="detail-label">Appointment ID:</span>
+                <span class="detail-value">${appointmentId}</span>
+              </div>
+              ${subscriptionEndDate ? `
+              <div class="detail-row">
+                <span class="detail-label">Subscription End Date:</span>
+                <span class="detail-value">${formattedEndDate}</span>
+              </div>
+              ` : ''}
+            </div>
+            
+            <p class="description" style="margin-top: 30px;">Best regards,</p>
+            <p class="description" style="margin-top: 10px;"><strong>The Clinical Support Team</strong><br>OptimaleMD</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email, please do not reply.</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to,
+        subject: 'Medication Subscription Cancellation Request - OptimaleMD',
+        html,
+      });
+      console.log(`Medication subscription cancellation email sent successfully to ${to}`);
+    } catch (error) {
+      console.error('Failed to send medication subscription cancellation email:', error);
+      throw error;
+    }
+  }
+
   /**
    * Get timezone abbreviation (e.g., EST, EDT, PST, UTC) for a given timezone and date
    * @param timezone - IANA timezone string (e.g., "America/New_York")

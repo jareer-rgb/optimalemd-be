@@ -93,6 +93,13 @@ model User {
   subscriptionEndDate DateTime?
   subscriptionCanceledAt DateTime?
 
+  // DoseSpot integration
+  doseSpotPatientId String? @unique // DoseSpot patient ID after syncing
+
+  // Identity verification files
+  drivingLicensePath String? // Path to uploaded driving license
+  photoPath String? // Path to uploaded photo
+
   // Relations
   bookings Booking[]
   patientAppointments Appointment[]
@@ -352,6 +359,31 @@ model Payment {
   @@map("payments")
 }
 
+model MedicationPayment {
+  id                String   @id @default(uuid())
+  appointmentId     String   @unique
+  stripePaymentId   String?  @unique
+  amount            Decimal  @db.Decimal(10, 2)
+  currency          String   @default("usd")
+  status            PaymentStatus @default(PENDING)
+  paymentIntent     String?  @unique // Stripe payment intent ID (for initial setup)
+  stripeSubscriptionId String? @unique // Stripe subscription ID for monthly billing
+  stripeCustomerId String? // Stripe customer ID
+  paidAt            DateTime?
+  subscriptionStatus String? // active, canceling, canceled, etc.
+  subscriptionCanceledAt DateTime? // When cancellation was requested
+  subscriptionEndDate DateTime? // When subscription will end (current_period_end)
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  appointment       Appointment @relation("MedicationPayments", fields: [appointmentId], references: [id], onDelete: Restrict)
+  
+  @@map("medication_payments")
+}
+
 model PrimaryService {
   id                String   @id @default(uuid())
   name              String
@@ -458,6 +490,7 @@ model Appointment {
   confirmedAt       DateTime?
   cancelledAt       DateTime?
   completedAt       DateTime?
+  notesSignedAt     DateTime?  // When doctor signed the notes (locks editing)
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -469,6 +502,7 @@ model Appointment {
   slot              Slot?    @relation(fields: [slotId], references: [id], onDelete: Cascade)
   primaryService    PrimaryService? @relation(fields: [primaryServiceId], references: [id], onDelete: Cascade)
   payment           Payment?
+  medicationPayment MedicationPayment? @relation("MedicationPayments")
   medicalForm       MedicalForm?
   appointmentAssessments AppointmentAssessment[]
   medicationPrescriptions MedicationPrescription[]
@@ -779,17 +813,32 @@ model MedicationPrescription {
   @@map("medication_prescriptions")
 }
 
-// Medication table - stores all medications with their prices
+// Medication table - stores all medications with their details and pricing
 model Medication {
   id              String   @id @default(uuid())
-  name            String   @unique // Medication name
-  price           Decimal  @db.Decimal(10, 2) // Regular price
-  discountedPrice Decimal? @db.Decimal(10, 2) // Discounted price (optional)
+  name            String   // Medication name (not unique - same name can have different strengths/doses/frequencies)
+  categoryName    String?  // Category name for grouping medications
+  strength        String?  // e.g., "100mg", "5ml", "250mcg"
+  dose            String?  // e.g., "1 tablet", "2 capsules", "0.5ml"
+  route           String?  // e.g., "Oral", "Injection", "Topical", "Sublingual"
+  frequency       String?  // e.g., "Once daily", "Twice daily", "As needed"
+  directions      String?   // Detailed instructions for use
+  therapyCategory String?  // e.g., "Hormone Therapy", "Hair Loss", "Weight Loss"
+  standardPrice   Decimal  @db.Decimal(10, 2) // Regular/standard price
+  membershipPrice Decimal? @db.Decimal(10, 2) // Discounted price for members (optional)
+  pricingNotes    String?   // Additional pricing information or notes
+  prescription    String?   // Full prescription text
   isActive        Boolean  @default(true)
+  
+  // Legacy fields for backward compatibility
+  price           Decimal  @db.Decimal(10, 2) // Maps to standardPrice
+  discountedPrice Decimal? @db.Decimal(10, 2) // Maps to membershipPrice
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
+  // Composite unique constraint: same name + strength + dose + frequency + route = duplicate
+  @@unique([name, strength, dose, frequency, route])
   @@map("medications")
 }
 
