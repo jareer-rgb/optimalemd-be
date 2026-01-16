@@ -665,6 +665,15 @@ export class PatientWithMedicalFormResponseDto {
   @ApiProperty({ description: 'Is email verified' })
   isEmailVerified: boolean;
 
+  @ApiProperty({ description: 'Subscription status', required: false })
+  isSubscribed?: boolean;
+
+  @ApiProperty({ description: 'Subscription status', required: false })
+  subscriptionStatus?: string | null;
+
+  @ApiProperty({ description: 'Subscription start date', required: false })
+  subscriptionStartDate?: Date | null;
+
   @ApiProperty({ description: 'Creation date' })
   createdAt: Date;
 

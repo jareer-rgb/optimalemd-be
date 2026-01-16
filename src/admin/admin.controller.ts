@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -139,6 +140,27 @@ export class AdminController {
     return {
       success: true,
       message: 'Patient updated successfully',
+      data: patient
+    };
+  }
+
+  @Patch(':id/premium')
+  @ApiOperation({ 
+    summary: 'Toggle Premium Status',
+    description: 'Update patient premium/subscription status'
+  })
+  @ApiParam({ name: 'id', description: 'Patient ID' })
+  @ApiResponse({ status: 200, description: 'Premium status updated successfully' })
+  @ApiResponse({ status: 404, description: 'Patient not found' })
+  async togglePremiumStatus(
+    @Param('id') patientId: string,
+    @Body() body: { isPremium: boolean }
+  ): Promise<{ success: boolean; message: string; data: PatientWithMedicalFormResponseDto }> {
+    const patient = await this.adminService.togglePremiumStatus(patientId, body.isPremium);
+    
+    return {
+      success: true,
+      message: `Patient ${body.isPremium ? 'upgraded to' : 'removed from'} premium successfully`,
       data: patient
     };
   }
