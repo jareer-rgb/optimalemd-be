@@ -22,8 +22,8 @@ export class DoseSpotService {
     private configService: ConfigService,
     private prisma: PrismaService,
   ) {
-    this.baseUrl = this.configService.get<string>('DOSESPOT_BASE_URL') || 'https://my.staging.dosespot.com/webapi/v2';
-    this.subscriptionKey = this.configService.get<string>('DOSESPOT_SUBSCRIPTION_KEY') || 'a759fec959902ab83fd0f16b7c4e61b6b4362fdb068b61bdf5e2b88b086dea3d';
+    this.baseUrl = this.configService.get<string>('DOSESPOT_BASE_URL') || 'https://my.dosespot.com/webapi/v2';
+    this.subscriptionKey = this.configService.get<string>('DOSESPOT_SUBSCRIPTION_KEY') || '84c770c2c47d18568621909839108c639c29f3978345122557a406433d766e17';
     this.clinicId = this.configService.get<string>('DOSESPOT_CLINIC_ID') || '';
     this.clinicKey = this.configService.get<string>('DOSESPOT_CLINIC_KEY') || '';
     this.userId = this.configService.get<string>('DOSESPOT_USER_ID') || '';
@@ -625,7 +625,7 @@ export class DoseSpotService {
 
       // Use LoginSingleSignOn.aspx endpoint as per documentation
       // The encrypted values are already URL-encoded by URLSearchParams
-      const jumpstartUrl = `https://my.staging.dosespot.com/LoginSingleSignOn.aspx?${ssoParams.toString()}`;
+      const jumpstartUrl = `https://my.dosespot.com/LoginSingleSignOn.aspx?${ssoParams.toString()}`;
 
       this.logger.log(`Generated DoseSpot Jumpstart URL for appointment ${appointmentId}, patient ${appointment.patient.doseSpotPatientId}`);
 
