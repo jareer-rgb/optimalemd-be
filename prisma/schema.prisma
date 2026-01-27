@@ -104,6 +104,7 @@ model User {
   bookings Booking[]
   patientAppointments Appointment[]
   medicalForms MedicalForm[]
+  labOrders LabOrder[]
 
   @@map("users")
 }
@@ -172,6 +173,7 @@ model Doctor {
   services        DoctorService[]
   bookings        Booking[]
   workingHours    WorkingHours[]
+  labOrders       LabOrder[]
 
   @@map("doctors")
 }
@@ -840,6 +842,70 @@ model Medication {
   // Composite unique constraint: same name + strength + dose + frequency + route = duplicate
   @@unique([name, strength, dose, frequency, route])
   @@map("medications")
+}
+
+// Lab Test Type model - stores available lab test types (can be added dynamically by admin)
+model LabTestType {
+  id          String   @id @default(uuid())
+  name        String   // e.g., "Basic Metabolic Panel", "Complete Blood Count"
+  description String?  // Description of what the test includes
+  code        String?  // Optional code (e.g., LOINC code)
+  price       Decimal? @db.Decimal(10, 2) // Optional price
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  labOrderItems LabOrderItem[]
+  
+  @@unique([name])
+  @@map("lab_test_types")
+}
+
+// Lab Order model - stores patient lab orders
+model LabOrder {
+  id            String   @id @default(uuid())
+  patientId     String
+  doctorId      String?  // Optional - doctor who ordered (if applicable)
+  
+  // Order details
+  scheduledDate DateTime // Date and time selected by patient
+  status        String   @default("pending") // pending, scheduled, completed, cancelled
+  
+  // Notes
+  notes         String?  // Additional notes from patient
+  
+  // Lab receipt and results (uploaded by admin)
+  receiptPath   String?  // Path to uploaded lab receipt
+  resultsPath   String?  // Path to uploaded lab results
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  patient       User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor        Doctor?  @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  items         LabOrderItem[]
+  
+  @@map("lab_orders")
+}
+
+// Lab Order Item model - stores individual test types in an order
+model LabOrderItem {
+  id            String   @id @default(uuid())
+  labOrderId    String
+  labTestTypeId String
+  
+  // Relations
+  labOrder      LabOrder    @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  labTestType   LabTestType @relation(fields: [labTestTypeId], references: [id], onDelete: Restrict)
+  
+  createdAt     DateTime @default(now())
+  
+  @@unique([labOrderId, labTestTypeId])
+  @@map("lab_order_items")
 }
 
 // Enums for new signup flow

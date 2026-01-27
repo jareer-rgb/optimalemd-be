@@ -1193,6 +1193,7 @@ export class AppointmentsController {
     @Query('endDate') endDate?: string,
     @Query('status') status?: string,
     @Query('appointmentType') appointmentType?: string,
+    @Query('search') search?: string,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ): Promise<PaginatedApiResponse<AppointmentWithRelationsResponseDto>> {
@@ -1202,6 +1203,7 @@ export class AppointmentsController {
       endDate: endDate || date,
       status: status as any,
       appointmentType: appointmentType as any,
+      search,
       page,
       limit,
     };
@@ -1328,7 +1330,8 @@ export class AppointmentsController {
         }
       },
       orderBy: [
-        { appointmentTime: 'asc' }
+        { appointmentDate: 'desc' },
+        { appointmentTime: 'desc' }
       ]
     });
 

@@ -18,6 +18,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody
 import { UploadsService } from './uploads.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/user.decorator';
+import * as path from 'path';
+import * as fs from 'fs';
 
 @ApiTags('Uploads')
 @Controller('uploads')
@@ -174,6 +176,244 @@ export class UploadsController {
     } catch (error) {
       return res.status(HttpStatus.NOT_FOUND).json({ message: 'File not found' });
     }
+  }
+
+  @Post('lab-receipt/:orderId')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload lab receipt (Admin)', description: 'Upload a lab receipt for a lab order' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Lab receipt uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file type or size' })
+  @ApiResponse({ status: 404, description: 'Lab order not found' })
+  async uploadLabReceipt(
+    @Param('orderId') orderId: string,
+    @UploadedFile() file: any,
+  ) {
+    const result = await this.uploadsService.uploadLabReceipt(orderId, file);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Lab receipt uploaded successfully',
+      data: result,
+    };
+  }
+
+  @Post('lab-results/:orderId')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload lab results (Admin)', description: 'Upload lab results for a lab order' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Lab results uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file type or size' })
+  @ApiResponse({ status: 404, description: 'Lab order not found' })
+  async uploadLabResults(
+    @Param('orderId') orderId: string,
+    @UploadedFile() file: any,
+  ) {
+    const result = await this.uploadsService.uploadLabResults(orderId, file);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Lab results uploaded successfully',
+      data: result,
+    };
+  }
+
+  @Get('lab-receipt/:orderId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get lab receipt file', description: 'Retrieve the lab receipt file for preview' })
+  @ApiResponse({ status: 200, description: 'File retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'File not found' })
+  async getLabReceipt(
+    @Param('orderId') orderId: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const filePath = await this.uploadsService.getLabFilePath(orderId, 'receipt');
+      
+      // Determine content type from file extension
+      const ext = path.extname(filePath).toLowerCase();
+      let contentType = 'application/octet-stream';
+      
+      if (ext === '.pdf') {
+        contentType = 'application/pdf';
+      } else if (ext === '.jpg' || ext === '.jpeg') {
+        contentType = 'image/jpeg';
+      } else if (ext === '.png') {
+        contentType = 'image/png';
+      } else if (ext === '.webp') {
+        contentType = 'image/webp';
+      }
+      
+      // Set content type header
+      res.setHeader('Content-Type', contentType);
+      
+      return res.sendFile(filePath);
+    } catch (error) {
+      return res.status(HttpStatus.NOT_FOUND).json({ message: 'File not found' });
+    }
+  }
+
+  @Get('lab-results/:orderId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get lab results file', description: 'Retrieve the lab results file for preview' })
+  @ApiResponse({ status: 200, description: 'File retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'File not found' })
+  async getLabResults(
+    @Param('orderId') orderId: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const filePath = await this.uploadsService.getLabFilePath(orderId, 'results');
+      
+      // Determine content type from file extension
+      const ext = path.extname(filePath).toLowerCase();
+      let contentType = 'application/octet-stream';
+      
+      if (ext === '.pdf') {
+        contentType = 'application/pdf';
+      } else if (ext === '.jpg' || ext === '.jpeg') {
+        contentType = 'image/jpeg';
+      } else if (ext === '.png') {
+        contentType = 'image/png';
+      } else if (ext === '.webp') {
+        contentType = 'image/webp';
+      }
+      
+      // Set content type header
+      res.setHeader('Content-Type', contentType);
+      
+      return res.sendFile(filePath);
+    } catch (error) {
+      return res.status(HttpStatus.NOT_FOUND).json({ message: 'File not found' });
+    }
+  }
+
+  @Get('admin/drivingLicense/:userId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get driving license file (Admin)', description: 'Retrieve the driving license file for a patient (admin access)' })
+  @ApiResponse({ status: 200, description: 'File retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'File not found' })
+  async getDrivingLicenseAdmin(
+    @Param('userId') userId: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const filePath = await this.uploadsService.getFilePath(userId, 'drivingLicense');
+      
+      // Determine content type from file extension
+      const ext = path.extname(filePath).toLowerCase();
+      let contentType = 'application/octet-stream';
+      
+      if (ext === '.pdf') {
+        contentType = 'application/pdf';
+      } else if (ext === '.jpg' || ext === '.jpeg') {
+        contentType = 'image/jpeg';
+      } else if (ext === '.png') {
+        contentType = 'image/png';
+      } else if (ext === '.webp') {
+        contentType = 'image/webp';
+      }
+      
+      // Set content type header
+      res.setHeader('Content-Type', contentType);
+      
+      return res.sendFile(filePath);
+    } catch (error) {
+      return res.status(HttpStatus.NOT_FOUND).json({ message: 'File not found' });
+    }
+  }
+
+  @Get('admin/photo/:userId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get photo file (Admin)', description: 'Retrieve the photo file for a patient (admin access)' })
+  @ApiResponse({ status: 200, description: 'File retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'File not found' })
+  async getPhotoAdmin(
+    @Param('userId') userId: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const filePath = await this.uploadsService.getFilePath(userId, 'photo');
+      
+      // Determine content type from file extension
+      const ext = path.extname(filePath).toLowerCase();
+      let contentType = 'application/octet-stream';
+      
+      if (ext === '.pdf') {
+        contentType = 'application/pdf';
+      } else if (ext === '.jpg' || ext === '.jpeg') {
+        contentType = 'image/jpeg';
+      } else if (ext === '.png') {
+        contentType = 'image/png';
+      } else if (ext === '.webp') {
+        contentType = 'image/webp';
+      }
+      
+      // Set content type header
+      res.setHeader('Content-Type', contentType);
+      
+      return res.sendFile(filePath);
+    } catch (error) {
+      return res.status(HttpStatus.NOT_FOUND).json({ message: 'File not found' });
+    }
+  }
+
+  @Delete('lab-receipt/:orderId')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove lab receipt (Admin)', description: 'Remove a lab receipt for a lab order' })
+  @ApiResponse({ status: 200, description: 'Lab receipt removed successfully' })
+  @ApiResponse({ status: 404, description: 'Lab order or receipt not found' })
+  async removeLabReceipt(
+    @Param('orderId') orderId: string,
+  ) {
+    await this.uploadsService.removeLabReceipt(orderId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Lab receipt removed successfully',
+    };
+  }
+
+  @Delete('lab-results/:orderId')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove lab results (Admin)', description: 'Remove lab results for a lab order' })
+  @ApiResponse({ status: 200, description: 'Lab results removed successfully' })
+  @ApiResponse({ status: 404, description: 'Lab order or results not found' })
+  async removeLabResults(
+    @Param('orderId') orderId: string,
+  ) {
+    await this.uploadsService.removeLabResults(orderId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Lab results removed successfully',
+    };
   }
 }
 

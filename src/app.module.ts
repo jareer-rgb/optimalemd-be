@@ -22,6 +22,7 @@ import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { MedicationsModule } from './medications/medications.module';
 import { DoseSpotModule } from './dosespot/dosespot.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { LabOrdersModule } from './lab-orders/lab-orders.module';
 
 @Module({ 
   imports: [
@@ -48,6 +49,7 @@ import { UploadsModule } from './uploads/uploads.module';
     MedicationsModule,
     DoseSpotModule,
     UploadsModule,
+    LabOrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

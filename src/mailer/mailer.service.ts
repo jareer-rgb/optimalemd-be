@@ -3453,4 +3453,254 @@ export class MailerService implements OnModuleInit {
       return 'UTC';
     }
   }
+
+  async sendLabReceiptEmail(
+    patientEmail: string,
+    patientName: string,
+    scheduledDate: string,
+    scheduledTime: string,
+    testNames: string,
+  ): Promise<void> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333333;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .header {
+            background-color: #000000;
+            padding: 25px;
+            text-align: center;
+          }
+          .logo {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+          }
+          .content {
+            padding: 30px;
+            text-align: center;
+          }
+          .title {
+            color: #dc2626;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+          }
+          .info-box {
+            background-color: #f9f9f9;
+            border-left: 4px solid #dc2626;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+          }
+          .info-item {
+            margin: 10px 0;
+          }
+          .info-label {
+            font-weight: bold;
+            color: #333333;
+          }
+          .footer {
+            background-color: #000000;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 class="logo">OptimaleMD</h1>
+          </div>
+          <div class="content">
+            <h2 class="title">Lab Order Confirmed</h2>
+            <p>Dear ${patientName},</p>
+            <p>Your lab order has been confirmed and scheduled. Please find the details below:</p>
+            
+            <div class="info-box">
+              <div class="info-item">
+                <span class="info-label">Scheduled Date:</span> ${scheduledDate}
+              </div>
+              <div class="info-item">
+                <span class="info-label">Scheduled Time:</span> ${scheduledTime}
+              </div>
+              <div class="info-item">
+                <span class="info-label">Tests Included:</span> ${testNames}
+              </div>
+            </div>
+
+            <p>Your lab receipt has been uploaded to your portal. You can view it by logging into your patient portal.</p>
+            <p>Please arrive at the scheduled time for your lab appointment.</p>
+            
+            <p style="margin-top: 30px;">Best regards,<br><strong>The OptimaleMD Team</strong></p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email, please do not reply.</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to: patientEmail,
+        subject: 'Lab Order Confirmed - OptimaleMD',
+        html,
+      });
+      console.log(`Lab receipt email sent successfully to ${patientEmail}`);
+    } catch (error) {
+      console.error('Failed to send lab receipt email:', error);
+      throw error;
+    }
+  }
+
+  async sendLabResultsEmail(
+    patientEmail: string,
+    patientName: string,
+    scheduledDate: string,
+    testNames: string,
+  ): Promise<void> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333333;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .header {
+            background-color: #000000;
+            padding: 25px;
+            text-align: center;
+          }
+          .logo {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+          }
+          .content {
+            padding: 30px;
+            text-align: center;
+          }
+          .title {
+            color: #dc2626;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+          }
+          .info-box {
+            background-color: #f9f9f9;
+            border-left: 4px solid #dc2626;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+          }
+          .info-item {
+            margin: 10px 0;
+          }
+          .info-label {
+            font-weight: bold;
+            color: #333333;
+          }
+          .footer {
+            background-color: #000000;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 class="logo">OptimaleMD</h1>
+          </div>
+          <div class="content">
+            <h2 class="title">Lab Results Available</h2>
+            <p>Dear ${patientName},</p>
+            <p>Your lab results are now available in your patient portal.</p>
+            
+            <div class="info-box">
+              <div class="info-item">
+                <span class="info-label">Lab Date:</span> ${scheduledDate}
+              </div>
+              <div class="info-item">
+                <span class="info-label">Tests Completed:</span> ${testNames}
+              </div>
+            </div>
+
+            <p>You can view your lab results by logging into your patient portal. Your healthcare provider will review these results and contact you if any follow-up is needed.</p>
+            
+            <div class="info-box" style="margin-top: 30px; background-color: #e8f4f8; border-left-color: #3b82f6;">
+              <p style="margin: 0; font-weight: bold; color: #1e40af;">Next Steps:</p>
+              <p style="margin: 10px 0 0 0; color: #1e3a8a;">Your lab results are now available. You can now book an appointment to discuss your results with your healthcare provider.</p>
+            </div>
+            
+            <p style="margin-top: 30px;">Best regards,<br><strong>The OptimaleMD Team</strong></p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email, please do not reply.</p>
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to: patientEmail,
+        subject: 'Lab Results Available - OptimaleMD',
+        html,
+      });
+      console.log(`Lab results email sent successfully to ${patientEmail}`);
+    } catch (error) {
+      console.error('Failed to send lab results email:', error);
+      throw error;
+    }
+  }
 } 

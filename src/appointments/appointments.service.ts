@@ -217,17 +217,75 @@ export class AppointmentsService {
       where: { id: patientId },
       select: { id: true, isActive: true, hasCompletedMedicalForm: true, drivingLicensePath: true, photoPath: true }
     });
+
     if (!patient) {
       throw new NotFoundException('Patient not found');
     }
+
+    // Check if patient has uploaded identity documents (driving license and photo)
+    if (!patient.drivingLicensePath || !patient.photoPath) {
+      const missingDocs: string[] = [];
+      if (!patient.drivingLicensePath) missingDocs.push('driving license');
+      if (!patient.photoPath) missingDocs.push('profile photo');
+      throw new BadRequestException(
+        `You must upload your ${missingDocs.join(' and ')} before booking an appointment. Please upload them from your profile settings.`
+      );
+    }
+
+    // Check if patient has a confirmed lab order with results received
+    const labOrders = await this.prisma.labOrder.findMany({
+      where: {
+        patientId: patientId,
+        status: {
+          in: ['confirmed', 'completed']
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    if (labOrders.length === 0) {
+      throw new BadRequestException(
+        'You must have a confirmed lab order before booking an appointment. Please ensure your lab order has been confirmed by the admin.'
+      );
+    }
+
+    // Check if at least one lab order has results
+    const orderWithResults = labOrders.find(order => 
+      order.resultsPath !== null && order.resultsPath !== undefined
+    );
+
+    if (!orderWithResults) {
+      throw new BadRequestException(
+        'You must have received lab results before booking an appointment. Please ensure your lab results have been uploaded by the admin.'
+      );
+    }
+
+    // Check if the last lab with results is older than 3 months
+    // Sort orders by scheduled date (most recent first) and find the one with results
+    const ordersWithResults = labOrders
+      .filter(order => order.resultsPath !== null && order.resultsPath !== undefined)
+      .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
+    
+    if (ordersWithResults.length > 0) {
+      const lastLabWithResults = ordersWithResults[0];
+      const lastLabDate = new Date(lastLabWithResults.scheduledDate);
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      
+      if (lastLabDate < threeMonthsAgo) {
+        throw new BadRequestException(
+          `Your last lab was completed more than 3 months ago (${lastLabDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}). Please order a fresh lab before booking an appointment.`
+        );
+      }
+    }
+
     if (!patient.isActive) {
       throw new BadRequestException('Patient account is not active');
     }
     if (!patient.hasCompletedMedicalForm) {
       throw new BadRequestException('Patient must complete the medical consultation form before booking appointments. Please complete the form and try again.');
-    }
-    if (!patient.drivingLicensePath || !patient.photoPath) {
-      throw new BadRequestException('Please upload your driving license and photo before booking appointments. You can upload them from the dashboard.');
     }
 
     // Check if doctor exists and is active
@@ -341,6 +399,8 @@ export class AppointmentsService {
             primaryPhone: true,
             gender: true,
             dateOfBirth: true,
+            photoPath: true,
+            drivingLicensePath: true,
           }
         },
         doctor: {
@@ -615,8 +675,8 @@ export class AppointmentsService {
         skip,
         take: limit,
         orderBy: [
-          { appointmentDate: 'asc' },
-          { appointmentTime: 'asc' }
+          { appointmentDate: 'desc' },
+          { appointmentTime: 'desc' }
         ]
       }),
       this.prisma.appointment.count({ where })
@@ -1256,8 +1316,8 @@ export class AppointmentsService {
         skip,
         take: limit,
         orderBy: [
-          { appointmentDate: 'asc' },
-          { appointmentTime: 'asc' }
+          { appointmentDate: 'desc' },
+          { appointmentTime: 'desc' }
         ]
       }),
       this.prisma.appointment.count({ where })
@@ -1270,22 +1330,56 @@ export class AppointmentsService {
    * Get doctor appointments
    */
   async getDoctorAppointments(doctorId: string, query: QueryAppointmentsDto): Promise<{ appointments: AppointmentWithRelationsResponseDto[], total: number }> {
-    const { status, startDate, endDate, page = 1, limit = 10 } = query;
+    const { status, startDate, endDate, search, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = { doctorId };
+    const where: any = { 
+      doctorId,
+      AND: []
+    };
 
-    if (status) where.status = status;
+    if (status) where.AND.push({ status });
     if (startDate || endDate) {
-      where.appointmentDate = {};
+      const dateFilter: any = {};
       if (startDate) {
         // Ensure we're comparing dates at the start of the day (UTC)
-        where.appointmentDate.gte = getUTCMidnight(dateStringToUTC(startDate));
+        dateFilter.gte = getUTCMidnight(dateStringToUTC(startDate));
       }
       if (endDate) {
         // Ensure we're comparing dates at the end of the day (UTC)
-        where.appointmentDate.lte = getUTCEndOfDay(dateStringToUTC(endDate));
+        dateFilter.lte = getUTCEndOfDay(dateStringToUTC(endDate));
       }
+      if (Object.keys(dateFilter).length > 0) {
+        where.AND.push({ appointmentDate: dateFilter });
+      }
+    }
+
+    // Add search functionality
+    if (search && search.trim()) {
+      const searchTerm = search.trim();
+      where.AND.push({
+        OR: [
+          {
+            patient: {
+              OR: [
+                { firstName: { contains: searchTerm, mode: 'insensitive' } },
+                { lastName: { contains: searchTerm, mode: 'insensitive' } },
+                { primaryEmail: { contains: searchTerm, mode: 'insensitive' } },
+              ],
+            },
+          },
+          {
+            service: {
+              name: { contains: searchTerm, mode: 'insensitive' },
+            },
+          },
+        ],
+      });
+    }
+
+    // Clean up empty AND array
+    if (where.AND.length === 0) {
+      delete where.AND;
     }
 
     const [appointments, total] = await Promise.all([
@@ -1335,8 +1429,8 @@ export class AppointmentsService {
         skip,
         take: limit,
         orderBy: [
-          { appointmentDate: 'asc' },
-          { appointmentTime: 'asc' }
+          { appointmentDate: 'desc' },
+          { appointmentTime: 'desc' }
         ]
       }),
       this.prisma.appointment.count({ where })
@@ -1408,8 +1502,8 @@ export class AppointmentsService {
         }
       },
       orderBy: [
-        { appointmentDate: 'asc' },
-        { appointmentTime: 'asc' }
+        { appointmentDate: 'desc' },
+        { appointmentTime: 'desc' }
       ]
     });
 

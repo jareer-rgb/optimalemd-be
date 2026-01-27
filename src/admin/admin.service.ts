@@ -248,6 +248,16 @@ export class AdminService {
         medicalForms: {
           take: 1,
           orderBy: { createdAt: 'desc' }
+        },
+        welcomeOrders: {
+          where: {
+            paymentStatus: 'SUCCEEDED'
+          },
+          take: 1,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            paymentIntentId: true
+          }
         }
       }
     });
@@ -261,6 +271,11 @@ export class AdminService {
     // Add medical form data if exists
     if (patient.medicalForms && patient.medicalForms.length > 0) {
       responseDto.medicalForm = patient.medicalForms[0];
+    }
+
+    // Add welcome order payment intent ID if exists
+    if (patient.welcomeOrders && patient.welcomeOrders.length > 0) {
+      responseDto.welcomeOrderPaymentIntentId = patient.welcomeOrders[0].paymentIntentId;
     }
 
     return responseDto;
@@ -491,6 +506,16 @@ export class AdminService {
           medicalForms: {
             take: 1,
             orderBy: { createdAt: 'desc' }
+          },
+          welcomeOrders: {
+            where: {
+              paymentStatus: 'SUCCEEDED'
+            },
+            take: 1,
+            orderBy: { createdAt: 'desc' },
+            select: {
+              paymentIntentId: true
+            }
           }
         },
         orderBy: { createdAt: 'desc' },
@@ -504,6 +529,11 @@ export class AdminService {
       // Add medical form data if exists
       if (patient.medicalForms && patient.medicalForms.length > 0) {
         responseDto.medicalForm = patient.medicalForms[0];
+      }
+
+      // Add welcome order payment intent ID if exists
+      if (patient.welcomeOrders && patient.welcomeOrders.length > 0) {
+        responseDto.welcomeOrderPaymentIntentId = patient.welcomeOrders[0].paymentIntentId;
       }
 
       return responseDto;
@@ -633,6 +663,9 @@ export class AdminService {
       isSubscribed: user.isSubscribed,
       subscriptionStatus: user.subscriptionStatus,
       subscriptionStartDate: user.subscriptionStartDate,
+      drivingLicensePath: user.drivingLicensePath,
+      photoPath: user.photoPath,
+      welcomeOrderPaymentIntentId: (user as any).welcomeOrderPaymentIntentId || null,
       createdAt: user.createdAt,
     };
   }

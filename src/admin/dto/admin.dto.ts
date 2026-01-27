@@ -674,6 +674,15 @@ export class PatientWithMedicalFormResponseDto {
   @ApiProperty({ description: 'Subscription start date', required: false })
   subscriptionStartDate?: Date | null;
 
+  @ApiProperty({ description: 'Driving license file path', required: false })
+  drivingLicensePath?: string | null;
+
+  @ApiProperty({ description: 'Photo file path', required: false })
+  photoPath?: string | null;
+
+  @ApiProperty({ description: 'Welcome order Stripe payment intent ID', required: false })
+  welcomeOrderPaymentIntentId?: string | null;
+
   @ApiProperty({ description: 'Creation date' })
   createdAt: Date;
 

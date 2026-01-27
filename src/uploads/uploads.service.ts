@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailerService } from '../mailer/mailer.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -8,7 +9,10 @@ import * as crypto from 'crypto';
 export class UploadsService {
   private readonly uploadsDir: string;
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private mailerService: MailerService,
+  ) {
     // Create uploads directory at project root
     this.uploadsDir = path.join(process.cwd(), 'uploads', 'user-documents');
     
@@ -68,6 +72,192 @@ export class UploadsService {
       where: { id: userId },
       data: { drivingLicensePath: filePath },
     });
+
+    return { filePath, fileName };
+  }
+
+  async uploadLabReceipt(orderId: string, file: any): Promise<{ filePath: string; fileName: string }> {
+    // Validate file
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    // Validate file type (images and PDFs)
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Invalid file type. Please upload an image (JPEG, PNG, WebP) or PDF.');
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      throw new BadRequestException('File size exceeds 10MB limit.');
+    }
+
+    // Check if lab order exists with patient info
+    const labOrder = await this.prisma.labOrder.findUnique({
+      where: { id: orderId },
+      include: {
+        patient: true,
+        items: {
+          include: {
+            labTestType: true,
+          },
+        },
+      },
+    });
+
+    if (!labOrder) {
+      throw new NotFoundException('Lab order not found');
+    }
+
+    // Generate unique filename
+    const fileExtension = path.extname(file.originalname);
+    const uniqueId = crypto.randomBytes(8).toString('hex');
+    const fileName = `lab-receipt-${orderId}-${uniqueId}${fileExtension}`;
+    const filePath = path.join(this.uploadsDir, fileName);
+
+    // Save file
+    fs.writeFileSync(filePath, file.buffer);
+
+    // Delete old file if exists
+    if (labOrder.receiptPath && fs.existsSync(labOrder.receiptPath)) {
+      try {
+        fs.unlinkSync(labOrder.receiptPath);
+      } catch (error) {
+        console.error('Error deleting old lab receipt:', error);
+      }
+    }
+
+    // Update lab order record - change status to confirmed if it was pending
+    const updateData: any = { receiptPath: filePath };
+    if (labOrder.status === 'pending') {
+      updateData.status = 'confirmed';
+    }
+
+    const updatedOrder = await this.prisma.labOrder.update({
+      where: { id: orderId },
+      data: updateData,
+    });
+
+    // Send email to patient if status was changed to confirmed
+    if (updateData.status === 'confirmed' && labOrder.patient.primaryEmail) {
+      try {
+        const patientName = `${labOrder.patient.firstName} ${labOrder.patient.lastName}`;
+        const scheduledDate = new Date(labOrder.scheduledDate);
+        const dateStr = scheduledDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+        const timeStr = scheduledDate.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+        const testNames = labOrder.items.map(item => item.labTestType.name).join(', ');
+
+        await this.mailerService.sendLabReceiptEmail(
+          labOrder.patient.primaryEmail,
+          patientName,
+          dateStr,
+          timeStr,
+          testNames,
+        );
+      } catch (error) {
+        console.error('Failed to send lab receipt email:', error);
+        // Don't throw error - file upload succeeded
+      }
+    }
+
+    return { filePath, fileName };
+  }
+
+  async uploadLabResults(orderId: string, file: any): Promise<{ filePath: string; fileName: string }> {
+    // Validate file
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    // Validate file type (images and PDFs)
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Invalid file type. Please upload an image (JPEG, PNG, WebP) or PDF.');
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      throw new BadRequestException('File size exceeds 10MB limit.');
+    }
+
+    // Check if lab order exists with patient info
+    const labOrder = await this.prisma.labOrder.findUnique({
+      where: { id: orderId },
+      include: {
+        patient: true,
+        items: {
+          include: {
+            labTestType: true,
+          },
+        },
+      },
+    });
+
+    if (!labOrder) {
+      throw new NotFoundException('Lab order not found');
+    }
+
+    // Generate unique filename
+    const fileExtension = path.extname(file.originalname);
+    const uniqueId = crypto.randomBytes(8).toString('hex');
+    const fileName = `lab-results-${orderId}-${uniqueId}${fileExtension}`;
+    const filePath = path.join(this.uploadsDir, fileName);
+
+    // Save file
+    fs.writeFileSync(filePath, file.buffer);
+
+    // Delete old file if exists
+    if (labOrder.resultsPath && fs.existsSync(labOrder.resultsPath)) {
+      try {
+        fs.unlinkSync(labOrder.resultsPath);
+      } catch (error) {
+        console.error('Error deleting old lab results:', error);
+      }
+    }
+
+    // Update lab order record
+    const updatedOrder = await this.prisma.labOrder.update({
+      where: { id: orderId },
+      data: { resultsPath: filePath },
+    });
+
+    // Send email to patient
+    if (labOrder.patient.primaryEmail) {
+      try {
+        const patientName = `${labOrder.patient.firstName} ${labOrder.patient.lastName}`;
+        const scheduledDate = new Date(labOrder.scheduledDate);
+        const dateStr = scheduledDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+
+        const testNames = labOrder.items.map(item => item.labTestType.name).join(', ');
+
+        await this.mailerService.sendLabResultsEmail(
+          labOrder.patient.primaryEmail,
+          patientName,
+          dateStr,
+          testNames,
+        );
+      } catch (error) {
+        console.error('Failed to send lab results email:', error);
+        // Don't throw error - file upload succeeded
+      }
+    }
 
     return { filePath, fileName };
   }
@@ -224,6 +414,83 @@ export class UploadsService {
     }
 
     return filePath;
+  }
+
+  async getLabFilePath(orderId: string, type: 'receipt' | 'results'): Promise<string> {
+    const labOrder = await this.prisma.labOrder.findUnique({
+      where: { id: orderId },
+      select: { receiptPath: true, resultsPath: true },
+    });
+
+    if (!labOrder) {
+      throw new NotFoundException('Lab order not found');
+    }
+
+    const filePath = type === 'receipt' ? labOrder.receiptPath : labOrder.resultsPath;
+
+    if (!filePath || !fs.existsSync(filePath)) {
+      throw new NotFoundException(`Lab ${type} file not found`);
+    }
+
+    return filePath;
+  }
+
+  async removeLabReceipt(orderId: string): Promise<void> {
+    const labOrder = await this.prisma.labOrder.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!labOrder) {
+      throw new NotFoundException('Lab order not found');
+    }
+
+    if (!labOrder.receiptPath) {
+      throw new NotFoundException('Receipt file not found');
+    }
+
+    // Delete file from disk
+    if (fs.existsSync(labOrder.receiptPath)) {
+      try {
+        fs.unlinkSync(labOrder.receiptPath);
+      } catch (error) {
+        console.error('Error deleting lab receipt file:', error);
+      }
+    }
+
+    // Update lab order record
+    await this.prisma.labOrder.update({
+      where: { id: orderId },
+      data: { receiptPath: null },
+    });
+  }
+
+  async removeLabResults(orderId: string): Promise<void> {
+    const labOrder = await this.prisma.labOrder.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!labOrder) {
+      throw new NotFoundException('Lab order not found');
+    }
+
+    if (!labOrder.resultsPath) {
+      throw new NotFoundException('Results file not found');
+    }
+
+    // Delete file from disk
+    if (fs.existsSync(labOrder.resultsPath)) {
+      try {
+        fs.unlinkSync(labOrder.resultsPath);
+      } catch (error) {
+        console.error('Error deleting lab results file:', error);
+      }
+    }
+
+    // Update lab order record
+    await this.prisma.labOrder.update({
+      where: { id: orderId },
+      data: { resultsPath: null },
+    });
   }
 }
 
