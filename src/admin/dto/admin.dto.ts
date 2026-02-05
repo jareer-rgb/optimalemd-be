@@ -608,6 +608,9 @@ export class PatientWithMedicalFormResponseDto {
   @ApiProperty({ description: 'Patient ID' })
   id: string;
 
+  @ApiProperty({ description: 'Patient ID (OPT-XXXX format)', required: false })
+  patientId?: string | null;
+
   @ApiProperty({ description: 'Patient title' })
   title?: string;
 

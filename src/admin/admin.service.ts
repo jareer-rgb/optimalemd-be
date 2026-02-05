@@ -652,6 +652,7 @@ export class AdminService {
   private mapToResponseDto(user: any): PatientWithMedicalFormResponseDto {
     return {
       id: user.id,
+      patientId: user.patientId || null,
       title: user.title,
       firstName: user.firstName,
       middleName: user.middleName,
