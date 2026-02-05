@@ -1,6 +1,6 @@
 x# GCP Deployment Guide for OptimaleMD Backend
 
-This guide will help you deploy your NestJS backend to Google Cloud Platform using Google App Engine.
+This guide will help you deploy your NestJS backend to Google Cloud Platform using Google App Engin.
 
 ## Prerequisites
 
