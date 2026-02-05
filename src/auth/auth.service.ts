@@ -7,6 +7,7 @@ import { LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordDto, AuthRespons
 import { DoctorResponseDto } from '../doctors/dto/doctor.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { generateNextPatientId } from '../common/utils/patient-id.utils';
 
 @Injectable()
 export class AuthService {
@@ -39,11 +40,15 @@ export class AuthService {
     const emailVerificationToken = crypto.randomBytes(32).toString('hex');
     const emailVerificationTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
+    // Generate patient ID
+    const patientId = await generateNextPatientId(this.prisma);
+
     // Prepare user data for creation
     const userCreateData: any = {
       ...userData,
       primaryEmail: normalizedEmail, // Use normalized email
       password: hashedPassword,
+      patientId, // Assign sequential patient ID
       dateOfBirth: new Date(userData.dateOfBirth),
       dateOfFirstVisitPlanned: userData.dateOfFirstVisitPlanned ? new Date(userData.dateOfFirstVisitPlanned) : null,
       emailVerificationToken,

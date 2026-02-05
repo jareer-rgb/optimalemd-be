@@ -94,7 +94,7 @@ export class IntakeService {
         historyBloodClotsMIStroke: false,
         currentlyUsingHormonesPeptides: false,
         planningChildrenNext12Months: false,
-        labSchedulingNeeded: false,
+        labSchedulingNeeded: true,
         consentTelemedicineCare: false,
         consentElectiveOptimizationTreatment: false,
         consentRequiredLabMonitoring: false,
@@ -124,6 +124,8 @@ export class IntakeService {
       const processedData: any = {
         ...intakeData,
         appointmentId,
+        // Set labSchedulingNeeded to true by default if not provided
+        labSchedulingNeeded: intakeData.labSchedulingNeeded !== undefined ? intakeData.labSchedulingNeeded : true,
       };
       
       if (processedData.consentDate && typeof processedData.consentDate === 'string') {
@@ -151,7 +153,11 @@ export class IntakeService {
     } else {
       // If no existing form found, create a new one (fallback)
       // Convert consentDate string to Date object if provided
-      const processedData: any = { ...intakeData };
+      const processedData: any = { 
+        ...intakeData,
+        // Set labSchedulingNeeded to true by default if not provided
+        labSchedulingNeeded: intakeData.labSchedulingNeeded !== undefined ? intakeData.labSchedulingNeeded : true,
+      };
       if (processedData.consentDate && typeof processedData.consentDate === 'string') {
         processedData.consentDate = new Date(processedData.consentDate);
       }

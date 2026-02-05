@@ -178,10 +178,10 @@ export class UploadsController {
     }
   }
 
-  @Post('lab-receipt/:orderId')
+  @Post('lab-order/:orderId')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
-  @ApiOperation({ summary: 'Upload lab receipt (Admin)', description: 'Upload a lab receipt for a lab order' })
+  @ApiOperation({ summary: 'Upload lab order (Admin)', description: 'Upload a lab order for a lab order' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -194,18 +194,18 @@ export class UploadsController {
       },
     },
   })
-  @ApiResponse({ status: 200, description: 'Lab receipt uploaded successfully' })
+  @ApiResponse({ status: 200, description: 'Lab order uploaded successfully' })
   @ApiResponse({ status: 400, description: 'Invalid file type or size' })
   @ApiResponse({ status: 404, description: 'Lab order not found' })
-  async uploadLabReceipt(
+  async uploadLabOrder(
     @Param('orderId') orderId: string,
     @UploadedFile() file: any,
   ) {
-    const result = await this.uploadsService.uploadLabReceipt(orderId, file);
+    const result = await this.uploadsService.uploadLabOrder(orderId, file);
     return {
       success: true,
       statusCode: HttpStatus.OK,
-      message: 'Lab receipt uploaded successfully',
+      message: 'Lab order uploaded successfully',
       data: result,
     };
   }
@@ -242,12 +242,12 @@ export class UploadsController {
     };
   }
 
-  @Get('lab-receipt/:orderId')
+  @Get('lab-order/:orderId')
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get lab receipt file', description: 'Retrieve the lab receipt file for preview' })
+  @ApiOperation({ summary: 'Get lab order file', description: 'Retrieve the lab order file for preview' })
   @ApiResponse({ status: 200, description: 'File retrieved successfully' })
   @ApiResponse({ status: 404, description: 'File not found' })
-  async getLabReceipt(
+  async getLabOrder(
     @Param('orderId') orderId: string,
     @Res() res: Response,
   ) {
@@ -382,20 +382,20 @@ export class UploadsController {
     }
   }
 
-  @Delete('lab-receipt/:orderId')
+  @Delete('lab-order/:orderId')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Remove lab receipt (Admin)', description: 'Remove a lab receipt for a lab order' })
-  @ApiResponse({ status: 200, description: 'Lab receipt removed successfully' })
-  @ApiResponse({ status: 404, description: 'Lab order or receipt not found' })
-  async removeLabReceipt(
+  @ApiOperation({ summary: 'Remove lab order (Admin)', description: 'Remove a lab order for a lab order' })
+  @ApiResponse({ status: 200, description: 'Lab order removed successfully' })
+  @ApiResponse({ status: 404, description: 'Lab order not found' })
+  async removeLabOrder(
     @Param('orderId') orderId: string,
   ) {
-    await this.uploadsService.removeLabReceipt(orderId);
+    await this.uploadsService.removeLabOrder(orderId);
     return {
       success: true,
       statusCode: HttpStatus.OK,
-      message: 'Lab receipt removed successfully',
+      message: 'Lab order removed successfully',
     };
   }
 

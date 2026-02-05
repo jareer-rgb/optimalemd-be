@@ -4,6 +4,7 @@ import { MailerService } from '../mailer/mailer.service';
 import { AdminCreatePatientDto, AdminUpdatePatientDto, AdminCreateMedicalFormDto, PatientWithMedicalFormResponseDto } from './dto/admin.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { generateNextPatientId } from '../common/utils/patient-id.utils';
 
 @Injectable()
 export class AdminService {
@@ -39,12 +40,16 @@ export class AdminService {
     const emailVerificationToken = crypto.randomBytes(32).toString('hex');
     const emailVerificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
+    // Generate patient ID
+    const patientId = await generateNextPatientId(this.prisma);
+
     // Prepare user data for creation
     const userCreateData: any = {
       ...patientData,
       primaryEmail: normalizedPrimaryEmail,
       alternativeEmail: normalizedAlternativeEmail,
       password: hashedPassword,
+      patientId, // Assign sequential patient ID
       dateOfBirth: new Date(patientData.dateOfBirth),
       dateOfFirstVisitPlanned: patientData.dateOfFirstVisitPlanned && patientData.dateOfFirstVisitPlanned.trim() !== '' 
         ? new Date(patientData.dateOfFirstVisitPlanned) 
@@ -174,7 +179,9 @@ export class AdminService {
     // Prepare medical form data
     const medicalFormData: any = {
       patientId,
-      ...createMedicalFormDto
+      ...createMedicalFormDto,
+      // Set labSchedulingNeeded to true by default if not provided
+      labSchedulingNeeded: createMedicalFormDto.labSchedulingNeeded !== undefined ? createMedicalFormDto.labSchedulingNeeded : true,
     };
 
     // Convert date string to Date object if provided
@@ -222,7 +229,11 @@ export class AdminService {
     }
 
     // Prepare update data
-    const updateData: any = { ...updateMedicalFormDto };
+    const updateData: any = { 
+      ...updateMedicalFormDto,
+      // Set labSchedulingNeeded to true by default if not provided
+      labSchedulingNeeded: updateMedicalFormDto.labSchedulingNeeded !== undefined ? updateMedicalFormDto.labSchedulingNeeded : true,
+    };
 
     // Convert date string to Date object if provided
     if (updateMedicalFormDto.consentDate) {

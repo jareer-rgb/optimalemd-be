@@ -30,7 +30,7 @@ export class LabOrdersService {
   }
 
   /**
-   * Create a lab order
+   * Request a lab order
    */
   async createLabOrder(
     userId: string,
@@ -108,7 +108,7 @@ export class LabOrdersService {
       throw new BadRequestException('Duplicate test types are not allowed');
     }
 
-    // Create the lab order with items
+    // Request the lab order with items
     const labOrder = await this.prisma.labOrder.create({
       data: {
         patientId: userId,
@@ -252,9 +252,9 @@ export class LabOrdersService {
   }
 
   /**
-   * Upload lab receipt for an order
+   * Upload lab order for an order
    */
-  async uploadLabReceipt(orderId: string, filePath: string): Promise<LabOrderDto> {
+  async uploadLabOrder(orderId: string, filePath: string): Promise<LabOrderDto> {
     const order = await this.prisma.labOrder.findUnique({
       where: { id: orderId },
     });

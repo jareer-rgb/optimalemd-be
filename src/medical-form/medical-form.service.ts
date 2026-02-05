@@ -48,7 +48,9 @@ export class MedicalFormService {
       data: {
         patientId,
         appointmentId,
-        ...createMedicalFormDto
+        ...createMedicalFormDto,
+        // Set labSchedulingNeeded to true by default if not provided
+        labSchedulingNeeded: createMedicalFormDto.labSchedulingNeeded !== undefined ? createMedicalFormDto.labSchedulingNeeded : true,
       }
     });
 
@@ -98,9 +100,15 @@ export class MedicalFormService {
       throw new NotFoundException('Medical form not found for this appointment');
     }
 
+    // Set labSchedulingNeeded to true by default if not provided
+    const processedUpdateData = {
+      ...updateData,
+      labSchedulingNeeded: updateData.labSchedulingNeeded !== undefined ? updateData.labSchedulingNeeded : true,
+    };
+
     const updatedForm = await this.prisma.medicalForm.update({
       where: { appointmentId },
-      data: updateData
+      data: processedUpdateData
     });
 
     return this.mapToResponseDto(updatedForm);
@@ -117,9 +125,15 @@ export class MedicalFormService {
       throw new NotFoundException('Medical form not found for this patient');
     }
 
+    // Set labSchedulingNeeded to true by default if not provided
+    const processedUpdateData = {
+      ...updateData,
+      labSchedulingNeeded: updateData.labSchedulingNeeded !== undefined ? updateData.labSchedulingNeeded : true,
+    };
+
     const updatedForm = await this.prisma.medicalForm.update({
       where: { id: existingForm.id },
-      data: updateData
+      data: processedUpdateData
     });
 
     return this.mapToResponseDto(updatedForm);

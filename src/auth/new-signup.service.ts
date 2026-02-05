@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { MailerService } from '../mailer/mailer.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { generateNextPatientId } from '../common/utils/patient-id.utils';
 import { 
   CreateWelcomeOrderDto, 
   UpdateSignupStepDto, 
@@ -26,6 +27,15 @@ export class NewSignupService {
     const timestamp = Date.now().toString();
     const random = Math.random().toString(36).substring(2, 8).toUpperCase();
     return `WO-${timestamp}-${random}`;
+  }
+
+  // Normalize phone number: remove spaces, dashes, parentheses after country code
+  private normalizePhoneNumber(phone: string | undefined): string | undefined {
+    if (!phone || phone.trim() === '+1' || phone.trim() === '') {
+      return phone ? phone.trim() : undefined;
+    }
+    // Remove all spaces, dashes, and parentheses
+    return phone.replace(/[\s\-\(\)]/g, '');
   }
 
   // Check if email already exists and if there's an incomplete signup
@@ -394,11 +404,15 @@ export class NewSignupService {
       if (mergedUserData.completeAddress) updateData.completeAddress = mergedUserData.completeAddress;
       if (mergedUserData.city) updateData.city = mergedUserData.city;
       if (mergedUserData.zipcode) updateData.zipcode = mergedUserData.zipcode;
-      if (mergedUserData.primaryPhone) updateData.primaryPhone = mergedUserData.primaryPhone;
-      if (mergedUserData.alternativePhone) updateData.alternativePhone = mergedUserData.alternativePhone;
+      if (mergedUserData.primaryPhone) {
+        const normalizedPhone = this.normalizePhoneNumber(mergedUserData.primaryPhone);
+        updateData.primaryPhone = normalizedPhone;
+        updateData.phone = normalizedPhone;
+      }
+      if (mergedUserData.alternativePhone) updateData.alternativePhone = this.normalizePhoneNumber(mergedUserData.alternativePhone);
       if (mergedUserData.emergencyContactName) updateData.emergencyContactName = mergedUserData.emergencyContactName;
       if (mergedUserData.emergencyContactRelationship) updateData.emergencyContactRelationship = mergedUserData.emergencyContactRelationship;
-      if (mergedUserData.emergencyContactPhone) updateData.emergencyContactPhone = mergedUserData.emergencyContactPhone;
+      if (mergedUserData.emergencyContactPhone) updateData.emergencyContactPhone = this.normalizePhoneNumber(mergedUserData.emergencyContactPhone);
       if (mergedUserData.referringSource) updateData.referringSource = mergedUserData.referringSource;
       if (mergedUserData.preferredMethodOfCommunication) updateData.preferredMethodOfCommunication = mergedUserData.preferredMethodOfCommunication;
       if (mergedUserData.disabilityAccessibilityNeeds) updateData.disabilityAccessibilityNeeds = mergedUserData.disabilityAccessibilityNeeds;
@@ -420,7 +434,9 @@ export class NewSignupService {
         updateData.primaryEmail = mergedUserData.email;
       }
       if (mergedUserData.primaryPhone) {
-        updateData.phone = mergedUserData.primaryPhone;
+        const normalizedPhone = this.normalizePhoneNumber(mergedUserData.primaryPhone);
+        updateData.phone = normalizedPhone;
+        updateData.primaryPhone = normalizedPhone;
       }
       
       updateData.hasCompletedIntakeForm = true;
@@ -464,13 +480,14 @@ export class NewSignupService {
       if (mergedUserData.city) createData.city = mergedUserData.city;
       if (mergedUserData.zipcode) createData.zipcode = mergedUserData.zipcode;
       if (mergedUserData.primaryPhone) {
-        createData.primaryPhone = mergedUserData.primaryPhone;
-        createData.phone = mergedUserData.primaryPhone;
+        const normalizedPhone = this.normalizePhoneNumber(mergedUserData.primaryPhone);
+        createData.primaryPhone = normalizedPhone;
+        createData.phone = normalizedPhone;
       }
-      if (mergedUserData.alternativePhone) createData.alternativePhone = mergedUserData.alternativePhone;
+      if (mergedUserData.alternativePhone) createData.alternativePhone = this.normalizePhoneNumber(mergedUserData.alternativePhone);
       if (mergedUserData.emergencyContactName) createData.emergencyContactName = mergedUserData.emergencyContactName;
       if (mergedUserData.emergencyContactRelationship) createData.emergencyContactRelationship = mergedUserData.emergencyContactRelationship;
-      if (mergedUserData.emergencyContactPhone) createData.emergencyContactPhone = mergedUserData.emergencyContactPhone;
+      if (mergedUserData.emergencyContactPhone) createData.emergencyContactPhone = this.normalizePhoneNumber(mergedUserData.emergencyContactPhone);
       if (mergedUserData.referringSource) createData.referringSource = mergedUserData.referringSource;
       if (mergedUserData.preferredMethodOfCommunication) createData.preferredMethodOfCommunication = mergedUserData.preferredMethodOfCommunication;
       if (mergedUserData.disabilityAccessibilityNeeds) createData.disabilityAccessibilityNeeds = mergedUserData.disabilityAccessibilityNeeds;
@@ -677,6 +694,9 @@ export class NewSignupService {
       // Hash password
       const hashedPassword = await bcrypt.hash(userData.password, 12);
 
+      // Generate patient ID
+      const patientId = await generateNextPatientId(this.prisma);
+
       // Create user with only the provided fields
       const user = await this.prisma.user.create({
         data: {
@@ -686,6 +706,7 @@ export class NewSignupService {
           email: normalizedEmail, // Legacy field - keep for compatibility
           gender: userData.gender,
           password: hashedPassword,
+          patientId, // Assign sequential patient ID
           isActive: userData.isActive ?? true,
           isEmailVerified: userData.isEmailVerified ?? false,
           hasCompletedMedicalForm: userData.hasCompletedMedicalForm ?? false,
@@ -700,10 +721,10 @@ export class NewSignupService {
           ...(userData.zipcode && { zipcode: userData.zipcode }),
           ...(userData.alternativeEmail && { alternativeEmail: userData.alternativeEmail }),
           ...(userData.primaryPhone && { primaryPhone: userData.primaryPhone }),
-          ...(userData.alternativePhone && { alternativePhone: userData.alternativePhone }),
+          ...(userData.alternativePhone && { alternativePhone: this.normalizePhoneNumber(userData.alternativePhone) }),
           ...(userData.emergencyContactName && { emergencyContactName: userData.emergencyContactName }),
           ...(userData.emergencyContactRelationship && { emergencyContactRelationship: userData.emergencyContactRelationship }),
-          ...(userData.emergencyContactPhone && { emergencyContactPhone: userData.emergencyContactPhone }),
+          ...(userData.emergencyContactPhone && { emergencyContactPhone: this.normalizePhoneNumber(userData.emergencyContactPhone) }),
           ...(userData.referringSource && { referringSource: userData.referringSource }),
           ...(userData.consentForTreatment && { consentForTreatment: userData.consentForTreatment }),
           ...(userData.hipaaPrivacyNoticeAcknowledgment && { hipaaPrivacyNoticeAcknowledgment: userData.hipaaPrivacyNoticeAcknowledgment }),
@@ -821,12 +842,13 @@ export class NewSignupService {
           } else if (key === 'primaryPhone') {
             // Always include primaryPhone if provided, and also update legacy phone field
             if (userData[key] && userData[key] !== '') {
-              updateData.primaryPhone = userData[key];
-              updateData.phone = userData[key]; // Also update legacy field
+              const normalizedPhone = this.normalizePhoneNumber(userData[key]);
+              updateData.primaryPhone = normalizedPhone;
+              updateData.phone = normalizedPhone; // Also update legacy field
             }
           } else if (key === 'alternativePhone') {
             // Allow empty alternative phone (set to null if empty)
-            updateData[key] = userData[key] && userData[key] !== '' ? userData[key] : null;
+            updateData[key] = userData[key] && userData[key] !== '' ? this.normalizePhoneNumber(userData[key]) : null;
           } else {
             // Include all other fields (allow empty strings for some fields)
             updateData[key] = userData[key];
@@ -932,6 +954,8 @@ export class NewSignupService {
             weight: bmiData.weight,
             waist: bmiData.waist,
             bmi: bmiData.bmi,
+            // Set labSchedulingNeeded to true by default
+            labSchedulingNeeded: true,
             // Set some default values for legacy fields
             chiefComplaint: 'New patient registration',
             historyOfPresentIllness: 'Initial consultation',
@@ -994,6 +1018,11 @@ export class NewSignupService {
         processedMedicalData.consentDate = new Date(processedMedicalData.consentDate);
       }
 
+      // Set labSchedulingNeeded to true by default if not provided
+      if (processedMedicalData.labSchedulingNeeded === undefined || processedMedicalData.labSchedulingNeeded === null) {
+        processedMedicalData.labSchedulingNeeded = true;
+      }
+
       if (medicalForm) {
         // Update existing medical form with intake data
         medicalForm = await this.prisma.medicalForm.update({
@@ -1007,6 +1036,8 @@ export class NewSignupService {
           data: {
             patientId: userId,
             ...processedMedicalData,
+            // Set labSchedulingNeeded to true by default if not provided
+            labSchedulingNeeded: processedMedicalData.labSchedulingNeeded !== undefined ? processedMedicalData.labSchedulingNeeded : true,
             // Set some default values for required fields
             chiefComplaint: 'New patient registration',
             historyOfPresentIllness: 'Initial consultation',
@@ -1122,13 +1153,14 @@ export class NewSignupService {
       if (mergedData.city !== undefined) updateData.city = mergedData.city;
       if (mergedData.zipcode !== undefined) updateData.zipcode = mergedData.zipcode;
       if (mergedData.primaryPhone !== undefined) {
-        updateData.primaryPhone = mergedData.primaryPhone;
-        updateData.phone = mergedData.primaryPhone; // Also update legacy field
+        const normalizedPhone = this.normalizePhoneNumber(mergedData.primaryPhone);
+        updateData.primaryPhone = normalizedPhone;
+        updateData.phone = normalizedPhone; // Also update legacy field
       }
-      if (mergedData.alternativePhone) updateData.alternativePhone = mergedData.alternativePhone;
+      if (mergedData.alternativePhone) updateData.alternativePhone = this.normalizePhoneNumber(mergedData.alternativePhone);
       if (mergedData.emergencyContactName) updateData.emergencyContactName = mergedData.emergencyContactName;
       if (mergedData.emergencyContactRelationship) updateData.emergencyContactRelationship = mergedData.emergencyContactRelationship;
-      if (mergedData.emergencyContactPhone) updateData.emergencyContactPhone = mergedData.emergencyContactPhone;
+      if (mergedData.emergencyContactPhone) updateData.emergencyContactPhone = this.normalizePhoneNumber(mergedData.emergencyContactPhone);
       if (mergedData.referringSource) updateData.referringSource = mergedData.referringSource;
       if (mergedData.preferredMethodOfCommunication) updateData.preferredMethodOfCommunication = mergedData.preferredMethodOfCommunication;
       if (mergedData.disabilityAccessibilityNeeds) updateData.disabilityAccessibilityNeeds = mergedData.disabilityAccessibilityNeeds;

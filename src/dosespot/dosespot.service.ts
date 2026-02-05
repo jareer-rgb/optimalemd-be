@@ -289,10 +289,12 @@ export class DoseSpotService {
       
       // Convert date to ISO format
       const dateOfBirth = new Date(patientDto.dateOfBirth).toISOString();
+      console.log('dateOfBirth', dateOfBirth);
+      console.log('patientDto.primaryPhone', patientDto.primaryPhone);
 
       // Format phone numbers - must be valid 10-digit US format or empty string
       const primaryPhone = this.formatPhoneForDoseSpot(patientDto.primaryPhone);
-      
+      console.log('primaryPhone', primaryPhone);
       // Validate required fields
       if (!patientDto.address1 || !patientDto.city || !patientDto.zipCode || !primaryPhone) {
         throw new BadRequestException(
@@ -302,6 +304,61 @@ export class DoseSpotService {
 
       // Truncate NonDoseSpotMedicalRecordNumber to 35 characters max
       const medicalRecordNumber = (patientDto.nonDoseSpotMedicalRecordNumber || '').substring(0, 35);
+
+      // Map full state name to abbreviation, then to StateID
+      // Frontend sends full state names like "Alabama", "Florida", etc.
+      const stateNameToAbbreviation: { [key: string]: string } = {
+        'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+        'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+        'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+        'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+        'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+        'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+        'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+        'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+        'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+        'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
+        'District of Columbia': 'DC', 'Puerto Rico': 'PR', 'Virgin Islands': 'VI', 'American Samoa': 'AS',
+        'Guam': 'GU', 'Northern Mariana Islands': 'MP'
+      };
+
+      // Map US state abbreviation to StateID (DoseSpot requires numeric StateID)
+      const stateAbbreviationToStateIdMap: { [key: string]: number } = {
+        'AL': 1, 'AK': 2, 'AZ': 3, 'AR': 4, 'CA': 5, 'CO': 6, 'CT': 7, 'DE': 8, 'FL': 9, 'GA': 10,
+        'HI': 11, 'ID': 12, 'IL': 13, 'IN': 14, 'IA': 15, 'KS': 16, 'KY': 17, 'LA': 18, 'ME': 19, 'MD': 20,
+        'MA': 21, 'MI': 22, 'MN': 23, 'MS': 24, 'MO': 25, 'MT': 26, 'NE': 27, 'NV': 28, 'NH': 29, 'NJ': 30,
+        'NM': 31, 'NY': 32, 'NC': 33, 'ND': 34, 'OH': 35, 'OK': 36, 'OR': 37, 'PA': 38, 'RI': 39, 'SC': 40,
+        'SD': 41, 'TN': 42, 'TX': 43, 'UT': 44, 'VT': 45, 'VA': 46, 'WA': 47, 'WV': 48, 'WI': 49, 'WY': 50,
+        'DC': 51, 'PR': 52, 'VI': 53, 'AS': 54, 'GU': 55, 'MP': 56
+      };
+      
+      // Get StateID from state name or abbreviation
+      let stateId: number | undefined = undefined;
+      let stateAbbreviation: string | undefined = undefined;
+      
+      if (patientDto.state) {
+        const stateTrimmed = patientDto.state.trim();
+        
+        // First try to match as full state name
+        if (stateNameToAbbreviation[stateTrimmed]) {
+          stateAbbreviation = stateNameToAbbreviation[stateTrimmed];
+        } 
+        // If not found, try as abbreviation (uppercase)
+        else if (stateAbbreviationToStateIdMap[stateTrimmed.toUpperCase()]) {
+          stateAbbreviation = stateTrimmed.toUpperCase();
+        }
+        
+        // Get StateID from abbreviation
+        if (stateAbbreviation) {
+          stateId = stateAbbreviationToStateIdMap[stateAbbreviation];
+        }
+        
+        if (!stateId) {
+          this.logger.warn(`Unknown state: ${patientDto.state}, will try without StateID`);
+        } else {
+          this.logger.log(`Mapped state "${patientDto.state}" to abbreviation "${stateAbbreviation}" and StateID ${stateId}`);
+        }
+      }
 
       // Build payload - omit PhoneAdditional1 and PhoneAdditional2 entirely
       // DoseSpot doesn't accept empty strings for these fields, so we don't include them
@@ -317,7 +374,8 @@ export class DoseSpotService {
         Address1: patientDto.address1, // Required
         Address2: patientDto.address2 || '',
         City: patientDto.city, // Required
-        State: patientDto.state || '',
+        State: stateAbbreviation || patientDto.state || '', // Use abbreviation if available, fallback to original
+        StateID: stateId, // Required by DoseSpot - numeric state ID
         ZipCode: patientDto.zipCode, // Required
         PrimaryPhone: primaryPhone, // Required, must be valid 10-digit phone
         PrimaryPhoneType: patientDto.primaryPhoneType || 'Cell',
@@ -336,7 +394,22 @@ export class DoseSpotService {
       // If you need to add additional phone numbers in the future, format them and include them here
 
       const response = await this.axiosInstance.post('/api/patients', payload);
-
+      console.log('response', response);
+      
+      // Check if DoseSpot returned an error
+      if (response.data.Result && response.data.Result.ResultCode === 'ERROR') {
+        const errorMessage = response.data.Result.ResultDescription || 'Unknown error from DoseSpot';
+        this.logger.error(`DoseSpot patient creation failed: ${errorMessage}`);
+        throw new BadRequestException(`Failed to create patient in DoseSpot: ${errorMessage}`);
+      }
+      
+      // Validate that we got a valid patient ID
+      if (!response.data.Id || response.data.Id === 0) {
+        const errorMessage = response.data.Result?.ResultDescription || 'DoseSpot returned invalid patient ID';
+        this.logger.error(`DoseSpot patient creation failed: ${errorMessage}, response: ${JSON.stringify(response.data)}`);
+        throw new BadRequestException(`Failed to create patient in DoseSpot: ${errorMessage}`);
+      }
+      
       this.logger.log(`Patient added to DoseSpot: ${patientDto.firstName} ${patientDto.lastName}, ID: ${response.data.Id}`);
       return response.data;
     } catch (error: any) {
@@ -498,6 +571,8 @@ export class DoseSpotService {
           dateOfBirth,
         });
 
+        console.log('searchResult', searchResult);
+
         if (searchResult.Items && searchResult.Items.length > 0) {
           // Convert to string - DoseSpot returns ID as number but Prisma expects string
           doseSpotPatientId = String(searchResult.Items[0].PatientId);
@@ -513,13 +588,27 @@ export class DoseSpotService {
         this.logger.warn('Patient search failed, will create new patient');
       }
 
+      console.log('doseSpotPatientId', doseSpotPatientId);
       // Create new patient if not found
       if (!doseSpotPatientId) {
         const createResult = await this.addPatient(patientDto);
+        
+        // Validate the response - check for errors and valid ID
+        if (!createResult.Id || createResult.Id === 0) {
+          const errorMessage = createResult.Result?.ResultDescription || 'DoseSpot returned invalid patient ID';
+          this.logger.error(`Failed to create patient in DoseSpot: ${errorMessage}`);
+          throw new BadRequestException(`Failed to create patient in DoseSpot: ${errorMessage}`);
+        }
+        
         // Convert to string - DoseSpot returns ID as number but Prisma expects string
         doseSpotPatientId = String(createResult.Id);
         isNew = true;
         this.logger.log(`Created new patient in DoseSpot: ${doseSpotPatientId}`);
+      }
+      
+      // Final validation before saving
+      if (!doseSpotPatientId || doseSpotPatientId === '0' || doseSpotPatientId === 'null') {
+        throw new BadRequestException('Invalid DoseSpot patient ID. Cannot sync patient.');
       }
 
       // Update our database with DoseSpot patient ID (already converted to string)

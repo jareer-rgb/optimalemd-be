@@ -76,7 +76,7 @@ export class UploadsService {
     return { filePath, fileName };
   }
 
-  async uploadLabReceipt(orderId: string, file: any): Promise<{ filePath: string; fileName: string }> {
+  async uploadLabOrder(orderId: string, file: any): Promise<{ filePath: string; fileName: string }> {
     // Validate file
     if (!file) {
       throw new BadRequestException('No file provided');
@@ -114,7 +114,7 @@ export class UploadsService {
     // Generate unique filename
     const fileExtension = path.extname(file.originalname);
     const uniqueId = crypto.randomBytes(8).toString('hex');
-    const fileName = `lab-receipt-${orderId}-${uniqueId}${fileExtension}`;
+    const fileName = `lab-order-${orderId}-${uniqueId}${fileExtension}`;
     const filePath = path.join(this.uploadsDir, fileName);
 
     // Save file
@@ -125,7 +125,7 @@ export class UploadsService {
       try {
         fs.unlinkSync(labOrder.receiptPath);
       } catch (error) {
-        console.error('Error deleting old lab receipt:', error);
+        console.error('Error deleting old lab order:', error);
       }
     }
 
@@ -140,33 +140,21 @@ export class UploadsService {
       data: updateData,
     });
 
-    // Send email to patient if status was changed to confirmed
-    if (updateData.status === 'confirmed' && labOrder.patient.primaryEmail) {
+    // Send email to patient with attached lab order file whenever a file is uploaded
+    if (labOrder.patient.primaryEmail) {
       try {
         const patientName = `${labOrder.patient.firstName} ${labOrder.patient.lastName}`;
-        const scheduledDate = new Date(labOrder.scheduledDate);
-        const dateStr = scheduledDate.toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-        const timeStr = scheduledDate.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-
         const testNames = labOrder.items.map(item => item.labTestType.name).join(', ');
 
-        await this.mailerService.sendLabReceiptEmail(
+        // Always attach the uploaded file
+        await this.mailerService.sendLabOrderEmail(
           labOrder.patient.primaryEmail,
           patientName,
-          dateStr,
-          timeStr,
           testNames,
+          filePath, // Pass file path for attachment
         );
       } catch (error) {
-        console.error('Failed to send lab receipt email:', error);
+        console.error('Failed to send lab order email:', error);
         // Don't throw error - file upload succeeded
       }
     }
@@ -233,25 +221,18 @@ export class UploadsService {
       data: { resultsPath: filePath },
     });
 
-    // Send email to patient
+    // Send email to patient with attached results file
     if (labOrder.patient.primaryEmail) {
       try {
         const patientName = `${labOrder.patient.firstName} ${labOrder.patient.lastName}`;
-        const scheduledDate = new Date(labOrder.scheduledDate);
-        const dateStr = scheduledDate.toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-
         const testNames = labOrder.items.map(item => item.labTestType.name).join(', ');
 
+        // Attach the uploaded results file
         await this.mailerService.sendLabResultsEmail(
           labOrder.patient.primaryEmail,
           patientName,
-          dateStr,
           testNames,
+          filePath, // Pass file path for attachment
         );
       } catch (error) {
         console.error('Failed to send lab results email:', error);
@@ -435,7 +416,7 @@ export class UploadsService {
     return filePath;
   }
 
-  async removeLabReceipt(orderId: string): Promise<void> {
+  async removeLabOrder(orderId: string): Promise<void> {
     const labOrder = await this.prisma.labOrder.findUnique({
       where: { id: orderId },
     });
@@ -445,7 +426,7 @@ export class UploadsService {
     }
 
     if (!labOrder.receiptPath) {
-      throw new NotFoundException('Receipt file not found');
+      throw new NotFoundException('Lab order file not found');
     }
 
     // Delete file from disk
@@ -453,7 +434,7 @@ export class UploadsService {
       try {
         fs.unlinkSync(labOrder.receiptPath);
       } catch (error) {
-        console.error('Error deleting lab receipt file:', error);
+        console.error('Error deleting lab order file:', error);
       }
     }
 

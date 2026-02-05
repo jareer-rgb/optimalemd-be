@@ -1,6 +1,8 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class MailerService implements OnModuleInit {
@@ -3454,12 +3456,11 @@ export class MailerService implements OnModuleInit {
     }
   }
 
-  async sendLabReceiptEmail(
+  async sendLabOrderEmail(
     patientEmail: string,
     patientName: string,
-    scheduledDate: string,
-    scheduledTime: string,
     testNames: string,
+    attachmentPath?: string,
   ): Promise<void> {
     const html = `
       <!DOCTYPE html>
@@ -3537,22 +3538,15 @@ export class MailerService implements OnModuleInit {
           <div class="content">
             <h2 class="title">Lab Order Confirmed</h2>
             <p>Dear ${patientName},</p>
-            <p>Your lab order has been confirmed and scheduled. Please find the details below:</p>
+            <p>Your lab order has been confirmed. Please find the details below:</p>
             
             <div class="info-box">
               <div class="info-item">
-                <span class="info-label">Scheduled Date:</span> ${scheduledDate}
-              </div>
-              <div class="info-item">
-                <span class="info-label">Scheduled Time:</span> ${scheduledTime}
-              </div>
-              <div class="info-item">
-                <span class="info-label">Tests Included:</span> ${testNames}
+                <span class="info-label">Lab Panel:</span> Your lab panel contains 60+ bio markers
               </div>
             </div>
 
-            <p>Your lab receipt has been uploaded to your portal. You can view it by logging into your patient portal.</p>
-            <p>Please arrive at the scheduled time for your lab appointment.</p>
+            <p>Your lab order has been attached to this email and is also available in your patient portal. You can view it by logging into your patient portal.</p>
             
             <p style="margin-top: 30px;">Best regards,<br><strong>The OptimaleMD Team</strong></p>
           </div>
@@ -3566,15 +3560,28 @@ export class MailerService implements OnModuleInit {
     `;
 
     try {
-      await this.transporter.sendMail({
+      const mailOptions: any = {
         from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to: patientEmail,
         subject: 'Lab Order Confirmed - OptimaleMD',
         html,
-      });
-      console.log(`Lab receipt email sent successfully to ${patientEmail}`);
+      };
+
+      // Add attachment if file path is provided
+      if (attachmentPath && fs.existsSync(attachmentPath)) {
+        const fileName = path.basename(attachmentPath);
+        mailOptions.attachments = [
+          {
+            filename: fileName,
+            path: attachmentPath,
+          },
+        ];
+      }
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Lab order email sent successfully to ${patientEmail}${attachmentPath ? ' with attachment' : ''}`);
     } catch (error) {
-      console.error('Failed to send lab receipt email:', error);
+      console.error('Failed to send lab order email:', error);
       throw error;
     }
   }
@@ -3582,8 +3589,8 @@ export class MailerService implements OnModuleInit {
   async sendLabResultsEmail(
     patientEmail: string,
     patientName: string,
-    scheduledDate: string,
     testNames: string,
+    attachmentPath?: string,
   ): Promise<void> {
     const html = `
       <!DOCTYPE html>
@@ -3661,18 +3668,15 @@ export class MailerService implements OnModuleInit {
           <div class="content">
             <h2 class="title">Lab Results Available</h2>
             <p>Dear ${patientName},</p>
-            <p>Your lab results are now available in your patient portal.</p>
+            <p>Your lab results are now available.</p>
             
             <div class="info-box">
               <div class="info-item">
-                <span class="info-label">Lab Date:</span> ${scheduledDate}
-              </div>
-              <div class="info-item">
-                <span class="info-label">Tests Completed:</span> ${testNames}
+                <span class="info-label">Lab Panel:</span> Your lab panel contains 60+ bio markers
               </div>
             </div>
 
-            <p>You can view your lab results by logging into your patient portal. Your healthcare provider will review these results and contact you if any follow-up is needed.</p>
+            <p>Your lab results have been attached to this email and are also available in your patient portal. Your healthcare provider will review these results and contact you if any follow-up is needed.</p>
             
             <div class="info-box" style="margin-top: 30px; background-color: #e8f4f8; border-left-color: #3b82f6;">
               <p style="margin: 0; font-weight: bold; color: #1e40af;">Next Steps:</p>
@@ -3691,13 +3695,26 @@ export class MailerService implements OnModuleInit {
     `;
 
     try {
-      await this.transporter.sendMail({
+      const mailOptions: any = {
         from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to: patientEmail,
         subject: 'Lab Results Available - OptimaleMD',
         html,
-      });
-      console.log(`Lab results email sent successfully to ${patientEmail}`);
+      };
+
+      // Add attachment if file path is provided
+      if (attachmentPath && fs.existsSync(attachmentPath)) {
+        const fileName = path.basename(attachmentPath);
+        mailOptions.attachments = [
+          {
+            filename: fileName,
+            path: attachmentPath,
+          },
+        ];
+      }
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Lab results email sent successfully to ${patientEmail}${attachmentPath ? ' with attachment' : ''}`);
     } catch (error) {
       console.error('Failed to send lab results email:', error);
       throw error;

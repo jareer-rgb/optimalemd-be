@@ -55,8 +55,8 @@ export class LabOrdersController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Create a lab order',
-    description: 'Creates a new lab order with selected test types and scheduled time.',
+    summary: 'Request a lab order',
+    description: 'Requests a new lab order with selected test types and scheduled time.',
   })
   @ApiResponse({
     status: 201,
