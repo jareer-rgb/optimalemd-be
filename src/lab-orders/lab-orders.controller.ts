@@ -189,5 +189,35 @@ export class LabOrdersController {
       path: `/api/lab-orders/admin/patient/${patientId}`,
     };
   }
+
+  @Post('admin/patient/:patientId')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create lab order for patient (Admin)',
+    description: 'Creates a new lab order for a specific patient (admin access - bypasses restrictions).',
+  })
+  @ApiParam({
+    name: 'patientId',
+    description: 'Patient ID',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Lab order created successfully',
+    type: LabOrderDto,
+  })
+  async createLabOrderAdmin(
+    @Param('patientId') patientId: string,
+    @Body() createOrderDto: CreateLabOrderDto,
+  ): Promise<BaseApiResponse<LabOrderDto>> {
+    const order = await this.labOrdersService.createLabOrderAdmin(patientId, createOrderDto);
+    return {
+      success: true,
+      statusCode: HttpStatus.CREATED,
+      message: 'Lab order created successfully',
+      data: order,
+      timestamp: new Date().toISOString(),
+      path: `/api/lab-orders/admin/patient/${patientId}`,
+    };
+  }
 }
 

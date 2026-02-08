@@ -220,6 +220,66 @@ export class LabOrdersService {
   }
 
   /**
+   * Create a lab order for a patient (admin access - bypasses restrictions)
+   */
+  async createLabOrderAdmin(
+    patientId: string,
+    createOrderDto: CreateLabOrderDto,
+  ): Promise<LabOrderDto> {
+    // Verify patient exists
+    const user = await this.prisma.user.findUnique({
+      where: { id: patientId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Patient not found');
+    }
+
+    // Validate that all test types exist and are active
+    const testTypes = await this.prisma.labTestType.findMany({
+      where: {
+        id: { in: createOrderDto.testTypeIds },
+        isActive: true,
+      },
+    });
+
+    if (testTypes.length !== createOrderDto.testTypeIds.length) {
+      throw new BadRequestException('One or more selected test types are invalid or inactive');
+    }
+
+    // Check for duplicates
+    const uniqueIds = new Set(createOrderDto.testTypeIds);
+    if (uniqueIds.size !== createOrderDto.testTypeIds.length) {
+      throw new BadRequestException('Duplicate test types are not allowed');
+    }
+
+    // Create the lab order with items (admin bypasses all restrictions)
+    const labOrder = await this.prisma.labOrder.create({
+      data: {
+        patientId: patientId,
+        scheduledDate: new Date(createOrderDto.scheduledDate),
+        status: 'pending',
+        notes: createOrderDto.notes || undefined,
+        items: {
+          create: createOrderDto.testTypeIds.map((testTypeId) => ({
+            labTestTypeId: testTypeId,
+          })),
+        },
+      },
+      include: {
+        items: {
+          include: {
+            labTestType: true,
+          },
+        },
+      },
+    });
+
+    return this.mapToLabOrderDto(labOrder);
+  }
+
+  /**
    * Get all lab orders for a patient (admin access)
    */
   async getPatientLabOrdersAdmin(patientId: string): Promise<LabOrderDto[]> {
