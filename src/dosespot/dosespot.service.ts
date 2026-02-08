@@ -683,14 +683,8 @@ export class DoseSpotService {
         throw new BadRequestException('Patient must be synced to DoseSpot first. Please sync the patient before prescribing.');
       }
 
-      // Check if patient has paid for medications
-      const medicationPayment = await this.prisma.medicationPayment.findUnique({
-        where: { appointmentId },
-      });
-
-      if (!medicationPayment || medicationPayment.status !== 'SUCCEEDED') {
-        throw new BadRequestException('Patient must have paid for medications before prescribing in DoseSpot');
-      }
+      // Note: Payment check removed - doctors can prescribe regardless of payment status
+      // Some patients pay manually in person, so payment is not a requirement for prescribing
 
       // Validate configuration
       if (!this.clinicId || !this.clinicKey || !this.userId) {

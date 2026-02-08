@@ -14,6 +14,55 @@ export class AdminService {
   ) {}
 
   /**
+   * Normalize phone number: ensure it has country code prefix (+1)
+   * Removes spaces, dashes, parentheses but preserves +1 if already present
+   * Example: 25428558482 -> +125428558482, +125428558482 -> +125428558482 (unchanged)
+   */
+  private normalizePhoneNumber(phone: string | undefined): string | undefined {
+    if (!phone || phone.trim() === '') return undefined;
+    
+    // Remove all spaces, dashes, parentheses, but keep the + sign
+    let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    
+    // If it already starts with +1, preserve it as-is (just clean any extra formatting)
+    if (cleaned.startsWith('+1')) {
+      // Extract only digits after +1
+      const digits = cleaned.substring(2).replace(/\D/g, '');
+      // Return +1 followed by the digits (preserve the format)
+      return '+1' + digits;
+    }
+    
+    // If it starts with + but not +1, extract digits and add +1
+    if (cleaned.startsWith('+')) {
+      const digits = cleaned.substring(1).replace(/\D/g, '');
+      // Take last 10 digits if more than 10, otherwise use all
+      const finalDigits = digits.length > 10 ? digits.slice(-10) : digits;
+      return '+1' + finalDigits;
+    }
+    
+    // If it doesn't start with +, extract all digits
+    const digits = cleaned.replace(/\D/g, '');
+    
+    // If it's 10 digits, add +1 prefix
+    if (digits.length === 10) {
+      return '+1' + digits;
+    }
+    
+    // If it's 11 digits starting with 1, add + prefix (becomes +1XXXXXXXXXX)
+    if (digits.length === 11 && digits.startsWith('1')) {
+      return '+' + digits;
+    }
+    
+    // For any other case, take last 10 digits and add +1
+    if (digits.length > 10) {
+      return '+1' + digits.slice(-10);
+    }
+    
+    // If less than 10 digits, add +1 prefix anyway
+    return '+1' + digits;
+  }
+
+  /**
    * Create a new patient from admin side with auto-generated password and email
    */
   async createPatient(createPatientDto: AdminCreatePatientDto): Promise<PatientWithMedicalFormResponseDto> {
@@ -23,13 +72,29 @@ export class AdminService {
     const normalizedPrimaryEmail = patientData.primaryEmail.toLowerCase();
     const normalizedAlternativeEmail = patientData.alternativeEmail?.toLowerCase();
 
+    // Normalize phone number before checking for duplicates
+    const normalizedPrimaryPhone = this.normalizePhoneNumber(patientData.primaryPhone);
+
     // Check if user already exists by primary email
-    const existingUser = await this.prisma.user.findUnique({
+    const existingUserByEmail = await this.prisma.user.findUnique({
       where: { primaryEmail: normalizedPrimaryEmail },
     });
 
-    if (existingUser) {
+    if (existingUserByEmail) {
       throw new ConflictException('User with this primary email already exists');
+    }
+
+    // Check if user already exists by primary phone number
+    if (normalizedPrimaryPhone) {
+      const existingUserByPhone = await this.prisma.user.findFirst({
+        where: { 
+          primaryPhone: normalizedPrimaryPhone,
+        },
+      });
+
+      if (existingUserByPhone) {
+        throw new ConflictException('User with this primary phone number already exists');
+      }
     }
 
     // Generate a secure random password
@@ -42,12 +107,21 @@ export class AdminService {
 
     // Generate patient ID
     const patientId = await generateNextPatientId(this.prisma);
+    const normalizedAlternativePhone = patientData.alternativePhone 
+      ? this.normalizePhoneNumber(patientData.alternativePhone) 
+      : undefined;
+    const normalizedEmergencyContactPhone = patientData.emergencyContactPhone 
+      ? this.normalizePhoneNumber(patientData.emergencyContactPhone) 
+      : undefined;
 
     // Prepare user data for creation
     const userCreateData: any = {
       ...patientData,
       primaryEmail: normalizedPrimaryEmail,
       alternativeEmail: normalizedAlternativeEmail,
+      primaryPhone: normalizedPrimaryPhone,
+      alternativePhone: normalizedAlternativePhone,
+      emergencyContactPhone: normalizedEmergencyContactPhone,
       password: hashedPassword,
       patientId, // Assign sequential patient ID
       dateOfBirth: new Date(patientData.dateOfBirth),
@@ -58,7 +132,7 @@ export class AdminService {
       emailVerificationTokenExpiry,
       // Map legacy fields for backward compatibility
       email: normalizedPrimaryEmail,
-      phone: patientData.primaryPhone,
+      phone: normalizedPrimaryPhone,
       isActive: true,
       isEmailVerified: false, // Admin created patients need to verify their email
       // Set premium membership if requested
@@ -124,6 +198,25 @@ export class AdminService {
       }
     }
 
+    // If phone is being updated, normalize and check for conflicts
+    let normalizedPrimaryPhone: string | undefined;
+    if (updatePatientDto.primaryPhone) {
+      normalizedPrimaryPhone = this.normalizePhoneNumber(updatePatientDto.primaryPhone);
+      
+      // Check if another user already has this phone number
+      if (normalizedPrimaryPhone && normalizedPrimaryPhone !== existingPatient.primaryPhone) {
+        const existingUserWithPhone = await this.prisma.user.findFirst({
+          where: { 
+            primaryPhone: normalizedPrimaryPhone,
+          },
+        });
+
+        if (existingUserWithPhone) {
+          throw new ConflictException('Another user with this primary phone number already exists');
+        }
+      }
+    }
+
     // Prepare update data
     const updateData: any = { ...updatePatientDto };
     
@@ -137,12 +230,21 @@ export class AdminService {
       updateData.dateOfFirstVisitPlanned = null;
     }
 
-    // Update legacy fields if primary email or phone is updated
+    // Normalize phone numbers if they're being updated (already normalized above for duplicate check)
+    if (updatePatientDto.primaryPhone && normalizedPrimaryPhone) {
+      updateData.primaryPhone = normalizedPrimaryPhone;
+      updateData.phone = normalizedPrimaryPhone; // Also update legacy field
+    }
+    if (updatePatientDto.alternativePhone) {
+      updateData.alternativePhone = this.normalizePhoneNumber(updatePatientDto.alternativePhone);
+    }
+    if (updatePatientDto.emergencyContactPhone) {
+      updateData.emergencyContactPhone = this.normalizePhoneNumber(updatePatientDto.emergencyContactPhone);
+    }
+
+    // Update legacy fields if primary email is updated
     if (updatePatientDto.primaryEmail) {
       updateData.email = updatePatientDto.primaryEmail;
-    }
-    if (updatePatientDto.primaryPhone) {
-      updateData.phone = updatePatientDto.primaryPhone;
     }
 
     // Update user
