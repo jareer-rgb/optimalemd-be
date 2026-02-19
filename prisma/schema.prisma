@@ -879,7 +879,7 @@ model LabOrder {
   
   // Lab order and results (uploaded by admin)
   receiptPath   String?  // Path to uploaded lab order
-  resultsPath   String?  // Path to uploaded lab results
+  resultsPath   String?  // Path to uploaded lab results (legacy - kept for backward compatibility)
   
   // Timestamps
   createdAt     DateTime @default(now())
@@ -889,6 +889,7 @@ model LabOrder {
   patient       User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctor        Doctor?  @relation(fields: [doctorId], references: [id], onDelete: SetNull)
   items         LabOrderItem[]
+  resultFiles   LabResultFile[] // Multiple result files
   
   @@map("lab_orders")
 }
@@ -907,6 +908,25 @@ model LabOrderItem {
   
   @@unique([labOrderId, labTestTypeId])
   @@map("lab_order_items")
+}
+
+// Lab Result File model - stores multiple result files per lab order
+model LabResultFile {
+  id            String   @id @default(uuid())
+  labOrderId    String
+  filePath      String   // Path to uploaded lab result file
+  fileName      String   // Original filename
+  fileSize      Int?     // File size in bytes
+  mimeType      String?  // MIME type of the file
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  labOrder      LabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  
+  @@map("lab_result_files")
 }
 
 // Enums for new signup flow

@@ -162,7 +162,7 @@ export class UploadsService {
     return { filePath, fileName };
   }
 
-  async uploadLabResults(orderId: string, file: any): Promise<{ filePath: string; fileName: string }> {
+  async uploadLabResults(orderId: string, file: any): Promise<{ filePath: string; fileName: string; id: string }> {
     // Validate file
     if (!file) {
       throw new BadRequestException('No file provided');
@@ -206,23 +206,31 @@ export class UploadsService {
     // Save file
     fs.writeFileSync(filePath, file.buffer);
 
-    // Delete old file if exists
-    if (labOrder.resultsPath && fs.existsSync(labOrder.resultsPath)) {
-      try {
-        fs.unlinkSync(labOrder.resultsPath);
-      } catch (error) {
-        console.error('Error deleting old lab results:', error);
-      }
-    }
-
-    // Update lab order record
-    const updatedOrder = await this.prisma.labOrder.update({
-      where: { id: orderId },
-      data: { resultsPath: filePath },
+    // Create LabResultFile record
+    const labResultFile = await this.prisma.labResultFile.create({
+      data: {
+        labOrderId: orderId,
+        filePath: filePath,
+        fileName: file.originalname,
+        fileSize: file.size,
+        mimeType: file.mimetype,
+      },
     });
 
-    // Send email to patient with attached results file
-    if (labOrder.patient.primaryEmail) {
+    // If this is the first result file, also update legacy resultsPath for backward compatibility
+    const existingResultFiles = await this.prisma.labResultFile.count({
+      where: { labOrderId: orderId },
+    });
+
+    if (existingResultFiles === 1 && !labOrder.resultsPath) {
+      await this.prisma.labOrder.update({
+        where: { id: orderId },
+        data: { resultsPath: filePath },
+      });
+    }
+
+    // Send email to patient with attached results file (only for first upload)
+    if (existingResultFiles === 1 && labOrder.patient.primaryEmail) {
       try {
         const patientName = `${labOrder.patient.firstName} ${labOrder.patient.lastName}`;
         const testNames = labOrder.items.map(item => item.labTestType.name).join(', ');
@@ -240,7 +248,7 @@ export class UploadsService {
       }
     }
 
-    return { filePath, fileName };
+    return { filePath, fileName: file.originalname, id: labResultFile.id };
   }
 
   async uploadPhoto(userId: string, file: any): Promise<{ filePath: string; fileName: string }> {
@@ -416,6 +424,49 @@ export class UploadsService {
     return filePath;
   }
 
+  async getLabResultFilePath(resultFileId: string): Promise<string> {
+    const resultFile = await this.prisma.labResultFile.findUnique({
+      where: { id: resultFileId },
+    });
+
+    if (!resultFile) {
+      throw new NotFoundException('Lab result file not found');
+    }
+
+    if (!resultFile.filePath || !fs.existsSync(resultFile.filePath)) {
+      throw new NotFoundException('Lab result file not found on disk');
+    }
+
+    return resultFile.filePath;
+  }
+
+  async getLabResultFileInfo(resultFileId: string): Promise<any> {
+    const resultFile = await this.prisma.labResultFile.findUnique({
+      where: { id: resultFileId },
+    });
+
+    if (!resultFile) {
+      throw new NotFoundException('Lab result file not found');
+    }
+
+    return resultFile;
+  }
+
+  async getAllLabResultFiles(orderId: string): Promise<any[]> {
+    const resultFiles = await this.prisma.labResultFile.findMany({
+      where: { labOrderId: orderId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return resultFiles.map(file => ({
+      id: file.id,
+      fileName: file.fileName,
+      fileSize: file.fileSize,
+      mimeType: file.mimeType,
+      createdAt: file.createdAt,
+    }));
+  }
+
   async removeLabOrder(orderId: string): Promise<void> {
     const labOrder = await this.prisma.labOrder.findUnique({
       where: { id: orderId },
@@ -446,32 +497,81 @@ export class UploadsService {
   }
 
   async removeLabResults(orderId: string): Promise<void> {
-    const labOrder = await this.prisma.labOrder.findUnique({
-      where: { id: orderId },
+    // Delete all result files for this order
+    const resultFiles = await this.prisma.labResultFile.findMany({
+      where: { labOrderId: orderId },
     });
 
-    if (!labOrder) {
-      throw new NotFoundException('Lab order not found');
-    }
-
-    if (!labOrder.resultsPath) {
-      throw new NotFoundException('Results file not found');
-    }
-
-    // Delete file from disk
-    if (fs.existsSync(labOrder.resultsPath)) {
-      try {
-        fs.unlinkSync(labOrder.resultsPath);
-      } catch (error) {
-        console.error('Error deleting lab results file:', error);
+    for (const resultFile of resultFiles) {
+      if (fs.existsSync(resultFile.filePath)) {
+        try {
+          fs.unlinkSync(resultFile.filePath);
+        } catch (error) {
+          console.error('Error deleting lab results file:', error);
+        }
       }
     }
 
-    // Update lab order record
+    // Delete all result file records
+    await this.prisma.labResultFile.deleteMany({
+      where: { labOrderId: orderId },
+    });
+
+    // Update lab order record (legacy field)
     await this.prisma.labOrder.update({
       where: { id: orderId },
       data: { resultsPath: null },
     });
+  }
+
+  async removeLabResultFile(resultFileId: string): Promise<void> {
+    const resultFile = await this.prisma.labResultFile.findUnique({
+      where: { id: resultFileId },
+      include: { labOrder: true },
+    });
+
+    if (!resultFile) {
+      throw new NotFoundException('Lab result file not found');
+    }
+
+    // Delete file from disk
+    if (fs.existsSync(resultFile.filePath)) {
+      try {
+        fs.unlinkSync(resultFile.filePath);
+      } catch (error) {
+        console.error('Error deleting lab result file:', error);
+      }
+    }
+
+    // Delete result file record
+    await this.prisma.labResultFile.delete({
+      where: { id: resultFileId },
+    });
+
+    // If this was the last result file, update legacy resultsPath
+    const remainingFiles = await this.prisma.labResultFile.count({
+      where: { labOrderId: resultFile.labOrderId },
+    });
+
+    if (remainingFiles === 0) {
+      await this.prisma.labOrder.update({
+        where: { id: resultFile.labOrderId },
+        data: { resultsPath: null },
+      });
+    } else if (resultFile.labOrder.resultsPath === resultFile.filePath) {
+      // Update legacy resultsPath to point to the most recent file
+      const mostRecentFile = await this.prisma.labResultFile.findFirst({
+        where: { labOrderId: resultFile.labOrderId },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (mostRecentFile) {
+        await this.prisma.labOrder.update({
+          where: { id: resultFile.labOrderId },
+          data: { resultsPath: mostRecentFile.filePath },
+        });
+      }
+    }
   }
 }
 

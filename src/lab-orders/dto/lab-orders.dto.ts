@@ -57,6 +57,23 @@ export class LabOrderItemDto {
   labTestType: LabTestTypeDto;
 }
 
+export class LabResultFileDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  fileName: string;
+
+  @ApiPropertyOptional()
+  fileSize?: number;
+
+  @ApiPropertyOptional()
+  mimeType?: string;
+
+  @ApiProperty()
+  createdAt: Date;
+}
+
 export class LabOrderDto {
   @ApiProperty()
   id: string;
@@ -84,6 +101,9 @@ export class LabOrderDto {
 
   @ApiProperty({ type: [LabOrderItemDto] })
   items: LabOrderItemDto[];
+
+  @ApiPropertyOptional({ type: [LabResultFileDto] })
+  resultFiles?: LabResultFileDto[];
 
   @ApiProperty()
   createdAt: Date;

@@ -293,6 +293,11 @@ export class LabOrdersService {
             labTestType: true,
           },
         },
+        resultFiles: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
         patient: {
           select: {
             id: true,
@@ -407,6 +412,13 @@ export class LabOrdersService {
           isActive: item.labTestType.isActive,
         },
       })),
+      resultFiles: order.resultFiles ? order.resultFiles.map((file: any) => ({
+        id: file.id,
+        fileName: file.fileName,
+        fileSize: file.fileSize || undefined,
+        mimeType: file.mimeType || undefined,
+        createdAt: file.createdAt,
+      })) : undefined,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };
