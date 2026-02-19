@@ -109,12 +109,27 @@ export class CreateMedicalFormDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
+  alcoholUseExplanation?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   tobaccoUse?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
+  tobaccoUseExplanation?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   cannabisOtherSubstances?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  cannabisOtherSubstancesExplanation?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -178,20 +193,40 @@ export class CreateMedicalFormDto {
   @IsBoolean()
   historyProstateBreastCancer?: boolean;
 
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  historyProstateBreastCancerExplanation?: string;
+
   @ApiProperty({ required: false, default: false })
   @IsOptional()
   @IsBoolean()
   historyBloodClotsMIStroke?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  historyBloodClotsMIStrokeExplanation?: string;
 
   @ApiProperty({ required: false, default: false })
   @IsOptional()
   @IsBoolean()
   currentlyUsingHormonesPeptides?: boolean;
 
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  currentlyUsingHormonesPeptidesExplanation?: string;
+
   @ApiProperty({ required: false, default: false })
   @IsOptional()
   @IsBoolean()
   planningChildrenNext12Months?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  planningChildrenNext12MonthsExplanation?: string;
 
   // Screen 8 - Labs & Uploads
   @ApiProperty({ required: false })

@@ -623,8 +623,11 @@ model MedicalForm {
   exerciseFrequency String? // None/1-2x/week/3-5x/week/Daily
   dietType String? // Balanced/High protein/Low-carb/Plant-based/Other
   alcoholUse String? // None/Social/Regular
+  alcoholUseExplanation String?
   tobaccoUse String? // Never/Current/Former
+  tobaccoUseExplanation String?
   cannabisOtherSubstances String? // None/Yes
+  cannabisOtherSubstancesExplanation String?
   cannabisOtherSubstancesList String? // List if Yes
   stressLevel String? // Low/Medium/High
   
@@ -641,9 +644,13 @@ model MedicalForm {
   
   // Screen 7 - Safety Check
   historyProstateBreastCancer Boolean @default(false)
+  historyProstateBreastCancerExplanation String?
   historyBloodClotsMIStroke Boolean @default(false)
+  historyBloodClotsMIStrokeExplanation String?
   currentlyUsingHormonesPeptides Boolean @default(false)
+  currentlyUsingHormonesPeptidesExplanation String?
   planningChildrenNext12Months Boolean @default(false)
+  planningChildrenNext12MonthsExplanation String?
   
   // Screen 8 - Labs & Uploads
   labUploads String? // File paths or references to uploaded labs

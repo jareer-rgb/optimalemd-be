@@ -80,11 +80,20 @@ export class MedicalFormResponseDto {
   @ApiProperty({ description: 'Alcohol use', required: false })
   alcoholUse?: string;
 
+  @ApiProperty({ description: 'Alcohol use explanation', required: false })
+  alcoholUseExplanation?: string;
+
   @ApiProperty({ description: 'Tobacco use', required: false })
   tobaccoUse?: string;
 
+  @ApiProperty({ description: 'Tobacco use explanation', required: false })
+  tobaccoUseExplanation?: string;
+
   @ApiProperty({ description: 'Cannabis and other substances', required: false })
   cannabisOtherSubstances?: string;
+
+  @ApiProperty({ description: 'Cannabis and other substances explanation', required: false })
+  cannabisOtherSubstancesExplanation?: string;
 
   @ApiProperty({ description: 'Cannabis and other substances list', required: false })
   cannabisOtherSubstancesList?: string;
@@ -124,14 +133,26 @@ export class MedicalFormResponseDto {
   @ApiProperty({ description: 'History of prostate/breast cancer', required: false })
   historyProstateBreastCancer?: boolean;
 
+  @ApiProperty({ description: 'History of prostate/breast cancer explanation', required: false })
+  historyProstateBreastCancerExplanation?: string;
+
   @ApiProperty({ description: 'History of blood clots/MI/stroke', required: false })
   historyBloodClotsMIStroke?: boolean;
+
+  @ApiProperty({ description: 'History of blood clots/MI/stroke explanation', required: false })
+  historyBloodClotsMIStrokeExplanation?: string;
 
   @ApiProperty({ description: 'Currently using hormones/peptides', required: false })
   currentlyUsingHormonesPeptides?: boolean;
 
+  @ApiProperty({ description: 'Currently using hormones/peptides explanation', required: false })
+  currentlyUsingHormonesPeptidesExplanation?: string;
+
   @ApiProperty({ description: 'Planning children next 12 months', required: false })
   planningChildrenNext12Months?: boolean;
+
+  @ApiProperty({ description: 'Planning children next 12 months explanation', required: false })
+  planningChildrenNext12MonthsExplanation?: string;
 
   // Screen 8 - Labs & Uploads
   @ApiProperty({ description: 'Lab uploads', required: false })
