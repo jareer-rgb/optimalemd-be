@@ -135,6 +135,7 @@ export class AdminService {
       phone: normalizedPrimaryPhone,
       isActive: true,
       isEmailVerified: false, // Admin created patients need to verify their email
+      mustChangePassword: true, // Force password change on first login
       // Set premium membership if requested
       isSubscribed: makePremiumMember,
       subscriptionStatus: makePremiumMember ? 'active' : null,
@@ -723,6 +724,76 @@ export class AdminService {
     await this.prisma.user.delete({
       where: { id: patientId }
     });
+  }
+
+  /**
+   * Resend email verification to an admin-managed patient
+   */
+  async resendPatientVerification(patientId: string): Promise<{ message: string }> {
+    const patient = await this.prisma.user.findUnique({ where: { id: patientId } });
+    if (!patient) throw new NotFoundException('Patient not found');
+
+    if (patient.isEmailVerified) {
+      throw new BadRequestException('Patient email is already verified');
+    }
+
+    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    const emailVerificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await this.prisma.user.update({
+      where: { id: patientId },
+      data: { emailVerificationToken, emailVerificationTokenExpiry },
+    });
+
+    const email = patient.primaryEmail ?? patient.email;
+    if (!email) throw new BadRequestException('Patient has no email address');
+
+    const verificationLink = `https://optimalemd.health/verify-email?token=${emailVerificationToken}`;
+    await this.mailerService.sendEmailVerificationEmail(email, patient.firstName || 'Patient', verificationLink);
+
+    return { message: 'Verification email sent successfully' };
+  }
+
+  /**
+   * Reset temporary credentials for an admin-managed patient
+   * Generates a new password + verification token and sends the full welcome email
+   */
+  async resetPatientCredentials(patientId: string): Promise<{ message: string }> {
+    const patient = await this.prisma.user.findUnique({ where: { id: patientId } });
+    if (!patient) throw new NotFoundException('Patient not found');
+
+    const newPassword = this.generateSecurePassword();
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    const emailVerificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await this.prisma.user.update({
+      where: { id: patientId },
+      data: {
+        password: hashedPassword,
+        mustChangePassword: true,
+        emailVerificationToken,
+        emailVerificationTokenExpiry,
+        // If already verified, keep verified — just reset password
+        ...(patient.isEmailVerified ? {} : { isEmailVerified: false }),
+      },
+    });
+
+    const email = patient.primaryEmail ?? patient.email;
+    if (!email) throw new BadRequestException('Patient has no email address');
+
+    const verificationLink = `https://optimalemd.health/verify-email?token=${emailVerificationToken}`;
+
+    // Reuse the full admin-created email which includes credentials + verify & login CTA
+    await this.mailerService.sendAdminCreatedPatientEmail(
+      email,
+      patient.firstName || 'Patient',
+      newPassword,
+      verificationLink,
+    );
+
+    return { message: 'New credentials sent successfully' };
   }
 
   /**

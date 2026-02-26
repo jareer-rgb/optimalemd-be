@@ -69,7 +69,10 @@ model User {
   // Password reset fields
   resetToken        String?
   resetTokenExpiry  DateTime?
-  
+
+  // Force password change (set true for admin-created patients)
+  mustChangePassword Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

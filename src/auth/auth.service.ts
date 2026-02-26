@@ -176,10 +176,11 @@ export class AuthService {
     // Return user data without password
     const { password: _, ...userWithoutPassword } = user;
 
-    const response: AuthResponseDataDto & { hasIncompleteSignup?: boolean; welcomeOrderId?: string; resumeStep?: number } = {
+    const response: AuthResponseDataDto & { hasIncompleteSignup?: boolean; welcomeOrderId?: string; resumeStep?: number; mustChangePassword?: boolean } = {
       accessToken,
       user: userWithoutPassword as UserResponseDto,
       userType: 'user' as const,
+      mustChangePassword: user.mustChangePassword ?? false,
     };
 
     // Add incomplete signup info if found
@@ -480,11 +481,12 @@ export class AuthService {
     // Hash new password
     const hashedNewPassword = await bcrypt.hash(newPassword, 12);
 
-    // Update password
+    // Update password and clear force-change flag
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: {
         password: hashedNewPassword,
+        mustChangePassword: false,
       },
     });
 

@@ -180,10 +180,43 @@ export class AdminController {
     await this.adminService.deletePatient(patientId);
   }
 
+  @Post(':id/resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Resend Verification Email (Admin)',
+    description: 'Resend email verification link to a patient who has not yet verified their email',
+  })
+  @ApiParam({ name: 'id', description: 'Patient ID' })
+  @ApiResponse({ status: 200, description: 'Verification email sent successfully' })
+  @ApiResponse({ status: 400, description: 'Email already verified or no email on record' })
+  @ApiResponse({ status: 404, description: 'Patient not found' })
+  async resendPatientVerification(
+    @Param('id') patientId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const result = await this.adminService.resendPatientVerification(patientId);
+    return { success: true, message: result.message };
+  }
+
+  @Post(':id/reset-credentials')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Reset Patient Credentials (Admin)',
+    description: 'Generate a new temporary password for the patient and send a welcome email with verify + login link',
+  })
+  @ApiParam({ name: 'id', description: 'Patient ID' })
+  @ApiResponse({ status: 200, description: 'New credentials sent successfully' })
+  @ApiResponse({ status: 404, description: 'Patient not found' })
+  async resetPatientCredentials(
+    @Param('id') patientId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const result = await this.adminService.resetPatientCredentials(patientId);
+    return { success: true, message: result.message };
+  }
+
   @Post(':id/medical-form')
-  @ApiOperation({ 
-    summary: 'Create Medical Form (Admin)', 
-    description: 'Create medical form for a patient' 
+  @ApiOperation({
+    summary: 'Create Medical Form (Admin)',
+    description: 'Create medical form for a patient'
   })
   @ApiParam({ name: 'id', description: 'Patient ID' })
   @ApiResponse({ status: 201, description: 'Medical form created successfully' })
