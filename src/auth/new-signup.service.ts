@@ -2,13 +2,14 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { MailerService } from '../mailer/mailer.service';
+import { ReferralService } from '../referral/referral.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { generateNextPatientId } from '../common/utils/patient-id.utils';
-import { 
-  CreateWelcomeOrderDto, 
-  UpdateSignupStepDto, 
-  SignupProgressResponseDto, 
+import {
+  CreateWelcomeOrderDto,
+  UpdateSignupStepDto,
+  SignupProgressResponseDto,
   ResumeSignupResponseDto,
   WelcomeOrderStatus,
   PaymentStatus
@@ -20,6 +21,7 @@ export class NewSignupService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private mailerService: MailerService,
+    private referralService: ReferralService,
   ) {}
 
   // Generate unique order number
@@ -736,6 +738,19 @@ export class NewSignupService {
       });
 
       console.log('User created successfully:', user);
+
+      // Hook referral: if a referral code was passed, create the referral record
+      if (userData.referralCode) {
+        try {
+          await this.referralService.createReferralOnSignup(
+            userData.referralCode,
+            normalizedEmail,
+            user.id,
+          );
+        } catch (refErr) {
+          console.error('Referral creation failed (non-fatal):', refErr);
+        }
+      }
 
       // Generate JWT token (same format as login)
       const payload = { sub: user.id, email: user.primaryEmail, userType: 'user' };

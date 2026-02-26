@@ -10,12 +10,14 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MailerModule } from '../mailer/mailer.module';
 import { StripeModule } from '../stripe/stripe.module';
+import { ReferralModule } from '../referral/referral.module';
 
 @Module({
   imports: [
     PrismaModule,
     MailerModule,
     StripeModule,
+    ReferralModule,
     PassportModule,
     ConfigModule,
     JwtModule.registerAsync({

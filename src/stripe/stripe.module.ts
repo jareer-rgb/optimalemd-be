@@ -6,9 +6,10 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { MailerModule } from '../mailer/mailer.module';
 import { GoogleCalendarModule } from '../google-calendar/google-calendar.module';
+import { ReferralModule } from '../referral/referral.module';
 
 @Module({
-  imports: [ConfigModule, PrismaModule, AppointmentsModule, MailerModule, GoogleCalendarModule],
+  imports: [ConfigModule, PrismaModule, AppointmentsModule, MailerModule, GoogleCalendarModule, ReferralModule],
   providers: [StripeService],
   controllers: [StripeController, StripeWebhookController],
   exports: [StripeService],

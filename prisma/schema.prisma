@@ -101,11 +101,21 @@ model User {
   drivingLicensePath String? // Path to uploaded driving license
   photoPath String? // Path to uploaded photo
 
+  // Referral & Credit System
+  referralCode        String?   @unique
+  reviewToggled       Boolean   @default(false)
+  reviewToggledAt     DateTime?
+  reviewCreditApplied Boolean   @default(false)
+  creditRolloverPct   Float     @default(0)
+
   // Relations
   bookings Booking[]
   patientAppointments Appointment[]
   medicalForms MedicalForm[]
   labOrders LabOrder[]
+  creditEvents        CreditEvent[]
+  referralsMade       Referral[]    @relation("Referrer")
+  referralReceived    Referral?     @relation("Referred")
 
   @@map("users")
 }
@@ -934,6 +944,56 @@ model LabResultFile {
   labOrder      LabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
   
   @@map("lab_result_files")
+}
+
+// Referral & Credit System Models
+model CreditEvent {
+  id               String       @id @default(uuid())
+  patientId        String
+  patient          User         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  type             CreditType
+  percentAmount    Float
+  status           CreditStatus @default(PENDING)
+  referralId       String?
+  appliedToInvoice String?
+  appliedAt        DateTime?
+  expiresAt        DateTime?    // 30 days from creation; null = never expires
+  createdAt        DateTime     @default(now())
+
+  @@index([patientId])
+  @@map("credit_events")
+}
+
+model Referral {
+  id            String         @id @default(uuid())
+  referrerId    String
+  referrer      User           @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredId    String?        @unique
+  referred      User?          @relation("Referred", fields: [referredId], references: [id])
+  referredEmail String?
+  status        ReferralStatus @default(PENDING)
+  createdAt     DateTime       @default(now())
+  qualifiedAt   DateTime?
+
+  @@index([referrerId])
+  @@map("referrals")
+}
+
+enum CreditType {
+  REVIEW
+  REFERRAL
+}
+
+enum CreditStatus {
+  PENDING
+  APPLIED
+  EXPIRED
+}
+
+enum ReferralStatus {
+  PENDING
+  QUALIFIED
+  CANCELLED
 }
 
 // Enums for new signup flow

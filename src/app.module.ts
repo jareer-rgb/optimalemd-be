@@ -23,8 +23,9 @@ import { MedicationsModule } from './medications/medications.module';
 import { DoseSpotModule } from './dosespot/dosespot.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { LabOrdersModule } from './lab-orders/lab-orders.module';
+import { ReferralModule } from './referral/referral.module';
 
-@Module({ 
+@Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
@@ -50,6 +51,7 @@ import { LabOrdersModule } from './lab-orders/lab-orders.module';
     DoseSpotModule,
     UploadsModule,
     LabOrdersModule,
+    ReferralModule,
   ],
   controllers: [AppController],
   providers: [AppService],

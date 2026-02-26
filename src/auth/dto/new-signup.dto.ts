@@ -273,6 +273,10 @@ export class CreateUserStepByStepDto {
   phone?: string;
 
   @IsOptional()
+  @IsString()
+  referralCode?: string;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 

@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentsService } from '../appointments/appointments.service';
 import { MailerService } from '../mailer/mailer.service';
 import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
+import { ReferralService } from '../referral/referral.service';
 import { CreatePaymentIntentDto, ConfirmPaymentDto } from './dto';
 
 @Injectable()
@@ -16,7 +17,8 @@ export class StripeService {
     private prisma: PrismaService,
     private appointmentsService: AppointmentsService,
     private mailerService: MailerService,
-    private googleCalendarService: GoogleCalendarService
+    private googleCalendarService: GoogleCalendarService,
+    private referralService: ReferralService,
   ) {
     const stripeKey = this.configService.get('STRIPE_SECRET_KEY');
     if (!stripeKey) {
@@ -272,6 +274,29 @@ export class StripeService {
           isAvailable: false,
         },
       });
+    }
+
+    // Qualify referral if this is the patient's first paid appointment
+    try {
+      const confirmedCount = await this.prisma.appointment.count({
+        where: {
+          patientId: appointment.patientId,
+          isPaid: true,
+          status: 'CONFIRMED',
+        },
+      });
+      if (confirmedCount === 1) {
+        await this.referralService.qualifyReferral(appointment.patientId);
+      }
+    } catch (refErr) {
+      console.error('Referral qualification failed (non-fatal):', refErr);
+    }
+
+    // Apply any pending credits to this appointment
+    try {
+      await this.referralService.applyCreditsToAppointment(appointment.patientId, appointmentId);
+    } catch (creditErr) {
+      console.error('Credit application failed (non-fatal):', creditErr);
     }
 
     // Send email notifications to both patient and doctor (if assigned)
