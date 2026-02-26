@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { MailerService } from '../mailer/mailer.service';
 import { CreditEvent, CreditStatus, Prisma } from '@prisma/client';
 import Stripe from 'stripe';
 
@@ -30,6 +31,7 @@ export class ReferralService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
+    private mailerService: MailerService,
   ) {
     const stripeKey = this.configService.get<string>('STRIPE_SECRET_KEY') || '';
     this.stripeClient = new Stripe(stripeKey, { apiVersion: '2025-10-29.clover' as any });
@@ -277,6 +279,16 @@ export class ReferralService {
       console.error('Subscriber Stripe balance update failed after review credit (non-fatal):', err);
     }
 
+    try {
+      const email = patient.primaryEmail ?? patient.email ?? null;
+      if (email) {
+        const name = `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || 'there';
+        await this.mailerService.sendReviewCreditEmail(email, name, 5, patient.isSubscribed ?? false);
+      }
+    } catch (err) {
+      console.error('Review credit email failed (non-fatal):', err);
+    }
+
     return { success: true, message: '5% review credit applied successfully.' };
   }
 
@@ -366,6 +378,18 @@ export class ReferralService {
       await this.applyAllSubscriberCredits(referral.referrerId);
     } catch (err) {
       console.error('Subscriber Stripe balance update failed after referral qualify (non-fatal):', err);
+    }
+
+    try {
+      const referrer = await this.prisma.user.findUnique({ where: { id: referral.referrerId } });
+      if (referrer) {
+        const email = referrer.primaryEmail ?? referrer.email ?? null;
+        if (!email) return;
+        const name = `${referrer.firstName || ''} ${referrer.lastName || ''}`.trim() || 'there';
+        await this.mailerService.sendReferralCreditEmail(email, name, 20, referrer.isSubscribed ?? false);
+      }
+    } catch (err) {
+      console.error('Referral credit email failed (non-fatal):', err);
     }
   }
 

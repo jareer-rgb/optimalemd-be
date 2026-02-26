@@ -3720,4 +3720,112 @@ export class MailerService implements OnModuleInit {
       throw error;
     }
   }
+
+  async sendReferralCreditEmail(to: string, name: string, creditPct: number, isSubscribed: boolean): Promise<void> {
+    const context = isSubscribed ? 'your next monthly subscription renewal' : 'your next appointment';
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; color: #333333; }
+          .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }
+          .header { background-color: #000000; padding: 25px; text-align: center; }
+          .logo { color: #ffffff; font-size: 24px; font-weight: bold; text-transform: uppercase; margin: 0; }
+          .content { padding: 30px; }
+          .credit-badge { background-color: #22c55e; color: #ffffff; font-size: 28px; font-weight: bold; text-align: center; padding: 20px; border-radius: 8px; margin: 20px 0; }
+          .footer { background-color: #f9f9f9; padding: 20px; text-align: center; color: #666666; font-size: 12px; border-top: 1px solid #eeeeee; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <p class="logo">OptimaleMD</p>
+          </div>
+          <div class="content">
+            <h2>You earned a referral credit! 🎉</h2>
+            <p>Hi ${name},</p>
+            <p>Great news! A patient you referred just completed their first appointment. As a thank-you, we've added a <strong>${creditPct}% discount</strong> to your account.</p>
+            <div class="credit-badge">${creditPct}% OFF</div>
+            <p>This credit will automatically be applied to ${context}. Credits expire 30 days after being earned, so use them soon!</p>
+            <p>Keep sharing your referral link to earn more credits. You can view your current balance in the <strong>Referrals &amp; Credits</strong> section of your dashboard.</p>
+            <p>Thank you for helping grow the OptimaleMD community!</p>
+            <p>— The OptimaleMD Team</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to,
+        subject: `You earned ${creditPct}% credit — referral qualified!`,
+        html,
+      });
+      console.log(`Referral credit email sent to ${to}`);
+    } catch (error) {
+      console.error('Failed to send referral credit email:', error);
+      throw error;
+    }
+  }
+
+  async sendReviewCreditEmail(to: string, name: string, creditPct: number, isSubscribed: boolean): Promise<void> {
+    const context = isSubscribed ? 'your next monthly subscription renewal' : 'your next appointment';
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; color: #333333; }
+          .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }
+          .header { background-color: #000000; padding: 25px; text-align: center; }
+          .logo { color: #ffffff; font-size: 24px; font-weight: bold; text-transform: uppercase; margin: 0; }
+          .content { padding: 30px; }
+          .credit-badge { background-color: #eab308; color: #000000; font-size: 28px; font-weight: bold; text-align: center; padding: 20px; border-radius: 8px; margin: 20px 0; }
+          .footer { background-color: #f9f9f9; padding: 20px; text-align: center; color: #666666; font-size: 12px; border-top: 1px solid #eeeeee; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <p class="logo">OptimaleMD</p>
+          </div>
+          <div class="content">
+            <h2>Your review credit has been applied! ⭐</h2>
+            <p>Hi ${name},</p>
+            <p>Our team has verified your review — thank you for taking the time to share your experience! We've added a <strong>${creditPct}% discount</strong> to your account as a token of our appreciation.</p>
+            <div class="credit-badge">${creditPct}% OFF</div>
+            <p>This credit will automatically be applied to ${context}. Credits expire 30 days after being earned.</p>
+            <p>You can view your current balance in the <strong>Referrals &amp; Credits</strong> section of your dashboard.</p>
+            <p>Thank you for being a valued member of the OptimaleMD community!</p>
+            <p>— The OptimaleMD Team</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to,
+        subject: `Your ${creditPct}% review credit has been applied!`,
+        html,
+      });
+      console.log(`Review credit email sent to ${to}`);
+    } catch (error) {
+      console.error('Failed to send review credit email:', error);
+      throw error;
+    }
+  }
 } 
