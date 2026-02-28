@@ -846,6 +846,7 @@ model Medication {
   route           String?  // e.g., "Oral", "Injection", "Topical", "Sublingual"
   frequency       String?  // e.g., "Once daily", "Twice daily", "As needed"
   directions      String?   // Detailed instructions for use
+  dosageInstruction String? @db.Text // Exact per-variation instruction shown in prescription box (e.g., "Inject 0.625 mL (125 mg) intramuscularly twice weekly on same days each week")
   therapyCategory String?  // e.g., "Hormone Therapy", "Hair Loss", "Weight Loss"
   standardPrice   Decimal  @db.Decimal(10, 2) // Regular/standard price
   membershipPrice Decimal? @db.Decimal(10, 2) // Discounted price for members (optional)

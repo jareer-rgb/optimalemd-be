@@ -321,6 +321,9 @@ export class MedicationResponseDto {
   @ApiProperty({ description: 'Detailed directions', required: false })
   directions?: string | null;
 
+  @ApiProperty({ description: 'Exact per-variation dosage instruction shown in prescription box', required: false })
+  dosageInstruction?: string | null;
+
   @ApiProperty({ description: 'Therapy category', required: false })
   therapyCategory?: string | null;
 
