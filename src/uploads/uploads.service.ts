@@ -386,6 +386,28 @@ export class UploadsService {
     });
   }
 
+  /**
+   * Resolve a stored file path to one that exists on the current server.
+   * Files uploaded on one environment (e.g. Azure) have absolute paths that
+   * won't exist locally.  We fall back to this.uploadsDir + basename so the
+   * file is found regardless of where it was originally uploaded.
+   */
+  private resolveStoredPath(storedPath: string | null): string | null {
+    if (!storedPath) return null;
+
+    // Stored path exists as-is (normal case: same environment)
+    if (fs.existsSync(storedPath)) return storedPath;
+
+    // Fall back: resolve just the filename inside the current uploadsDir
+    const fileName = path.basename(storedPath);
+    if (fileName) {
+      const localPath = path.join(this.uploadsDir, fileName);
+      if (fs.existsSync(localPath)) return localPath;
+    }
+
+    return null;
+  }
+
   async getFilePath(userId: string, type: 'drivingLicense' | 'photo'): Promise<string> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -396,9 +418,10 @@ export class UploadsService {
       throw new NotFoundException('User not found');
     }
 
-    const filePath = type === 'drivingLicense' ? user.drivingLicensePath : user.photoPath;
+    const storedPath = type === 'drivingLicense' ? user.drivingLicensePath : user.photoPath;
+    const filePath = this.resolveStoredPath(storedPath);
 
-    if (!filePath || !fs.existsSync(filePath)) {
+    if (!filePath) {
       throw new NotFoundException(`${type} file not found`);
     }
 
@@ -415,9 +438,10 @@ export class UploadsService {
       throw new NotFoundException('Lab order not found');
     }
 
-    const filePath = type === 'receipt' ? labOrder.receiptPath : labOrder.resultsPath;
+    const storedPath = type === 'receipt' ? labOrder.receiptPath : labOrder.resultsPath;
+    const filePath = this.resolveStoredPath(storedPath);
 
-    if (!filePath || !fs.existsSync(filePath)) {
+    if (!filePath) {
       throw new NotFoundException(`Lab ${type} file not found`);
     }
 
@@ -433,11 +457,13 @@ export class UploadsService {
       throw new NotFoundException('Lab result file not found');
     }
 
-    if (!resultFile.filePath || !fs.existsSync(resultFile.filePath)) {
+    const filePath = this.resolveStoredPath(resultFile.filePath);
+
+    if (!filePath) {
       throw new NotFoundException('Lab result file not found on disk');
     }
 
-    return resultFile.filePath;
+    return filePath;
   }
 
   async getLabResultFileInfo(resultFileId: string): Promise<any> {

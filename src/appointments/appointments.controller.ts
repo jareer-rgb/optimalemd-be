@@ -1562,6 +1562,22 @@ export class AppointmentsController {
     }
   }
 
+  @Post(':id/refresh-meet-link')
+  @ApiOperation({
+    summary: 'Refresh Meet Link',
+    description: 'Generate a new Google Meet link for an existing appointment and persist it.',
+  })
+  @ApiParam({ name: 'id', description: 'Appointment ID' })
+  async refreshMeetLink(@Param('id') id: string) {
+    const data = await this.appointmentsService.refreshMeetLink(id);
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Meet link refreshed successfully',
+      data,
+    };
+  }
+
   @Delete('bookings/:id')
   @ApiOperation({
     summary: 'Delete Booking',

@@ -1893,6 +1893,54 @@ export class AppointmentsService {
     return items;
   }
   /**
+   * Regenerate and store a fresh Google Meet link for an existing appointment.
+   */
+  async refreshMeetLink(appointmentId: string): Promise<{ googleMeetLink: string }> {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        patient: { select: { firstName: true, lastName: true, primaryEmail: true } },
+        doctor: { select: { firstName: true, lastName: true, email: true } },
+        service: { select: { name: true } },
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
+    const doctorName = appointment.doctor
+      ? `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`
+      : 'To be assigned';
+
+    const meetResult = await this.googleCalendarService.generateMeetLink(
+      appointment.appointmentDate,
+      appointment.appointmentTime,
+      appointment.duration,
+      doctorName,
+      patientName,
+      appointment.service.name,
+      appointment.patient.primaryEmail || undefined,
+      appointment.doctor?.email,
+    );
+
+    if (!meetResult?.meetLink) {
+      throw new BadRequestException('Failed to generate a new Google Meet link');
+    }
+
+    await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        googleMeetLink: meetResult.meetLink,
+        googleEventId: meetResult.eventId || appointment.googleEventId,
+      },
+    });
+
+    return { googleMeetLink: meetResult.meetLink };
+  }
+
+  /**
    * Get all available slots from all doctors for a specific date
    */
   async getGlobalSlots(date: string): Promise<any[]> {
