@@ -271,8 +271,8 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
-    // Generate JWT token
-    const payload = { sub: admin.id, email: admin.email, userType: 'admin' };
+    // Generate JWT token (include admin role for RBAC)
+    const payload = { sub: admin.id, email: admin.email, userType: 'admin', role: admin.role };
     const accessToken = this.jwtService.sign(payload);
 
     // Return admin data without password
