@@ -499,6 +499,17 @@ export class AdminCreateMedicalFormDto {
   @IsOptional()
   stressLevel?: string;
 
+  // Work Info
+  @ApiProperty({ description: 'Job/Occupation', required: false })
+  @IsString()
+  @IsOptional()
+  jobOccupation?: string;
+
+  @ApiProperty({ description: 'Work hours per week', required: false })
+  @IsString()
+  @IsOptional()
+  workHoursPerWeek?: string;
+
   // Symptoms
   @ApiProperty({ description: 'Symptom: Fatigue', required: false })
   @IsBoolean()

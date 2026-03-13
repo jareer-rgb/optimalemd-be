@@ -643,7 +643,11 @@ model MedicalForm {
   cannabisOtherSubstancesExplanation String?
   cannabisOtherSubstancesList String? // List if Yes
   stressLevel String? // Low/Medium/High
-  
+
+  // Work Info
+  jobOccupation  String?
+  workHoursPerWeek String?
+
   // Screen 6 - Symptom Check
   symptomFatigue Boolean @default(false)
   symptomLowLibido Boolean @default(false)

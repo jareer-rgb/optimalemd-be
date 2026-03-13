@@ -216,7 +216,11 @@ export class MedicalFormService {
       cannabisOtherSubstances: medicalForm.cannabisOtherSubstances,
       cannabisOtherSubstancesList: medicalForm.cannabisOtherSubstancesList,
       stressLevel: medicalForm.stressLevel,
-      
+
+      // Work Info
+      jobOccupation: medicalForm.jobOccupation,
+      workHoursPerWeek: medicalForm.workHoursPerWeek,
+
       // Screen 6 - Symptom Check
       symptomFatigue: medicalForm.symptomFatigue,
       symptomLowLibido: medicalForm.symptomLowLibido,

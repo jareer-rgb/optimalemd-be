@@ -101,6 +101,13 @@ export class MedicalFormResponseDto {
   @ApiProperty({ description: 'Stress level', required: false })
   stressLevel?: string;
 
+  // Work Info
+  @ApiProperty({ description: 'Job/Occupation', required: false })
+  jobOccupation?: string;
+
+  @ApiProperty({ description: 'Work hours per week', required: false })
+  workHoursPerWeek?: string;
+
   // Screen 6 - Symptom Check
   @ApiProperty({ description: 'Symptom: Fatigue', required: false })
   symptomFatigue?: boolean;

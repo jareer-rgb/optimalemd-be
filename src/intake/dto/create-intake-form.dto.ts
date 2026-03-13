@@ -126,6 +126,17 @@ export class CreateIntakeFormDto {
   @IsString()
   stressLevel?: string;
 
+  // Work Info
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  jobOccupation?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  workHoursPerWeek?: string;
+
   // Screen 6 - Symptom Check
   @ApiProperty({ required: false, default: false })
   @IsOptional()
