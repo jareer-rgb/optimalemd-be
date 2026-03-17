@@ -270,6 +270,24 @@ export class AuthController {
     };
   }
 
+  @Post('admin-google-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Admin Google SSO Login/Signup',
+    description: 'Authenticate or register an admin using Google SSO. If the admin already exists, logs them in. If not, creates a new admin account.',
+  })
+  async adminGoogleLogin(@Body() body: { idToken: string }) {
+    const data = await this.authService.adminGoogleLogin(body.idToken);
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Login successful',
+      data,
+      timestamp: new Date().toISOString(),
+      path: '/api/auth/admin-google-login',
+    };
+  }
+
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

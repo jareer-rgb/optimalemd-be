@@ -7,6 +7,7 @@ import { LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordDto, AuthRespons
 import { DoctorResponseDto } from '../doctors/dto/doctor.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { generateNextPatientId } from '../common/utils/patient-id.utils';
 
 @Injectable()
@@ -276,6 +277,97 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload);
 
     // Return admin data without password
+    const { password: _, ...adminWithoutPassword } = admin;
+
+    return {
+      accessToken,
+      admin: adminWithoutPassword as AdminResponseDto,
+      userType: 'admin' as const,
+    };
+  }
+
+  /**
+   * Google SSO for admin login/signup
+   */
+  async adminGoogleLogin(idToken: string): Promise<AuthResponseDataDto> {
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    const client = new OAuth2Client(clientId);
+
+    // Verify the Google ID token
+    let ticket;
+    try {
+      ticket = await client.verifyIdToken({
+        idToken,
+        audience: clientId,
+      });
+    } catch {
+      throw new UnauthorizedException('Invalid Google token');
+    }
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      throw new UnauthorizedException('Invalid Google token payload');
+    }
+
+    const { sub: googleId, email, given_name, family_name, picture } = payload;
+
+    // Check if admin exists by googleId or email
+    let admin = await this.prisma.admin.findFirst({
+      where: {
+        OR: [
+          { googleId },
+          { email },
+        ],
+      },
+    });
+
+    if (admin) {
+      // Existing admin — link googleId if not yet linked
+      if (!admin.googleId) {
+        admin = await this.prisma.admin.update({
+          where: { id: admin.id },
+          data: { googleId },
+        });
+      }
+
+      // Check if admin is active
+      if (!admin.isActive) {
+        throw new UnauthorizedException('Account is deactivated');
+      }
+
+      // Update last login and profile picture
+      admin = await this.prisma.admin.update({
+        where: { id: admin.id },
+        data: {
+          lastLoginAt: new Date(),
+          ...(picture && !admin.profilePicture ? { profilePicture: picture } : {}),
+        },
+      });
+    } else {
+      // New admin — create account
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPassword, 12);
+
+      admin = await this.prisma.admin.create({
+        data: {
+          email,
+          password: hashedPassword,
+          googleId,
+          firstName: given_name || 'Admin',
+          lastName: family_name || '',
+          profilePicture: picture || null,
+          role: 'admin',
+          isActive: true,
+          isEmailVerified: true,
+          permissions: [],
+        },
+      });
+    }
+
+    // Generate JWT
+    const jwtPayload = { sub: admin.id, email: admin.email, userType: 'admin', role: admin.role };
+    const accessToken = this.jwtService.sign(jwtPayload);
+
     const { password: _, ...adminWithoutPassword } = admin;
 
     return {
