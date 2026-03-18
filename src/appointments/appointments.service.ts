@@ -1575,6 +1575,38 @@ export class AppointmentsService {
   }
 
   /**
+   * Get the patient's pending unpaid appointment (if any) created within the last 60 minutes.
+   * Used to show the "complete your payment" banner on the booking page.
+   */
+  async getPendingUnpaidAppointment(patientId: string) {
+    // Return any unpaid appointment created within the last 60 minutes,
+    // OR any existing unpaid appointment that is upcoming (appointment date in the future or today).
+    const sixtyMinutesAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const appointment = await this.prisma.appointment.findFirst({
+      where: {
+        patientId,
+        isPaid: false,
+        amount: { gt: 0 },   // exclude admin-created $0 appointments — those don't need payment
+        status: { in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] },
+        OR: [
+          { createdAt: { gte: sixtyMinutesAgo } },
+          { appointmentDate: { gte: today } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        service: { select: { name: true } },
+        primaryService: { select: { name: true } },
+      },
+    });
+
+    return appointment;
+  }
+
+  /**
    * Delete appointment (admin only)
    */
   async deleteAppointment(id: string): Promise<void> {
@@ -2240,13 +2272,14 @@ export class AppointmentsService {
       throw new BadRequestException('Doctor is not available');
     }
 
-    // Update the appointment with doctor and slot
+    // Update the appointment with doctor and slot.
+    // Keep status as PENDING — it becomes CONFIRMED only after payment is confirmed.
     const updatedAppointment = await this.prisma.appointment.update({
       where: { id: appointmentId },
       data: {
         doctorId: doctorId,
         slotId: slotId,
-        status: 'CONFIRMED'
+        // Do not change status here; payment confirmation sets it to CONFIRMED
       },
       include: {
         patient: true,

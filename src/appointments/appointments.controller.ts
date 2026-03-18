@@ -312,6 +312,26 @@ export class AppointmentsController {
     };
   }
 
+  @Get('my-pending-unpaid')
+  @ApiOperation({
+    summary: 'Get current patient pending unpaid appointment',
+    description: 'Returns the most recent PENDING + unpaid appointment created within the last 60 minutes for the authenticated patient, or null if none.',
+  })
+  async getMyPendingUnpaid(
+    @CurrentUser() user: any,
+  ): Promise<BaseApiResponse<any>> {
+    const patientId = user.id || user.sub;
+    const data = await this.appointmentsService.getPendingUnpaidAppointment(patientId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: data ? 'Pending unpaid appointment found' : 'No pending unpaid appointment',
+      data,
+      timestamp: new Date().toISOString(),
+      path: '/api/appointments/my-pending-unpaid',
+    };
+  }
+
   @Get('patient/:patientId')
   @ApiOperation({
     summary: 'Get Patient Appointments',
