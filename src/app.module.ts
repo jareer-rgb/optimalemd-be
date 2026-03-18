@@ -24,6 +24,7 @@ import { DoseSpotModule } from './dosespot/dosespot.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { LabOrdersModule } from './lab-orders/lab-orders.module';
 import { ReferralModule } from './referral/referral.module';
+import { FollowUpIntakeModule } from './follow-up-intake/follow-up-intake.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { ReferralModule } from './referral/referral.module';
     UploadsModule,
     LabOrdersModule,
     ReferralModule,
+    FollowUpIntakeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

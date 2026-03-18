@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { AppointmentsController } from './appointments.controller';
 import { AppointmentsService } from './appointments.service';
 import { BookingsService } from './bookings.service';
@@ -7,7 +8,7 @@ import { MailerModule } from '../mailer/mailer.module';
 import { GoogleCalendarModule } from '../google-calendar/google-calendar.module';
 
 @Module({
-  imports: [PrismaModule, MailerModule, GoogleCalendarModule],
+  imports: [ConfigModule, PrismaModule, MailerModule, GoogleCalendarModule],
   controllers: [AppointmentsController],
   providers: [AppointmentsService, BookingsService],
   exports: [AppointmentsService, BookingsService],

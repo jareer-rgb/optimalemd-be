@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailerService } from '../mailer/mailer.service';
 import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
@@ -16,11 +18,19 @@ import { dateStringToUTC, isDateTimeInPast, getUTCMidnight, getUTCEndOfDay } fro
 
 @Injectable()
 export class AppointmentsService {
+  private stripe: Stripe;
+
   constructor(
     private prisma: PrismaService,
     private mailerService: MailerService,
-    private googleCalendarService: GoogleCalendarService
-  ) {}
+    private googleCalendarService: GoogleCalendarService,
+    private configService: ConfigService,
+  ) {
+    const stripeKey = this.configService.get<string>('STRIPE_SECRET_KEY');
+    if (stripeKey) {
+      this.stripe = new Stripe(stripeKey, { apiVersion: '2025-10-29.clover' as any });
+    }
+  }
 
   /**
    * Create a temporary appointment for payment processing
@@ -1582,8 +1592,30 @@ export class AppointmentsService {
       throw new BadRequestException('Completed appointments cannot be deleted');
     }
 
+    // If there's an active medication subscription, cancel it in Stripe first
+    if (this.stripe) {
+      const medPayment = await this.prisma.medicationPayment.findUnique({
+        where: { appointmentId: id },
+      });
+      if (medPayment?.stripeSubscriptionId) {
+        try {
+          const sub = await this.stripe.subscriptions.retrieve(medPayment.stripeSubscriptionId);
+          if (sub.status !== 'canceled' && sub.status !== 'incomplete_expired') {
+            await this.stripe.subscriptions.cancel(medPayment.stripeSubscriptionId);
+            console.log(`✅ Cancelled Stripe subscription ${medPayment.stripeSubscriptionId} for appointment ${id}`);
+          }
+        } catch (stripeErr: any) {
+          // Log but don't block deletion — subscription may already be gone in Stripe
+          console.warn(`⚠️  Could not cancel Stripe subscription for appointment ${id}:`, stripeErr.message);
+        }
+      }
+    }
+
     // Use transaction to ensure data consistency
     await this.prisma.$transaction(async (prisma) => {
+      // MedicationPayment uses onDelete: Restrict, so must be deleted manually first
+      await prisma.medicationPayment.deleteMany({ where: { appointmentId: id } });
+
       // Make slot available again (if slotId exists)
       if (appointment.slotId) {
         await prisma.slot.update({
