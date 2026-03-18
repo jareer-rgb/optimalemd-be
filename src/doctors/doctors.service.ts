@@ -944,6 +944,26 @@ export class DoctorsService {
     };
   }
 
+  async changeOwnPassword(doctorId: string, currentPassword: string, newPassword: string) {
+    const doctor = await this.prisma.doctor.findUnique({ where: { id: doctorId } });
+    if (!doctor) throw new NotFoundException('Doctor not found');
+
+    const isValid = await bcrypt.compare(currentPassword, doctor.password);
+    if (!isValid) throw new BadRequestException('Current password is incorrect');
+
+    const errors: string[] = [];
+    if (newPassword.length < 8) errors.push('at least 8 characters');
+    if (!/[A-Z]/.test(newPassword)) errors.push('an uppercase letter');
+    if (!/[a-z]/.test(newPassword)) errors.push('a lowercase letter');
+    if (!/[0-9]/.test(newPassword)) errors.push('a number');
+    if (!/[^A-Za-z0-9]/.test(newPassword)) errors.push('a special character');
+    if (errors.length > 0) throw new BadRequestException(`Password must contain: ${errors.join(', ')}`);
+
+    const hashed = await bcrypt.hash(newPassword, 12);
+    await this.prisma.doctor.update({ where: { id: doctorId }, data: { password: hashed } });
+    return { message: 'Password changed successfully' };
+  }
+
   private calculateAge(dateOfBirth: Date): number {
     const today = new Date();
     const birthDate = new Date(dateOfBirth);

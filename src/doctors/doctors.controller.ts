@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -724,5 +725,18 @@ export class DoctorsController {
       timestamp: new Date().toISOString(),
       path: `/api/doctors/${id}/patients`,
     };
+  }
+
+  @Put('profile/change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change own password (doctor)' })
+  async changePassword(
+    @Body() body: { currentPassword: string; newPassword: string },
+    @Req() req: any,
+  ) {
+    const doctorId = req.user.sub || req.user.id;
+    const result = await this.doctorsService.changeOwnPassword(doctorId, body.currentPassword, body.newPassword);
+    return { success: true, message: result.message };
   }
 }
