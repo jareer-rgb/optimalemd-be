@@ -159,58 +159,70 @@ export class AppointmentsService {
       }
     }
 
-    // Create temporary appointment with PENDING status
-    const appointment = await this.prisma.appointment.create({
-      data: {
-        patientId,
-        doctorId,
-        serviceId,
-        slotId,
-        primaryServiceId,
-        appointmentDate: dateStringToUTC(appointmentDate),
-        appointmentTime,
-        selectedSlotTime,
-        duration: appointmentDuration,
-        patientNotes,
-        symptoms,
-        amount,
-        status: AppointmentStatus.PENDING,
-        isPaid: false,
-        additionalServices: additionalServicesData.length > 0 ? additionalServicesData : undefined,
-      },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            primaryEmail: true,
+    // Create temporary appointment with PENDING status and mark slot as unavailable atomically
+    const appointment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.appointment.create({
+        data: {
+          patientId,
+          doctorId,
+          serviceId,
+          slotId,
+          primaryServiceId,
+          appointmentDate: dateStringToUTC(appointmentDate),
+          appointmentTime,
+          selectedSlotTime,
+          duration: appointmentDuration,
+          patientNotes,
+          symptoms,
+          amount,
+          status: AppointmentStatus.PENDING,
+          isPaid: false,
+          additionalServices: additionalServicesData.length > 0 ? additionalServicesData : undefined,
+        },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              primaryEmail: true,
+            },
+          },
+          doctor: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              specialization: true,
+            },
+          },
+          service: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              duration: true,
+            },
+          },
+          slot: {
+            select: {
+              id: true,
+              startTime: true,
+              endTime: true,
+            },
           },
         },
-        doctor: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            specialization: true,
-          },
-        },
-        service: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            duration: true,
-          },
-        },
-        slot: {
-          select: {
-            id: true,
-            startTime: true,
-            endTime: true,
-          },
-        },
-      },
+      });
+
+      // Mark slot as unavailable so no other patient can book it
+      if (slotId) {
+        await tx.slot.update({
+          where: { id: slotId },
+          data: { isAvailable: false },
+        });
+      }
+
+      return created;
     });
 
     return appointment;
