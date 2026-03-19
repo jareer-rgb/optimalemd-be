@@ -26,7 +26,7 @@ export class DoseSpotController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   async syncPatientToDoseSpot(
     @Param('patientId') patientId: string,
-    @Body() body: { forceUpdate?: boolean },
+    @Body() body: { forceUpdate?: boolean } = {},
     @Request() req: any,
   ) {
     // Only allow doctors/admins to sync patients, or patients to sync themselves
