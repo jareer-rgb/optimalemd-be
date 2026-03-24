@@ -854,4 +854,53 @@ export class AdminService {
       createdAt: user.createdAt,
     };
   }
+
+  async getDashboardStats() {
+    const [
+      totalPatients,
+      totalDoctors,
+      totalAppointments,
+      pendingRequests,
+      todayAppointments,
+      completedAppointments,
+      cancelledAppointments,
+      activeSubscribedPatients,
+    ] = await Promise.all([
+      this.prisma.user.count({ where: { isActive: true } }),
+      this.prisma.doctor.count({ where: { isActive: true } }),
+      this.prisma.appointment.count(),
+      this.prisma.appointment.count({ where: { status: 'PENDING', doctorId: null } }),
+      this.prisma.appointment.count({
+        where: {
+          appointmentDate: {
+            gte: new Date(new Date().setHours(0, 0, 0, 0)),
+            lt: new Date(new Date().setHours(23, 59, 59, 999)),
+          },
+        },
+      }),
+      this.prisma.appointment.count({ where: { status: 'COMPLETED' } }),
+      this.prisma.appointment.count({ where: { status: 'CANCELLED' } }),
+      // Patients who are subscribed: DB flag OR active Stripe subscription
+      this.prisma.user.count({
+        where: {
+          isActive: true,
+          OR: [
+            { isSubscribed: true },
+            { subscriptionStatus: 'active' },
+          ],
+        },
+      }),
+    ]);
+
+    return {
+      totalPatients,
+      totalDoctors,
+      totalAppointments,
+      pendingRequests,
+      todayAppointments,
+      completedAppointments,
+      cancelledAppointments,
+      activeSubscribedPatients,
+    };
+  }
 }

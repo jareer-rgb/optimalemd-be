@@ -256,3 +256,19 @@ export class AdminController {
     };
   }
 }
+
+@ApiTags('Admin - Dashboard')
+@Controller('admin/dashboard')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth('JWT-auth')
+export class AdminDashboardController {
+  constructor(private readonly adminService: AdminService) {}
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get dashboard statistics' })
+  @ApiResponse({ status: 200, description: 'Dashboard stats retrieved successfully' })
+  async getDashboardStats() {
+    const data = await this.adminService.getDashboardStats();
+    return { success: true, message: 'Dashboard stats retrieved', data };
+  }
+}
