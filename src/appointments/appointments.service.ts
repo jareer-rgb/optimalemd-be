@@ -1378,25 +1378,40 @@ export class AppointmentsService {
 
     // Add search functionality
     if (search && search.trim()) {
-      const searchTerm = search.trim();
-      where.AND.push({
-        OR: [
+      const searchTerms = search.trim().split(/\s+/).filter(t => t.length > 0);
+      const termConditions: any[] = [];
+
+      // For multi-word input (e.g. "John Doe"), match first + last name together
+      if (searchTerms.length >= 2) {
+        termConditions.push({
+          patient: {
+            AND: [
+              { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
+              { lastName: { contains: searchTerms[searchTerms.length - 1], mode: 'insensitive' } },
+            ],
+          },
+        });
+      }
+
+      // Match each individual term against name/email fields
+      searchTerms.forEach(term => {
+        termConditions.push(
           {
             patient: {
               OR: [
-                { firstName: { contains: searchTerm, mode: 'insensitive' } },
-                { lastName: { contains: searchTerm, mode: 'insensitive' } },
-                { primaryEmail: { contains: searchTerm, mode: 'insensitive' } },
+                { firstName: { contains: term, mode: 'insensitive' } },
+                { lastName: { contains: term, mode: 'insensitive' } },
+                { primaryEmail: { contains: term, mode: 'insensitive' } },
               ],
             },
           },
           {
-            service: {
-              name: { contains: searchTerm, mode: 'insensitive' },
-            },
+            service: { name: { contains: term, mode: 'insensitive' } },
           },
-        ],
+        );
       });
+
+      where.AND.push({ OR: termConditions });
     }
 
     // Clean up empty AND array
