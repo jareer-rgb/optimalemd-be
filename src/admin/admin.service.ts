@@ -851,6 +851,7 @@ export class AdminService {
       drivingLicensePath: user.drivingLicensePath,
       photoPath: user.photoPath,
       welcomeOrderPaymentIntentId: (user as any).welcomeOrderPaymentIntentId || null,
+      doseSpotPatientId: user.doseSpotPatientId || null,
       createdAt: user.createdAt,
     };
   }

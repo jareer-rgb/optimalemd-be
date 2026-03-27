@@ -697,6 +697,9 @@ export class PatientWithMedicalFormResponseDto {
   @ApiProperty({ description: 'Welcome order Stripe payment intent ID', required: false })
   welcomeOrderPaymentIntentId?: string | null;
 
+  @ApiProperty({ description: 'DoseSpot patient ID if synced', required: false })
+  doseSpotPatientId?: string | null;
+
   @ApiProperty({ description: 'Creation date' })
   createdAt: Date;
 
