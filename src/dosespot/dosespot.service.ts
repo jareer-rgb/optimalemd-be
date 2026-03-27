@@ -458,6 +458,10 @@ export class DoseSpotService {
       if (patientDto.weight !== undefined) payload.Weight = patientDto.weight || 0;
       if (patientDto.height !== undefined) payload.Height = patientDto.height || 0;
 
+      // DoseSpot PUT requires these fields always
+      payload.PrimaryPhoneType = patientDto.primaryPhoneType || 'Cell';
+      payload.Active = true;
+
       const response = await this.axiosInstance.put(`/api/patients/${doseSpotPatientId}`, payload);
 
       this.logger.log(`Patient updated in DoseSpot: ${doseSpotPatientId}`);
