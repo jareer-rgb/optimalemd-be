@@ -1378,40 +1378,47 @@ export class AppointmentsService {
 
     // Add search functionality
     if (search && search.trim()) {
-      const searchTerms = search.trim().split(/\s+/).filter(t => t.length > 0);
-      const termConditions: any[] = [];
+      const s = search.trim();
+      const terms = s.split(/\s+/).filter(t => t.length > 0);
 
-      // For multi-word input (e.g. "John Doe"), match first + last name together
-      if (searchTerms.length >= 2) {
-        termConditions.push({
+      const orConditions: any[] = [
+        // Full string matches (single word case)
+        { patient: { firstName: { contains: s, mode: 'insensitive' } } },
+        { patient: { lastName: { contains: s, mode: 'insensitive' } } },
+        { patient: { primaryEmail: { contains: s, mode: 'insensitive' } } },
+        { service: { name: { contains: s, mode: 'insensitive' } } },
+      ];
+
+      if (terms.length >= 2) {
+        // "John Doe" → firstName=John AND lastName=Doe
+        orConditions.push({
           patient: {
             AND: [
-              { firstName: { contains: searchTerms[0], mode: 'insensitive' } },
-              { lastName: { contains: searchTerms[searchTerms.length - 1], mode: 'insensitive' } },
+              { firstName: { contains: terms[0], mode: 'insensitive' } },
+              { lastName: { contains: terms[terms.length - 1], mode: 'insensitive' } },
             ],
           },
         });
+        // Also try reversed: "Doe John" → firstName=Doe AND lastName=John
+        orConditions.push({
+          patient: {
+            AND: [
+              { firstName: { contains: terms[terms.length - 1], mode: 'insensitive' } },
+              { lastName: { contains: terms[0], mode: 'insensitive' } },
+            ],
+          },
+        });
+        // Each individual term against each field separately (flat, no nested OR on relation)
+        terms.forEach(term => {
+          orConditions.push(
+            { patient: { firstName: { contains: term, mode: 'insensitive' } } },
+            { patient: { lastName: { contains: term, mode: 'insensitive' } } },
+            { patient: { primaryEmail: { contains: term, mode: 'insensitive' } } },
+          );
+        });
       }
 
-      // Match each individual term against name/email fields
-      searchTerms.forEach(term => {
-        termConditions.push(
-          {
-            patient: {
-              OR: [
-                { firstName: { contains: term, mode: 'insensitive' } },
-                { lastName: { contains: term, mode: 'insensitive' } },
-                { primaryEmail: { contains: term, mode: 'insensitive' } },
-              ],
-            },
-          },
-          {
-            service: { name: { contains: term, mode: 'insensitive' } },
-          },
-        );
-      });
-
-      where.AND.push({ OR: termConditions });
+      where.AND.push({ OR: orConditions });
     }
 
     // Clean up empty AND array
