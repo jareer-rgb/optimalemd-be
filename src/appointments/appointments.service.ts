@@ -423,6 +423,10 @@ export class AppointmentsService {
             dateOfBirth: true,
             photoPath: true,
             drivingLicensePath: true,
+            completeAddress: true,
+            city: true,
+            state: true,
+            zipcode: true,
           }
         },
         doctor: {
