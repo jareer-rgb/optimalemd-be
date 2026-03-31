@@ -79,12 +79,12 @@ export class RegisterDto {
   dateOfBirth: string;
 
   @ApiProperty({
-    description: 'Gender (Male/Female/Other)',
+    description: 'Gender (Male/Female)',
     example: 'Male',
-    enum: ['Male', 'Female', 'Other'],
+    enum: ['Male', 'Female'],
   })
   @IsString()
-  @IsIn(['Male', 'Female', 'Other'])
+  @IsIn(['Male', 'Female'])
   gender: string;
 
   @ApiProperty({
@@ -480,13 +480,13 @@ export class ProfileUpdateDto {
   dateOfBirth?: string;
 
   @ApiPropertyOptional({
-    description: 'Gender (Male/Female/Other)',
+    description: 'Gender (Male/Female)',
     example: 'Male',
-    enum: ['Male', 'Female', 'Other'],
+    enum: ['Male', 'Female'],
   })
   @IsOptional()
   @IsString()
-  @IsIn(['Male', 'Female', 'Other'])
+  @IsIn(['Male', 'Female'])
   gender?: string;
 
   @ApiPropertyOptional({
