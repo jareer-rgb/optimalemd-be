@@ -217,7 +217,6 @@ export class AuthService {
       throw new UnauthorizedException('Please verify your email address before logging in');
     }
 
-    // Verify password
     const isPasswordValid = await bcrypt.compare(password, doctor.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');

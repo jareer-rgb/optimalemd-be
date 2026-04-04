@@ -1478,7 +1478,7 @@ export class AppointmentsService {
         take: limit,
         orderBy: [
           { appointmentDate: 'desc' },
-          { appointmentTime: 'desc' }
+          { appointmentTime: 'asc' }
         ]
       }),
       this.prisma.appointment.count({ where })
@@ -1551,7 +1551,7 @@ export class AppointmentsService {
       },
       orderBy: [
         { appointmentDate: 'desc' },
-        { appointmentTime: 'desc' }
+        { appointmentTime: 'asc' }
       ]
     });
 

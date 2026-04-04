@@ -105,11 +105,14 @@ model User {
   photoPath String? // Path to uploaded photo
 
   // Referral & Credit System
-  referralCode        String?   @unique
-  reviewToggled       Boolean   @default(false)
-  reviewToggledAt     DateTime?
-  reviewCreditApplied Boolean   @default(false)
-  creditRolloverPct   Float     @default(0)
+  referralCode          String?   @unique
+  reviewToggled         Boolean   @default(false)
+  reviewToggledAt       DateTime?
+  reviewCreditApplied   Boolean   @default(false)
+  creditRolloverPct     Float     @default(0)
+  referralCycleBase     Int       @default(0)   // qualified referral count at start of current cycle
+  platformCreditBalance Float     @default(0)   // remaining $300 platform credit (in-platform use only)
+  awaitingCycleReset    Boolean   @default(false) // true after $300 awarded, resets when balance hits 0
 
   // Relations
   bookings Booking[]
@@ -985,7 +988,8 @@ model CreditEvent {
   patientId        String
   patient          User         @relation(fields: [patientId], references: [id], onDelete: Cascade)
   type             CreditType
-  percentAmount    Float
+  percentAmount    Float        @default(0)
+  dollarAmount     Float?       // flat dollar credit (new program: $50 per referral)
   status           CreditStatus @default(PENDING)
   referralId       String?
   appliedToInvoice String?
@@ -1015,6 +1019,8 @@ model Referral {
 enum CreditType {
   REVIEW
   REFERRAL
+  FREE_MONTH
+  PLATFORM_CREDIT
 }
 
 enum CreditStatus {

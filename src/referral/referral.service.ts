@@ -92,6 +92,33 @@ export class ReferralService {
   }
 
   /**
+   * Compute the total dollar credit from a set of pending events.
+   * Events with dollarAmount use flat dollars; legacy events fall back to percentAmount
+   * against the subscription price.
+   */
+  private computeTotalCents(
+    pendingEvents: CreditEvent[],
+    rolloverPct: number,
+    unitAmount: number,
+  ): number {
+    let cents = 0;
+    for (const e of pendingEvents) {
+      if ((e.type as string) === 'FREE_MONTH') {
+        // 100% of the subscription invoice
+        cents += unitAmount;
+      } else if (e.dollarAmount != null && e.dollarAmount > 0) {
+        cents += Math.round(e.dollarAmount * 100);
+      } else {
+        cents += Math.floor((unitAmount * e.percentAmount) / 100);
+      }
+    }
+    if (rolloverPct > 0) {
+      cents += Math.floor((unitAmount * rolloverPct) / 100);
+    }
+    return cents;
+  }
+
+  /**
    * For subscribers: immediately convert all active pending credits into a Stripe
    * customer balance credit so the discount is auto-applied to their next invoice.
    * Stripe carries unused balance forward indefinitely — unlimited rollover.
@@ -106,9 +133,7 @@ export class ReferralService {
     if (!freshPatient) return;
 
     const pendingEvents = await this.getActivePendingEvents(patientId);
-    const totalPct =
-      pendingEvents.reduce((sum, e) => sum + e.percentAmount, 0) + freshPatient.creditRolloverPct;
-    if (totalPct <= 0) return;
+    if (pendingEvents.length === 0 && freshPatient.creditRolloverPct <= 0) return;
 
     const subscription = await this.stripeClient.subscriptions.retrieve(
       patient.stripeSubscriptionId,
@@ -116,16 +141,14 @@ export class ReferralService {
     );
     const unitAmount = (subscription.items.data[0]?.price as any)?.unit_amount ?? 0;
 
-    // No cap — Stripe carries unused balance to the next invoice automatically.
-    const discountCents = Math.floor((unitAmount * totalPct) / 100);
+    const discountCents = this.computeTotalCents(pendingEvents, freshPatient.creditRolloverPct, unitAmount);
+    if (discountCents <= 0) return;
 
-    if (discountCents > 0) {
-      await this.stripeClient.customers.createBalanceTransaction(patient.stripeCustomerId, {
-        amount: -discountCents,
-        currency: 'usd',
-        description: `${totalPct}% referral/review credit – applied to next subscription invoice`,
-      });
-    }
+    await this.stripeClient.customers.createBalanceTransaction(patient.stripeCustomerId, {
+      amount: -discountCents,
+      currency: 'usd',
+      description: `$${(discountCents / 100).toFixed(2)} referral/review credit – applied to next subscription invoice`,
+    });
 
     const updates = pendingEvents.map((e) =>
       this.prisma.creditEvent.update({
@@ -183,8 +206,15 @@ export class ReferralService {
 
     const pendingReferrals = referrals.filter(r => r.status === 'PENDING').length;
     const qualifiedReferrals = referrals.filter(r => r.status === 'QUALIFIED').length;
-    const pendingCreditPct =
-      creditEvents.reduce((sum, e) => sum + e.percentAmount, 0) +
+
+    // Dollar-based credits (new program)
+    const pendingCreditDollar = creditEvents.reduce((sum, e) => {
+      if (e.dollarAmount != null && e.dollarAmount > 0) return sum + e.dollarAmount;
+      return sum + e.percentAmount; // legacy percent events kept as-is for display
+    }, 0) + (freshPatient?.creditRolloverPct ?? 0);
+
+    // Legacy percent fields kept for backwards compatibility
+    const pendingCreditPct = creditEvents.reduce((sum, e) => sum + e.percentAmount, 0) +
       (freshPatient?.creditRolloverPct ?? 0);
     const appliedPct = Math.min(pendingCreditPct, 100);
     const rolloverPct = Math.max(0, pendingCreditPct - 100);
@@ -197,12 +227,18 @@ export class ReferralService {
 
     const { referralCode, referralUrl } = await this.getOrCreateReferralCode(patientId);
 
+    // Cycle position (1-6 within current cycle)
+    const cycleBase = freshPatient?.referralCycleBase ?? 0;
+    const cyclePosition = qualifiedReferrals - cycleBase; // how many qualified in this cycle
+    const nextReward = this.getNextRewardDescription(cyclePosition + 1); // what the NEXT referral earns
+
     return {
       referralCode,
       referralUrl,
       pendingReferrals,
       qualifiedReferrals,
       totalReferrals: referrals.length,
+      pendingCreditDollar,
       pendingCreditPct,
       appliedPct,
       rolloverPct,
@@ -210,6 +246,11 @@ export class ReferralService {
       reviewToggled: freshPatient?.reviewToggled ?? false,
       reviewCreditApplied: freshPatient?.reviewCreditApplied ?? false,
       isSubscribed: freshPatient?.isSubscribed ?? false,
+      // Cycle info
+      cyclePosition,          // 0-5, position within current 6-referral cycle
+      nextReward,             // human-readable description of next reward
+      platformCreditBalance: freshPatient?.platformCreditBalance ?? 0,
+      awaitingCycleReset: freshPatient?.awaitingCycleReset ?? false,
     };
   }
 
@@ -227,6 +268,13 @@ export class ReferralService {
       success: true,
       message: 'Review submitted for verification. Our team will apply your credit shortly.',
     };
+  }
+
+  private getNextRewardDescription(nextCyclePosition: number): string {
+    const pos = ((nextCyclePosition - 1) % 6) + 1; // normalise to 1-6
+    if (pos === 3) return '1 month of membership FREE (monthly subscription)';
+    if (pos === 6) return '$300 platform credit (use anywhere on the platform)';
+    return '$50 off your monthly subscription';
   }
 
   // ─── Admin-facing ────────────────────────────────────────────────────────────
@@ -351,46 +399,147 @@ export class ReferralService {
     });
   }
 
+  /**
+   * Cycle reward structure (repeating every 6 qualified referrals):
+   *   Position 1 → $50 off next subscription
+   *   Position 2 → $50 off next subscription
+   *   Position 3 → 1 month FREE (100% off next subscription)
+   *   Position 4 → $50 off next subscription
+   *   Position 5 → $50 off next subscription
+   *   Position 6 → $300 platform credit (in-platform only, no cash)
+   *                → cycle resets ONLY when the $300 balance is fully consumed
+   */
   async qualifyReferral(patientId: string) {
     const referral = await this.prisma.referral.findUnique({
       where: { referredId: patientId },
     });
     if (!referral || referral.status !== 'PENDING') return;
 
-    await this.prisma.$transaction([
+    const referrer = await this.prisma.user.findUnique({ where: { id: referral.referrerId } });
+    if (!referrer) return;
+
+    // Count referrals already QUALIFIED (before this one)
+    const qualifiedBefore = await this.prisma.referral.count({
+      where: { referrerId: referral.referrerId, status: 'QUALIFIED' },
+    });
+    const newTotal = qualifiedBefore + 1;
+    const cyclePosition = newTotal - (referrer.referralCycleBase ?? 0); // 1-6 within current cycle
+
+    const transactions: any[] = [
       this.prisma.referral.update({
         where: { id: referral.id },
         data: { status: 'QUALIFIED', qualifiedAt: new Date() },
       }),
-      this.prisma.creditEvent.create({
-        data: {
-          patientId: referral.referrerId,
-          type: 'REFERRAL',
-          percentAmount: 20,
-          status: CreditStatus.PENDING,
-          referralId: referral.id,
-          expiresAt: creditExpiresAt(),
-        },
-      }),
-    ]);
+    ];
 
-    try {
-      await this.applyAllSubscriberCredits(referral.referrerId);
-    } catch (err) {
-      console.error('Subscriber Stripe balance update failed after referral qualify (non-fatal):', err);
+    let rewardDescription = '';
+    let emailAmount: number | null = null;
+    let isFreeMonth = false;
+    let isPlatformCredit = false;
+
+    if (cyclePosition === 3) {
+      // Free month: 100% off next subscription invoice via Stripe balance
+      transactions.push(
+        this.prisma.creditEvent.create({
+          data: {
+            patientId: referral.referrerId,
+            type: 'FREE_MONTH' as any,
+            percentAmount: 100,
+            dollarAmount: null,
+            status: CreditStatus.PENDING,
+            referralId: referral.id,
+            expiresAt: null,
+          },
+        }),
+      );
+      rewardDescription = 'one free month of membership';
+      isFreeMonth = true;
+    } else if (cyclePosition === 6) {
+      // $300 platform credit — tracked on User, NOT as a Stripe balance credit
+      transactions.push(
+        this.prisma.user.update({
+          where: { id: referral.referrerId },
+          data: {
+            platformCreditBalance: { increment: 300 },
+            awaitingCycleReset: true,
+          },
+        }),
+      );
+      rewardDescription = '$300 platform credit added to your account';
+      isPlatformCredit = true;
+    } else {
+      // Positions 1, 2, 4, 5 → $50
+      transactions.push(
+        this.prisma.creditEvent.create({
+          data: {
+            patientId: referral.referrerId,
+            type: 'REFERRAL',
+            percentAmount: 0,
+            dollarAmount: 50,
+            status: CreditStatus.PENDING,
+            referralId: referral.id,
+            expiresAt: null,
+          },
+        }),
+      );
+      rewardDescription = '$50 off your next subscription payment';
+      emailAmount = 50;
+    }
+
+    await this.prisma.$transaction(transactions);
+
+    // For $50 and free month: push to Stripe subscriber balance immediately
+    if (!isPlatformCredit) {
+      try {
+        await this.applyAllSubscriberCredits(referral.referrerId);
+      } catch (err) {
+        console.error('Subscriber Stripe balance update failed after referral qualify (non-fatal):', err);
+      }
     }
 
     try {
-      const referrer = await this.prisma.user.findUnique({ where: { id: referral.referrerId } });
-      if (referrer) {
-        const email = referrer.primaryEmail ?? referrer.email ?? null;
-        if (!email) return;
-        const name = `${referrer.firstName || ''} ${referrer.lastName || ''}`.trim() || 'there';
-        await this.mailerService.sendReferralCreditEmail(email, name, 20, referrer.isSubscribed ?? false);
+      const freshReferrer = await this.prisma.user.findUnique({ where: { id: referral.referrerId } });
+      if (freshReferrer) {
+        const email = freshReferrer.primaryEmail ?? freshReferrer.email ?? null;
+        if (email) {
+          const name = `${freshReferrer.firstName || ''} ${freshReferrer.lastName || ''}`.trim() || 'there';
+          if (emailAmount) {
+            await this.mailerService.sendReferralCreditEmail(email, name, emailAmount, freshReferrer.isSubscribed ?? false);
+          }
+          // TODO: send custom emails for free month and $300 credit when email templates are ready
+        }
       }
     } catch (err) {
       console.error('Referral credit email failed (non-fatal):', err);
     }
+  }
+
+  /**
+   * Deduct from the referrer's $300 platform credit balance.
+   * Called when a payment uses platform credit.
+   * When balance hits 0 and awaitingCycleReset is true, resets the referral cycle.
+   */
+  async consumePlatformCredit(patientId: string, amountToConsume: number): Promise<number> {
+    const patient = await this.prisma.user.findUnique({ where: { id: patientId } });
+    if (!patient || patient.platformCreditBalance <= 0) return 0;
+
+    const consumed = Math.min(amountToConsume, patient.platformCreditBalance);
+    const newBalance = patient.platformCreditBalance - consumed;
+
+    const updateData: any = { platformCreditBalance: newBalance };
+
+    // If balance hit 0 and we were waiting for cycle reset, reset it now
+    if (newBalance <= 0 && patient.awaitingCycleReset) {
+      const qualifiedCount = await this.prisma.referral.count({
+        where: { referrerId: patientId, status: 'QUALIFIED' },
+      });
+      updateData.platformCreditBalance = 0;
+      updateData.awaitingCycleReset = false;
+      updateData.referralCycleBase = qualifiedCount; // next cycle starts here
+    }
+
+    await this.prisma.user.update({ where: { id: patientId }, data: updateData });
+    return consumed; // dollars consumed from platform credit
   }
 
   async applyCreditsToAppointment(patientId: string, appointmentId: string): Promise<void> {
@@ -408,11 +557,13 @@ export class ReferralService {
     ]);
     if (!freshPatient) return;
 
-    const totalPct =
-      pendingEvents.reduce((sum, e) => sum + e.percentAmount, 0) + freshPatient.creditRolloverPct;
-    if (totalPct <= 0) return;
+    const totalDollar = pendingEvents.reduce((sum, e) => {
+      if (e.dollarAmount != null && e.dollarAmount > 0) return sum + e.dollarAmount;
+      return sum + e.percentAmount; // legacy
+    }, 0) + freshPatient.creditRolloverPct;
+    if (totalDollar <= 0) return;
 
-    const newRolloverPct = Math.max(0, totalPct - 100);
+    const newRolloverPct = 0; // dollar credits don't roll over as percentages
 
     const updates = pendingEvents.map((e) =>
       this.prisma.creditEvent.update({
