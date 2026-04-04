@@ -12,14 +12,14 @@ env_variables:
   JWT_SECRET: "your-super-secret-jwt-key-here"
   JWT_EXPIRES_IN: "7d"
   # Stripe Configuration
-  STRIPE_SECRET_KEY: "sk_test_51QFBF9Ibcr1VQY2lWe4eiSIkXs0KflET6JwOBSL4fszWNUx7lRpZqNkGxlmzWeety5jIsCctDIjJhvdszMZS4u7F00Kjijx2yl"
-  STRIPE_PUBLISHABLE_KEY: "pk_test_51QFBF9Ibcr1VQY2l0rPXH40tJKpXfK3dD9xJszb1VfYEdqsc2Szd31P5P1kAkifsRxHEasTMnc4M92pIcgPHgsH800kj5r83DP"
-  # Email Configuration (Gmail)
-  SMTP_HOST: "smtp.gmail.com"
-  SMTP_PORT: "465"
-  SMTP_USER: "hassantahir3556@gmail.com"
-  SMTP_PASS: "kakshhkktpkxycsh"
-  SMTP_FROM: "hassantahir3556@gmail.com"
+  # STRIPE_SECRET_KEY: "sk_test_51QFBF9Ibcr1VQY2lWe4eiSIkXs0KflET6JwOBSL4fszWNUx7lRpZqNkGxlmzWeety5jIsCctDIjJhvdszMZS4u7F00Kjijx2yl"
+  # STRIPE_PUBLISHABLE_KEY: "pk_test_51QFBF9Ibcr1VQY2l0rPXH40tJKpXfK3dD9xJszb1VfYEdqsc2Szd31P5P1kAkifsRxHEasTMnc4M92pIcgPHgsH800kj5r83DP"
+  # # Email Configuration (Gmail)
+  # SMTP_HOST: "smtp.gmail.com"
+  # SMTP_PORT: "465"
+  # SMTP_USER: "hassantahir3556@gmail.com"
+  # SMTP_PASS: "kakshhkktpkxycsh"
+  # SMTP_FROM: "hassantahir3556@gmail.com"
 
 handlers:
   - url: /.*
