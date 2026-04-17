@@ -21,6 +21,36 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class MedicalFormController {
   constructor(private readonly medicalFormService: MedicalFormService) {}
 
+  @Post('standalone')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Create or update medical form (no appointment required)' })
+  @ApiResponse({ status: 201, description: 'Medical form saved successfully', type: MedicalFormResponseDto })
+  async createOrUpdateStandalone(
+    @Request() req: any,
+    @Body() body: Partial<CreateMedicalFormDto>
+  ): Promise<{ success: boolean; message: string; data: MedicalFormResponseDto }> {
+    const patientId = req.user.id;
+    const medicalForm = await this.medicalFormService.createOrUpdateMedicalFormByPatientId(patientId, body);
+    return { success: true, message: 'Medical form saved successfully', data: medicalForm };
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get medical form for current patient' })
+  @ApiResponse({ status: 200, description: 'Medical form retrieved successfully', type: MedicalFormResponseDto })
+  @ApiResponse({ status: 404, description: 'Medical form not found' })
+  async getMedicalForm(@Request() req: any): Promise<{ success: boolean; message: string; data: MedicalFormResponseDto }> {
+    const patientId = req.user.id;
+    const medicalForm = await this.medicalFormService.getMedicalFormByPatientId(patientId);
+    return {
+      success: true,
+      message: 'Medical form retrieved successfully',
+      data: medicalForm
+    };
+  }
+
   @Post(':appointmentId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
@@ -36,30 +66,10 @@ export class MedicalFormController {
     @Body() createMedicalFormDto: CreateMedicalFormDto
   ): Promise<{ success: boolean; message: string; data: MedicalFormResponseDto }> {
     const patientId = req.user.id;
-    
     const medicalForm = await this.medicalFormService.createMedicalForm(patientId, appointmentId, createMedicalFormDto);
-    
     return {
       success: true,
       message: 'Medical form created successfully',
-      data: medicalForm
-    };
-  }
-
-  @Get()
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get medical form for current patient' })
-  @ApiResponse({ status: 200, description: 'Medical form retrieved successfully', type: MedicalFormResponseDto })
-  @ApiResponse({ status: 404, description: 'Medical form not found' })
-  async getMedicalForm(@Request() req: any): Promise<{ success: boolean; message: string; data: MedicalFormResponseDto }> {
-    const patientId = req.user.id;
-    
-    const medicalForm = await this.medicalFormService.getMedicalFormByPatientId(patientId);
-    
-    return {
-      success: true,
-      message: 'Medical form retrieved successfully',
       data: medicalForm
     };
   }

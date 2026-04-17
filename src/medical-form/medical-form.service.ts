@@ -140,8 +140,47 @@ export class MedicalFormService {
   }
 
   async updateMedicalFormByAppointmentId(appointmentId: string, updateData: Partial<CreateMedicalFormDto>): Promise<MedicalFormResponseDto> {
-    // This method is an alias for updateMedicalForm to match the controller method name
     return this.updateMedicalForm(appointmentId, updateData);
+  }
+
+  async createOrUpdateMedicalFormByPatientId(patientId: string, data: Partial<CreateMedicalFormDto>): Promise<MedicalFormResponseDto> {
+    const patient = await this.prisma.user.findUnique({ where: { id: patientId } });
+    if (!patient) throw new NotFoundException('Patient not found');
+
+    const allForms = await this.prisma.medicalForm.findMany({
+      where: { patientId },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const processedData = {
+      ...data,
+      labSchedulingNeeded: data.labSchedulingNeeded !== undefined ? data.labSchedulingNeeded : true,
+    };
+
+    let form;
+    if (allForms.length > 0) {
+      // Update all forms so the data is reflected across every appointment
+      await this.prisma.medicalForm.updateMany({
+        where: { patientId },
+        data: processedData
+      });
+      // Return the most recent one
+      form = await this.prisma.medicalForm.findFirst({
+        where: { patientId },
+        orderBy: { createdAt: 'desc' }
+      });
+    } else {
+      form = await this.prisma.medicalForm.create({
+        data: { patientId, ...processedData }
+      });
+    }
+
+    await this.prisma.user.update({
+      where: { id: patientId },
+      data: { hasCompletedMedicalForm: true, medicalFormCompletedAt: new Date() }
+    });
+
+    return this.mapToResponseDto(form);
   }
 
   async deleteMedicalForm(appointmentId: string): Promise<void> {
