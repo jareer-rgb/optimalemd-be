@@ -436,6 +436,59 @@ export class UploadsController {
     }
   }
 
+  @Post('admin/documents/:patientId')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload patient document (Admin)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  async uploadPatientDocumentAdmin(
+    @Param('patientId') patientId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const result = await this.uploadsService.uploadPatientDocument(patientId, file);
+    return { success: true, statusCode: HttpStatus.OK, message: 'Document uploaded successfully', data: result };
+  }
+
+  @Get('admin/documents/:patientId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'List patient documents (Admin)' })
+  async getPatientDocumentsAdmin(@Param('patientId') patientId: string) {
+    const docs = await this.uploadsService.getPatientDocuments(patientId);
+    return { success: true, statusCode: HttpStatus.OK, data: docs };
+  }
+
+  @Get('admin/documents/file/:documentId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'View a patient document file (Admin)' })
+  async viewPatientDocumentAdmin(
+    @Param('documentId') documentId: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const filePath = await this.uploadsService.getPatientDocumentFilePath(documentId);
+      const ext = path.extname(filePath).toLowerCase();
+      let contentType = 'application/octet-stream';
+      if (ext === '.pdf') contentType = 'application/pdf';
+      else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
+      else if (ext === '.png') contentType = 'image/png';
+      else if (ext === '.webp') contentType = 'image/webp';
+      res.setHeader('Content-Type', contentType);
+      return res.sendFile(filePath);
+    } catch (error) {
+      return res.status(HttpStatus.NOT_FOUND).json({ message: 'File not found' });
+    }
+  }
+
+  @Delete('admin/documents/:documentId')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a patient document (Admin)' })
+  async deletePatientDocumentAdmin(@Param('documentId') documentId: string) {
+    await this.uploadsService.deletePatientDocument(documentId);
+    return { success: true, statusCode: HttpStatus.OK, message: 'Document deleted successfully' };
+  }
+
   @Delete('lab-order/:orderId')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)

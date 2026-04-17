@@ -104,6 +104,9 @@ model User {
   drivingLicensePath String? // Path to uploaded driving license
   photoPath String? // Path to uploaded photo
 
+  // Patient documents (multiple paperwork/files)
+  patientDocuments   PatientDocument[]
+
   // Referral & Credit System
   referralCode          String?   @unique
   reviewToggled         Boolean   @default(false)
@@ -1044,3 +1047,14 @@ enum WelcomeOrderStatus {
   EXPIRED
 }
 
+
+
+model PatientDocument {
+  id           String   @id @default(cuid())
+  patientId    String
+  patient      User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  filePath     String
+  fileName     String
+  originalName String?
+  createdAt    DateTime @default(now())
+}

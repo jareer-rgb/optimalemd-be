@@ -259,7 +259,6 @@ export class AuthService {
       throw new UnauthorizedException('Please verify your email address before logging in');
     }
 
-    // Verify password
     const isPasswordValid = await bcrypt.compare(password, admin.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
@@ -343,24 +342,7 @@ export class AuthService {
         },
       });
     } else {
-      // New admin — create account
-      const randomPassword = crypto.randomBytes(32).toString('hex');
-      const hashedPassword = await bcrypt.hash(randomPassword, 12);
-
-      admin = await this.prisma.admin.create({
-        data: {
-          email,
-          password: hashedPassword,
-          googleId,
-          firstName: given_name || 'Admin',
-          lastName: family_name || '',
-          profilePicture: picture || null,
-          role: 'admin',
-          isActive: true,
-          isEmailVerified: true,
-          permissions: [],
-        },
-      });
+      throw new UnauthorizedException('Access denied. Your Google account is not registered as an admin.');
     }
 
     // Generate JWT

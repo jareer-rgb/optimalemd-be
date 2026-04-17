@@ -408,6 +408,69 @@ export class UploadsService {
     return null;
   }
 
+  async uploadPatientDocument(patientId: string, file: any): Promise<{ id: string; filePath: string; fileName: string; originalName: string; createdAt: Date }> {
+    if (!file) throw new BadRequestException('No file provided');
+
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Invalid file type. Please upload an image (JPEG, PNG, WebP) or PDF.');
+    }
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) throw new BadRequestException('File size exceeds 10MB limit.');
+
+    const user = await this.prisma.user.findUnique({ where: { id: patientId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const fileExtension = path.extname(file.originalname);
+    const uniqueId = crypto.randomBytes(8).toString('hex');
+    const fileName = `document-${patientId}-${uniqueId}${fileExtension}`;
+    const filePath = path.join(this.uploadsDir, fileName);
+
+    fs.writeFileSync(filePath, file.buffer);
+
+    const doc = await (this.prisma as any).patientDocument.create({
+      data: {
+        patientId,
+        filePath,
+        fileName,
+        originalName: file.originalname,
+      },
+    });
+
+    return doc;
+  }
+
+  async getPatientDocuments(patientId: string): Promise<any[]> {
+    const user = await this.prisma.user.findUnique({ where: { id: patientId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    return (this.prisma as any).patientDocument.findMany({
+      where: { patientId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getPatientDocumentFilePath(documentId: string): Promise<string> {
+    const doc = await (this.prisma as any).patientDocument.findUnique({ where: { id: documentId } });
+    if (!doc) throw new NotFoundException('Document not found');
+
+    const filePath = this.resolveStoredPath(doc.filePath);
+    if (!filePath) throw new NotFoundException('Document file not found');
+    return filePath;
+  }
+
+  async deletePatientDocument(documentId: string): Promise<void> {
+    const doc = await (this.prisma as any).patientDocument.findUnique({ where: { id: documentId } });
+    if (!doc) throw new NotFoundException('Document not found');
+
+    if (doc.filePath && fs.existsSync(doc.filePath)) {
+      try { fs.unlinkSync(doc.filePath); } catch {}
+    }
+
+    await (this.prisma as any).patientDocument.delete({ where: { id: documentId } });
+  }
+
   async getFilePath(userId: string, type: 'drivingLicense' | 'photo'): Promise<string> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
