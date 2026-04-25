@@ -1336,6 +1336,12 @@ export class AppointmentsController {
             category: true
           }
         },
+        primaryService: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
         slot: {
           select: {
             id: true,
@@ -1361,7 +1367,7 @@ export class AppointmentsController {
       time: appointment.appointmentTime,
       patient: `${appointment.patient.firstName} ${appointment.patient.lastName}`,
       status: this.mapStatusToQueueStatus(appointment.status),
-      appointmentType: 'IN_PERSON', // Default to in-person since appointmentType is not in the model
+      appointmentType: (appointment as any).primaryService?.name || 'Telemedicine',
       age: this.calculateAge(appointment.patient.dateOfBirth),
       lastVisit: appointment.patient.dateOfBirth ? 'N/A' : 'N/A', // This would need to be calculated from previous appointments
       purpose: appointment.service?.name || 'General Consultation',

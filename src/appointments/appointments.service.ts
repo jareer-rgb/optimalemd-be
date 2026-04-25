@@ -1142,49 +1142,22 @@ export class AppointmentsService {
     const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
     const doctorName = appointment.doctor ? `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}` : 'To be assigned';
     
-    // Try to update existing Google Calendar event if eventId exists
-    // Otherwise create a new event
-    let meetResult: { meetLink: string; eventId?: string };
+    // Preserve existing Meet link if valid — updateEvent is currently skipped and returns
+    // a randomly generated fake URL which would break the real link already stored.
+    // Google Meet rooms persist independently of calendar event time, so the original
+    // link remains valid after rescheduling.
     const appointmentAdditionalServices =
       (appointment as any).additionalServices as Array<{ id: string; name: string; duration: number }> | null;
-    
-    if (appointment.googleEventId) {
-      try {
-        console.log(`📅 Appointment has existing event ID (${appointment.googleEventId}), updating it...`);
-        // Update the existing event with new date/time (with proper time conversion)
-        meetResult = await this.googleCalendarService.updateEvent(
-          appointment.googleEventId,
-      newSlot.schedule.date,
-      newSlot.startTime,
-      appointment.duration,
-      doctorName,
-      patientName,
-      appointment.service.name,
-          appointment.patient.primaryEmail || undefined,
-          appointment.doctor?.email,
-          patientTimezone // Pass patient's timezone for correct event time
-        );
-        console.log('✅ Successfully updated existing Google Calendar event');
-      } catch (error: any) {
-        console.error('⚠️  Failed to update existing event, creating new one:', error.message);
-        // Fallback to creating new event if update fails (event might have been deleted)
-        meetResult = await this.googleCalendarService.generateMeetLink(
-          newSlot.schedule.date,
-          newSlot.startTime,
-          appointment.duration,
-          doctorName,
-          patientName,
-          appointment.service.name,
-          appointment.patient.primaryEmail || undefined,
-          appointment.doctor?.email,
-          patientTimezone, // Pass patient's timezone for correct event time
-          appointmentAdditionalServices || undefined,
-          appointment.doctorId || undefined
-        );
-      }
+
+    let meetResult: { meetLink: string; eventId?: string };
+
+    if (appointment.googleMeetLink && appointment.googleMeetLink.startsWith('https://meet.google.com/')) {
+      // Keep the existing real Meet link — only the calendar time changes, not the room
+      console.log('📅 Preserving existing Google Meet link on reschedule:', appointment.googleMeetLink);
+      meetResult = { meetLink: appointment.googleMeetLink, eventId: appointment.googleEventId || undefined };
     } else {
-      // No existing event ID, create new event
-      console.log('📅 No existing event ID found, creating new Google Calendar event...');
+      // No valid Meet link yet — generate a fresh Google Calendar event
+      console.log('📅 No existing Meet link, creating new Google Calendar event...');
       meetResult = await this.googleCalendarService.generateMeetLink(
         newSlot.schedule.date,
         newSlot.startTime,
@@ -1194,7 +1167,7 @@ export class AppointmentsService {
         appointment.service.name,
         appointment.patient.primaryEmail || undefined,
         appointment.doctor?.email,
-        patientTimezone, // Pass patient's timezone for correct event time
+        patientTimezone,
         appointmentAdditionalServices || undefined,
         appointment.doctorId || undefined
       );
@@ -1459,6 +1432,12 @@ export class AppointmentsService {
               name: true,
               duration: true,
               category: true
+            }
+          },
+          primaryService: {
+            select: {
+              id: true,
+              name: true,
             }
           },
           slot: {
