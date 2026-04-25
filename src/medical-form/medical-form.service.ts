@@ -115,28 +115,29 @@ export class MedicalFormService {
   }
 
   async updateMedicalFormByPatientId(patientId: string, updateData: Partial<CreateMedicalFormDto>): Promise<MedicalFormResponseDto> {
-    // Find the latest medical form for this patient
-    const existingForm = await this.prisma.medicalForm.findFirst({
-      where: { patientId },
-      orderBy: { createdAt: 'desc' }
-    });
+    const count = await this.prisma.medicalForm.count({ where: { patientId } });
 
-    if (!existingForm) {
+    if (count === 0) {
       throw new NotFoundException('Medical form not found for this patient');
     }
 
-    // Set labSchedulingNeeded to true by default if not provided
     const processedUpdateData = {
       ...updateData,
       labSchedulingNeeded: updateData.labSchedulingNeeded !== undefined ? updateData.labSchedulingNeeded : true,
     };
 
-    const updatedForm = await this.prisma.medicalForm.update({
-      where: { id: existingForm.id },
-      data: processedUpdateData
+    // Update ALL forms for this patient so every appointment reflects the latest data
+    await this.prisma.medicalForm.updateMany({
+      where: { patientId },
+      data: processedUpdateData,
     });
 
-    return this.mapToResponseDto(updatedForm);
+    const updatedForm = await this.prisma.medicalForm.findFirst({
+      where: { patientId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return this.mapToResponseDto(updatedForm!);
   }
 
   async updateMedicalFormByAppointmentId(appointmentId: string, updateData: Partial<CreateMedicalFormDto>): Promise<MedicalFormResponseDto> {

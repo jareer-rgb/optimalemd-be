@@ -22,6 +22,22 @@ import {
 } from './dto/admin.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@ApiTags('Admin - Dashboard')
+@Controller('admin/dashboard')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth('JWT-auth')
+export class AdminDashboardController {
+  constructor(private readonly adminService: AdminService) {}
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get admin dashboard statistics' })
+  @ApiResponse({ status: 200, description: 'Stats retrieved successfully' })
+  async getDashboardStats(): Promise<{ success: boolean; statusCode: number; message: string; data: any }> {
+    const data = await this.adminService.getDashboardStats();
+    return { success: true, statusCode: 200, message: 'Stats retrieved successfully', data };
+  }
+}
+
 @ApiTags('Admin - Patient Management')
 @Controller('admin/patients')
 @UseGuards(JwtAuthGuard)

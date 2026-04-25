@@ -855,4 +855,72 @@ export class AdminService {
       createdAt: user.createdAt,
     };
   }
+
+  async getDashboardStats() {
+    const [
+      totalPatients,
+      totalDoctors,
+      totalAppointments,
+      pendingRequests,
+      todayAppointments,
+      completedAppointments,
+      cancelledAppointments,
+      activePremiumMembers,
+      activeSignedUpMembers,
+      activeMembersOnMedications,
+    ] = await Promise.all([
+      // Total patients
+      this.prisma.user.count({ where: { isActive: true } }),
+      // Total doctors
+      this.prisma.doctor.count({ where: { isActive: true } }),
+      // Total appointments
+      this.prisma.appointment.count(),
+      // Pending requests (appointments without a doctor assigned)
+      this.prisma.appointment.count({ where: { doctorId: null, status: 'PENDING' } }),
+      // Today's appointments
+      this.prisma.appointment.count({
+        where: {
+          appointmentDate: {
+            gte: new Date(new Date().setHours(0, 0, 0, 0)),
+            lt: new Date(new Date().setHours(23, 59, 59, 999)),
+          },
+        },
+      }),
+      // Completed appointments
+      this.prisma.appointment.count({ where: { status: 'COMPLETED' } }),
+      // Cancelled appointments
+      this.prisma.appointment.count({ where: { status: 'CANCELLED' } }),
+      // Active premium members (subscriptionStatus = 'active' at user level)
+      this.prisma.user.count({
+        where: { isActive: true, subscriptionStatus: 'active' },
+      }),
+      // Active signed-up members (completed a welcome order / paid during sign up)
+      this.prisma.user.count({
+        where: {
+          isActive: true,
+          welcomeOrders: { some: { paymentStatus: 'SUCCEEDED' } },
+        },
+      }),
+      // Active members on medications (distinct patients with at least one prescription)
+      this.prisma.appointment.findMany({
+        where: { medicationPrescriptions: { some: {} } },
+        distinct: ['patientId'],
+        select: { patientId: true },
+      }).then(rows => rows.length),
+    ]);
+
+    return {
+      totalPatients,
+      totalDoctors,
+      totalAppointments,
+      pendingRequests,
+      todayAppointments,
+      completedAppointments,
+      cancelledAppointments,
+      activeSubscribedPatients: activePremiumMembers, // keep old key for backward compat
+      activePremiumMembers,
+      activeSignedUpMembers,
+      activeMembersOnMedications,
+    };
+  }
 }
