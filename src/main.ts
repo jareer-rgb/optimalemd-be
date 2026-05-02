@@ -1,8 +1,7 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { json } from 'express';
 
 async function bootstrap() {
   console.log('🚀 Starting OptimaleMD Backend...');
@@ -21,9 +20,22 @@ async function bootstrap() {
     transform: true,
   }));
   
-  // Global prefix - only apply to non-health endpoints
+  // Global prefix - exclude health, homepage, and Stripe Terminal POS routes (same paths as standalone Express)
   app.setGlobalPrefix('api', {
-    exclude: ['/health', '/']
+    exclude: [
+      '/health',
+      '/',
+      { path: 'robots933456.txt', method: RequestMethod.GET },
+      { path: 'create-payment-intent', method: RequestMethod.POST },
+      { path: 'process-payment', method: RequestMethod.POST },
+      { path: 'webhook', method: RequestMethod.POST },
+      { path: 'cancel-payment', method: RequestMethod.POST },
+      { path: 'create-customer', method: RequestMethod.POST },
+      { path: 'save-card-on-reader', method: RequestMethod.POST },
+      { path: 'create-membership-subscription', method: RequestMethod.POST },
+      { path: 'catalog/one-time', method: RequestMethod.GET },
+      { path: 'catalog/recurring', method: RequestMethod.GET },
+    ],
   });
   
   // CORS
