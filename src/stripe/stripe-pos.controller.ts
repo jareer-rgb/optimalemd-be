@@ -62,7 +62,7 @@ export class StripePosController {
     @Headers('stripe-signature') sig: string | undefined,
     @Req() request: RawBodyRequest<Request>,
   ) {
-    if (!this.configService.get('STRIPE_WEBHOOK_SECRET_KEY')) {
+    if (!this.configService.get('STRIPE_WEBHOOK_SECRET')) {
       console.log('Webhook received');
       return;
     }
@@ -76,7 +76,7 @@ export class StripePosController {
       const event = stripe.webhooks.constructEvent(
         rawBody,
         sig!,
-        this.configService.get('STRIPE_WEBHOOK_SECRET_KEY')!,
+        this.configService.get('STRIPE_WEBHOOK_SECRET')!,
       );
       console.log('Verified webhook event:', event.type);
     } catch (err: any) {
