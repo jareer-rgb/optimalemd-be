@@ -7,9 +7,11 @@ export class StripePosService {
   private stripe: Stripe;
 
   constructor(private readonly configService: ConfigService) {
-    const stripeKey = this.configService.get<string>('STRIPE_SECRET_KEY');
+    const stripeKey = this.configService.get<string>('STRIPE_POS_SECRET_KEY');
     if (!stripeKey) {
-      throw new Error('STRIPE_SECRET_KEY is not configured (Stripe Terminal POS)');
+      throw new Error(
+        'STRIPE_POS_SECRET_KEY is not configured (Stripe Terminal POS)',
+      );
     }
     this.stripe = new Stripe(stripeKey, {
       apiVersion: '2025-10-29.clover' as any,
