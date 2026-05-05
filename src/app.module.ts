@@ -26,6 +26,7 @@ import { UploadsModule } from './uploads/uploads.module';
 import { LabOrdersModule } from './lab-orders/lab-orders.module';
 import { ReferralModule } from './referral/referral.module';
 import { FollowUpIntakeModule } from './follow-up-intake/follow-up-intake.module';
+import { BlogModule } from './blog/blog.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { FollowUpIntakeModule } from './follow-up-intake/follow-up-intake.module
     LabOrdersModule,
     ReferralModule,
     FollowUpIntakeModule,
+    BlogModule,
   ],
   controllers: [AppController],
   providers: [AppService],

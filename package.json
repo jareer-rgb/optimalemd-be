@@ -50,6 +50,8 @@
     "pdfkit": "^0.17.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sanitize-html": "^2.17.3",
+    "slugify": "^1.6.9",
     "socket.io": "^4.8.1",
     "stripe": "^18.4.0"
   },
