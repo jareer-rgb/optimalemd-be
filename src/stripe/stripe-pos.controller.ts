@@ -1,20 +1,15 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
-  Headers,
-  HttpCode,
   HttpException,
   Post,
-  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import { RawBodyRequest } from '@nestjs/common/interfaces';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import * as path from 'path';
 import { StripePosService } from './stripe-pos.service';
 import { StripePosBasicAuthGuard } from './stripe-pos-basic-auth.guard';
@@ -60,35 +55,6 @@ export class StripePosController {
       return result;
     } catch (err: any) {
       throw new HttpException({ ok: false, error: err.message }, 400);
-    }
-  }
-
-  @Post('webhook')
-  @HttpCode(200)
-  async webhook(
-    @Headers('stripe-signature') sig: string | undefined,
-    @Req() request: RawBodyRequest<Request>,
-  ) {
-    if (!this.configService.get('STRIPE_WEBHOOK_SECRET_KEY')) {
-      console.log('Webhook received');
-      return;
-    }
-
-    try {
-      const stripe = this.stripePosService.getStripe();
-      const rawBody = request.rawBody;
-      if (!rawBody) {
-        throw new BadRequestException('Missing raw body');
-      }
-      const event = stripe.webhooks.constructEvent(
-        rawBody,
-        sig!,
-        this.configService.get('STRIPE_WEBHOOK_SECRET_KEY')!,
-      );
-      console.log('Verified webhook event:', event.type);
-    } catch (err: any) {
-      console.error('Webhook signature verification failed:', err.message);
-      throw new HttpException(`Webhook Error: ${err.message}`, 400);
     }
   }
 

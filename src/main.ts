@@ -28,7 +28,6 @@ async function bootstrap() {
       { path: 'robots933456.txt', method: RequestMethod.GET },
       { path: 'create-payment-intent', method: RequestMethod.POST },
       { path: 'process-payment', method: RequestMethod.POST },
-      { path: 'webhook', method: RequestMethod.POST },
       { path: 'cancel-payment', method: RequestMethod.POST },
       { path: 'create-customer', method: RequestMethod.POST },
       { path: 'save-card-on-reader', method: RequestMethod.POST },
