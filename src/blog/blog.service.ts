@@ -133,9 +133,6 @@ export class BlogService {
   async updatePost(postId: string, adminId: string, dto: UpdateBlogPostDto) {
     const current = await this.prisma.blogPost.findUnique({ where: { id: postId } });
     if (!current) throw new NotFoundException('Blog post not found');
-    if (current.authorAdminId !== adminId) {
-      throw new ForbiddenException('You can only edit your own blog posts');
-    }
 
     let slug: string | undefined;
     if (dto.slug && dto.slug !== current.slug) {
