@@ -8,12 +8,14 @@ import {
   HttpException,
   Post,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { RawBodyRequest } from '@nestjs/common/interfaces';
-import { Request } from 'express';
+import { Request, Response } from 'express';
+import * as path from 'path';
 import { StripePosService } from './stripe-pos.service';
 import { StripePosBasicAuthGuard } from './stripe-pos-basic-auth.guard';
 
@@ -29,6 +31,11 @@ export class StripePosController {
     private readonly stripePosService: StripePosService,
     private readonly configService: ConfigService,
   ) {}
+
+  @Get('pos')
+  servePosUi(@Res() res: Response) {
+    res.sendFile(path.join(process.cwd(), 'public', 'pos.html'));
+  }
 
   @Post('create-payment-intent')
   async createPaymentIntent(@Body() body: { amount?: number }) {

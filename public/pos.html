@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>OptimaleMD POS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 760px; margin: 30px auto; padding: 20px; }
+    input, select, button { width: 100%; padding: 12px; margin-top: 8px; font-size: 16px; box-sizing: border-box; }
+    button { cursor: pointer; }
+    .section { border: 1px solid #ddd; padding: 16px; margin-top: 18px; border-radius: 8px; }
+    .cart-item { border-bottom: 1px solid #ddd; padding: 8px 0; }
+    #status { margin-top: 20px; white-space: pre-wrap; background: #f4f4f4; padding: 12px; }
+  </style>
+</head>
+<body>
+  <h2>OptimaleMD POS</h2>
+
+  <input id="readerId" type="hidden" value="tmr_GewxDA3NQSPt65">
+
+  <div class="section">
+    <h3>Patient</h3>
+    <label>Patient name</label>
+    <input id="patientName" placeholder="John Smith">
+
+    <label>Patient email</label>
+    <input id="patientEmail" type="email" placeholder="patient@example.com">
+  </div>
+
+  <div class="section">
+    <h3>Add one-time product</h3>
+    <label>One-time product</label>
+    <select id="oneTimeProduct" onchange="setOneTimeOverride()">
+      <option value="">Loading Stripe products...</option>
+    </select>
+
+    <label>Price to charge</label>
+    <input id="oneTimeOverrideAmount" type="number" step="0.01" placeholder="0.00">
+
+    <button onclick="addOneTimeItem()">Add One-Time Product</button>
+  </div>
+
+  <div class="section">
+    <h3>Add subscription product</h3>
+    <label>Subscription product</label>
+    <select id="subscriptionProduct" onchange="setSubscriptionOverride()">
+      <option value="">Loading Stripe subscriptions...</option>
+    </select>
+
+    <label>Monthly price to charge</label>
+    <input id="subscriptionOverrideAmount" type="number" step="0.01" placeholder="0.00">
+
+    <button onclick="addSubscriptionItem()">Add Subscription Product</button>
+  </div>
+
+  <div class="section">
+    <h3>Cart</h3>
+    <div id="cart">No items added yet.</div>
+    <h3 id="total">Total today: $0.00</h3>
+
+    <button onclick="checkoutCart()">Save Card + Charge Cart / Start Subscriptions</button>
+    <button onclick="cancelPayment()">Cancel Reader Action</button>
+  </div>
+
+  <div id="status">Ready.</div>
+
+  <script>
+    let oneTimeCatalog = [];
+    let subscriptionCatalog = [];
+    let oneTimeItems = [];
+    let subscriptionItems = [];
+
+    function dollarsToCents(value) {
+      return Math.round(parseFloat(value) * 100);
+    }
+
+    function centsToDollars(cents) {
+      return (cents / 100).toFixed(2);
+    }
+
+    async function loadCatalogs() {
+      const oneTimeSelect = document.getElementById('oneTimeProduct');
+      const subscriptionSelect = document.getElementById('subscriptionProduct');
+
+      const oneTimeResponse = await fetch('/catalog/one-time');
+      const oneTimeData = await oneTimeResponse.json();
+
+      oneTimeSelect.innerHTML = '';
+
+      if (oneTimeData.ok) {
+        oneTimeCatalog = oneTimeData.prices;
+        oneTimeCatalog.forEach(price => {
+          const option = document.createElement('option');
+          option.value = price.id;
+          option.textContent = `${price.name} - $${centsToDollars(price.amount)}`;
+          oneTimeSelect.appendChild(option);
+        });
+        setOneTimeOverride();
+      }
+
+      const recurringResponse = await fetch('/catalog/recurring');
+      const recurringData = await recurringResponse.json();
+
+      subscriptionSelect.innerHTML = '';
+
+      if (recurringData.ok) {
+        subscriptionCatalog = recurringData.prices;
+        subscriptionCatalog.forEach(price => {
+          const option = document.createElement('option');
+          option.value = price.id;
+          option.textContent = `${price.name} - $${centsToDollars(price.amount)}/${price.interval}`;
+          subscriptionSelect.appendChild(option);
+        });
+        setSubscriptionOverride();
+      }
+    }
+
+    function setOneTimeOverride() {
+      const selectedId = document.getElementById('oneTimeProduct').value;
+      const item = oneTimeCatalog.find(p => p.id === selectedId);
+      if (item) document.getElementById('oneTimeOverrideAmount').value = centsToDollars(item.amount);
+    }
+
+    function setSubscriptionOverride() {
+      const selectedId = document.getElementById('subscriptionProduct').value;
+      const item = subscriptionCatalog.find(p => p.id === selectedId);
+      if (item) document.getElementById('subscriptionOverrideAmount').value = centsToDollars(item.amount);
+    }
+
+    function addOneTimeItem() {
+      const selectedId = document.getElementById('oneTimeProduct').value;
+      const catalogItem = oneTimeCatalog.find(p => p.id === selectedId);
+      const customAmount = dollarsToCents(document.getElementById('oneTimeOverrideAmount').value);
+
+      if (!catalogItem || !customAmount || customAmount < 50) {
+        alert('Select a valid one-time product and price.');
+        return;
+      }
+
+      oneTimeItems.push({
+        priceId: catalogItem.id,
+        productId: catalogItem.productId,
+        name: catalogItem.name,
+        defaultAmount: catalogItem.amount,
+        amount: customAmount,
+        currency: catalogItem.currency
+      });
+
+      renderCart();
+    }
+
+    function addSubscriptionItem() {
+      const selectedId = document.getElementById('subscriptionProduct').value;
+      const catalogItem = subscriptionCatalog.find(p => p.id === selectedId);
+      const customAmount = dollarsToCents(document.getElementById('subscriptionOverrideAmount').value);
+
+      if (!catalogItem || !customAmount || customAmount < 50) {
+        alert('Select a valid subscription product and price.');
+        return;
+      }
+
+      subscriptionItems.push({
+        priceId: catalogItem.id,
+        productId: catalogItem.productId,
+        name: catalogItem.name,
+        defaultAmount: catalogItem.amount,
+        amount: customAmount,
+        currency: catalogItem.currency,
+        interval: catalogItem.interval
+      });
+
+      renderCart();
+    }
+
+    function removeOneTimeItem(index) {
+      oneTimeItems.splice(index, 1);
+      renderCart();
+    }
+
+    function removeSubscriptionItem(index) {
+      subscriptionItems.splice(index, 1);
+      renderCart();
+    }
+
+    function renderCart() {
+      const cart = document.getElementById('cart');
+      const total = document.getElementById('total');
+
+      if (oneTimeItems.length === 0 && subscriptionItems.length === 0) {
+        cart.innerHTML = 'No items added yet.';
+        total.textContent = 'Total today: $0.00';
+        return;
+      }
+
+      let html = '';
+
+      oneTimeItems.forEach((item, index) => {
+        html += `
+          <div class="cart-item">
+            <strong>One-time:</strong> ${item.name}<br>
+            Charge today: $${centsToDollars(item.amount)}
+            <button onclick="removeOneTimeItem(${index})">Remove</button>
+          </div>
+        `;
+      });
+
+      subscriptionItems.forEach((item, index) => {
+        html += `
+          <div class="cart-item">
+            <strong>Subscription:</strong> ${item.name}<br>
+            Recurring: $${centsToDollars(item.amount)}/${item.interval}
+            <button onclick="removeSubscriptionItem(${index})">Remove</button>
+          </div>
+        `;
+      });
+
+      cart.innerHTML = html;
+
+      const oneTimeTotal = oneTimeItems.reduce((sum, item) => sum + item.amount, 0);
+      const subscriptionInitialTotal = subscriptionItems.reduce((sum, item) => sum + item.amount, 0);
+      total.textContent = `Total today: $${centsToDollars(oneTimeTotal + subscriptionInitialTotal)}`;
+    }
+
+    async function checkoutCart() {
+      const status = document.getElementById('status');
+      const readerId = document.getElementById('readerId').value;
+      const name = document.getElementById('patientName').value;
+      const email = document.getElementById('patientEmail').value;
+
+      if (!name || !email) {
+        status.textContent = 'Enter patient name and email first.';
+        return;
+      }
+
+      if (oneTimeItems.length === 0 && subscriptionItems.length === 0) {
+        status.textContent = 'Add at least one product or subscription first.';
+        return;
+      }
+
+      status.textContent = 'Creating customer...';
+
+      try {
+        const customerResponse = await fetch('/create-customer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email })
+        });
+        const customerData = await customerResponse.json();
+
+        if (!customerData.ok) {
+          status.textContent = 'Customer error:\n' + customerData.error;
+          return;
+        }
+
+        status.textContent = 'Saving card on S710...';
+
+        const saveResponse = await fetch('/save-card-on-reader', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ readerId, customerId: customerData.customerId })
+        });
+        const saveData = await saveResponse.json();
+
+        if (!saveData.ok) {
+          status.textContent = 'Save-card error:\n' + saveData.error;
+          return;
+        }
+
+        let summary = 'Transaction Summary\n\n';
+        oneTimeItems.forEach(item => {
+          summary += `${item.name} - $${centsToDollars(item.amount)}\n`;
+        });
+        subscriptionItems.forEach(item => {
+          summary += `${item.name} - $${centsToDollars(item.amount)}/${item.interval}\n`;
+        });
+        summary += '\nTotal today: $' + centsToDollars(
+          oneTimeItems.reduce((s, i) => s + i.amount, 0) +
+          subscriptionItems.reduce((s, i) => s + i.amount, 0)
+        );
+
+        const proceed = confirm(summary + '\n\nProceed with charge?');
+        if (!proceed) {
+          status.textContent = 'Checkout canceled after card save.';
+          return;
+        }
+
+        status.textContent = 'Creating invoice/subscription...';
+
+        const checkoutResponse = await fetch('/create-membership-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerId: customerData.customerId,
+            setupIntentId: saveData.setupIntentId,
+            oneTimeItems,
+            subscriptionItems
+          })
+        });
+        const checkoutData = await checkoutResponse.json();
+
+        if (!checkoutData.ok) {
+          status.textContent = 'Checkout error:\n' + checkoutData.error;
+          return;
+        }
+
+        status.textContent =
+          'Checkout successful.\n' +
+          'Subscription ID: ' + checkoutData.subscriptionId + '\n' +
+          'Invoice ID: ' + checkoutData.invoiceId + '\n' +
+          'Status: ' + checkoutData.status;
+
+        oneTimeItems = [];
+        subscriptionItems = [];
+        renderCart();
+
+      } catch (error) {
+        status.textContent = 'Unexpected error:\n' + error.message;
+      }
+    }
+
+    async function cancelPayment() {
+      const status = document.getElementById('status');
+      const readerId = document.getElementById('readerId').value;
+
+      status.textContent = 'Canceling reader action...';
+
+      try {
+        const response = await fetch('/cancel-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ readerId })
+        });
+        const data = await response.json();
+
+        if (!data.ok) {
+          status.textContent = 'Cancel failed:\n' + data.error;
+          return;
+        }
+
+        status.textContent = 'Reader action canceled.';
+      } catch (error) {
+        status.textContent = 'Unexpected error:\n' + error.message;
+      }
+    }
+
+    window.addEventListener('load', loadCatalogs);
+  </script>
+</body>
+</html>
