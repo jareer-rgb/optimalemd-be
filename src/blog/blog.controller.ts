@@ -12,6 +12,7 @@ import {
   Post,
   Put,
   Query,
+  Res,
   Req,
   UploadedFile,
   UseGuards,
@@ -30,6 +31,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Response } from 'express';
 
 const BLOG_IMAGE_DIR = path.join(process.cwd(), 'uploads', 'blogs');
 
@@ -176,12 +178,12 @@ export class BlogController {
   }
 
   @Get('images/:filename')
-  getImage(@Param('filename') filename: string, @Req() req: any) {
+  getImage(@Param('filename') filename: string, @Res() res: Response) {
     const safeName = path.basename(filename);
     const fullPath = path.join(BLOG_IMAGE_DIR, safeName);
     if (!fs.existsSync(fullPath)) {
       throw new NotFoundException('Image not found');
     }
-    return (req.res as any).sendFile(fullPath);
+    return res.sendFile(fullPath);
   }
 }
