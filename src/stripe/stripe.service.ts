@@ -829,7 +829,7 @@ export class StripeService {
 
       if (user && user.primaryEmail && user.subscriptionStartDate && user.subscriptionEndDate) {
         const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Valued Customer';
-        const monthlyAmount = 145; // $145 per month
+        const monthlyAmount = 110; // $110 per month
 
         await this.mailerService.sendSubscriptionConfirmationEmail(
           user.primaryEmail,
@@ -913,7 +913,7 @@ export class StripeService {
 
       if (updatedUser && updatedUser.primaryEmail && updatedUser.subscriptionEndDate) {
         const userName = `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || 'Valued Customer';
-        const monthlyAmount = 145; // $145 per month
+        const monthlyAmount = 110; // $110 per month
 
         await this.mailerService.sendSubscriptionCancellationEmail(
           updatedUser.primaryEmail,
@@ -1068,7 +1068,7 @@ export class StripeService {
 
             if (userForEmail && userForEmail.primaryEmail && subscriptionStartDate && subscriptionEndDate) {
               const userName = `${userForEmail.firstName || ''} ${userForEmail.lastName || ''}`.trim() || 'Valued Customer';
-              const monthlyAmount = 145; // $145 per month
+              const monthlyAmount = 110; // $110 per month
 
               console.log(`📧 [REACTIVATION] Calling sendSubscriptionConfirmationEmail with:`, {
                 email: userForEmail.primaryEmail,
@@ -1224,7 +1224,7 @@ export class StripeService {
 
             if (userForEmail && userForEmail.primaryEmail && subscriptionStartDate && subscriptionEndDate) {
               const userName = `${userForEmail.firstName || ''} ${userForEmail.lastName || ''}`.trim() || 'Valued Customer';
-              const monthlyAmount = 145; // $145 per month
+              const monthlyAmount = 110; // $110 per month
 
               console.log(`📧 [EARLY RENEWAL] Calling sendSubscriptionConfirmationEmail with:`, {
                 email: userForEmail.primaryEmail,
