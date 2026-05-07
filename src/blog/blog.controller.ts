@@ -118,7 +118,7 @@ export class BlogController {
     @Query('search') search?: string,
   ) {
     this.assertAdmin(req);
-    return this.blogService.listAdminPosts(page, limit, req.user.id, search);
+    return this.blogService.listAdminPosts(page, limit, undefined, search);
   }
 
   @UseGuards(JwtAuthGuard)

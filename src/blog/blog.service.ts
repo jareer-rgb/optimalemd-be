@@ -208,6 +208,15 @@ export class BlogService {
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
+        include: {
+          authorAdmin: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
       }),
       this.prisma.blogPost.count({ where }),
     ]);
