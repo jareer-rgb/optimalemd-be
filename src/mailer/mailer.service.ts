@@ -3835,7 +3835,7 @@ export class MailerService implements OnModuleInit {
     senderName: string,
   ): Promise<void> {
     const safeSenderName = senderName?.trim() || 'your care team';
-    const loginUrl = `${this.configService.get<string>('frontend.url')}/login`;
+    const loginUrl = `https://optimalemd.health/login`;
     const html = `
       <!DOCTYPE html>
       <html>
