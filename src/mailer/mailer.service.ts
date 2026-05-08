@@ -3835,6 +3835,7 @@ export class MailerService implements OnModuleInit {
     senderName: string,
   ): Promise<void> {
     const safeSenderName = senderName?.trim() || 'your care team';
+    const loginUrl = `${this.configService.get<string>('frontend.url')}/login`;
     const html = `
       <!DOCTYPE html>
       <html>
@@ -3848,6 +3849,17 @@ export class MailerService implements OnModuleInit {
           .logo { color: #ffffff; font-size: 24px; font-weight: bold; margin: 0; }
           .content { padding: 28px; }
           .notice-box { background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 18px 0; }
+          .cta-wrap { text-align: center; margin: 24px 0 10px; }
+          .cta-button {
+            display: inline-block;
+            background-color: #ef4444;
+            color: #ffffff !important;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 12px 22px;
+            border-radius: 8px;
+          }
+          .link-fallback { font-size: 12px; color: #666666; word-break: break-all; margin-top: 10px; }
           .footer { background-color: #f9f9f9; padding: 16px; text-align: center; color: #666666; font-size: 12px; border-top: 1px solid #eeeeee; }
         </style>
       </head>
@@ -3863,6 +3875,10 @@ export class MailerService implements OnModuleInit {
               <strong>From:</strong> ${safeSenderName}
             </div>
             <p>Please log in to your account to review and respond.</p>
+            <div class="cta-wrap">
+              <a href="${loginUrl}" class="cta-button">Log in to Portal</a>
+              <p class="link-fallback">If the button does not work, copy and paste this link into your browser: ${loginUrl}</p>
+            </div>
             <p>Best,<br/>The OptimaleMD Team</p>
           </div>
           <div class="footer">
