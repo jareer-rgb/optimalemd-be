@@ -3828,4 +3828,62 @@ export class MailerService implements OnModuleInit {
       throw error;
     }
   }
+
+  async sendUnreadMessageReminderEmail(
+    patientEmail: string,
+    patientName: string,
+    senderName: string,
+  ): Promise<void> {
+    const safeSenderName = senderName?.trim() || 'your care team';
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; color: #333333; }
+          .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }
+          .header { background-color: #000000; padding: 24px; text-align: center; }
+          .logo { color: #ffffff; font-size: 24px; font-weight: bold; margin: 0; }
+          .content { padding: 28px; }
+          .notice-box { background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 18px 0; }
+          .footer { background-color: #f9f9f9; padding: 16px; text-align: center; color: #666666; font-size: 12px; border-top: 1px solid #eeeeee; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <p class="logo">OptimaleMD</p>
+          </div>
+          <div class="content">
+            <p>Hi ${patientName},</p>
+            <p>You received a new message in your OptimaleMD portal.</p>
+            <div class="notice-box">
+              <strong>From:</strong> ${safeSenderName}
+            </div>
+            <p>Please log in to your account to review and respond.</p>
+            <p>Best,<br/>The OptimaleMD Team</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to: patientEmail,
+        subject: `You received a message from "${safeSenderName}"`,
+        html,
+      });
+      console.log(`Unread message reminder email sent to ${patientEmail}`);
+    } catch (error) {
+      console.error('Failed to send unread message reminder email:', error);
+      throw error;
+    }
+  }
 } 

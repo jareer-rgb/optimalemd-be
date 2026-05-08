@@ -2,13 +2,15 @@ import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMessageDto, MessageResponseDto, GetMessagesDto, MarkAsReadDto, GetConversationsDto } from './dto/message.dto';
 import { MessagesGateway } from './messages.gateway';
+import { MailerService } from '../mailer/mailer.service';
 
 @Injectable()
 export class MessagesService {
   constructor(
     private prisma: PrismaService,
     @Inject(forwardRef(() => MessagesGateway))
-    private messagesGateway: MessagesGateway
+    private messagesGateway: MessagesGateway,
+    private mailerService: MailerService
   ) {}
 
   /**
@@ -120,7 +122,55 @@ export class MessagesService {
       // Don't throw error here as message is already saved to database
     }
 
+    // If a patient received this message, send an email reminder after 1 minute if still unread.
+    if (receiverType === 'patient') {
+      this.scheduleUnreadPatientMessageEmail(message.id, receiverId, senderName);
+    }
+
     return messageResponse;
+  }
+
+  private scheduleUnreadPatientMessageEmail(messageId: string, receiverId: string, senderName: string): void {
+    setTimeout(async () => {
+      try {
+        const message = await this.prisma.message.findUnique({
+          where: { id: messageId },
+          select: {
+            id: true,
+            isRead: true,
+            receiverId: true,
+            receiverType: true,
+          },
+        });
+
+        // Only notify if this exact message is still unread by a patient receiver.
+        if (!message || message.isRead || message.receiverType !== 'patient' || message.receiverId !== receiverId) {
+          return;
+        }
+
+        const patient = await this.prisma.user.findUnique({
+          where: { id: receiverId },
+          select: {
+            primaryEmail: true,
+            firstName: true,
+            lastName: true,
+          },
+        });
+
+        if (!patient?.primaryEmail) {
+          return;
+        }
+
+        const patientName = `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || 'Patient';
+        await this.mailerService.sendUnreadMessageReminderEmail(
+          patient.primaryEmail,
+          patientName,
+          senderName,
+        );
+      } catch (error) {
+        console.error(`Failed to send unread-message reminder for message ${messageId}:`, error);
+      }
+    }, 60_000);
   }
 
   /**
