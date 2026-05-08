@@ -124,7 +124,13 @@ export class MessagesService {
 
     // If a patient received this message, send an email reminder after 1 minute if still unread.
     if (receiverType === 'patient') {
-      this.scheduleUnreadPatientMessageEmail(message.id, receiverId, senderName);
+      const normalizedSenderName = senderName.trim();
+      const senderDisplayName =
+        senderType === 'doctor'
+          ? `Dr. ${normalizedSenderName.replace(/^dr\.?\s+/i, '')}`
+          : normalizedSenderName;
+
+      this.scheduleUnreadPatientMessageEmail(message.id, receiverId, senderDisplayName);
     }
 
     return messageResponse;
