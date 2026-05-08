@@ -22,6 +22,63 @@ const sanitizeHtml = (sanitizeHtmlLib as any).default || sanitizeHtmlLib;
 export class BlogService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private sanitizeAnonymousName(name?: string): string | null {
+    if (!name) return null;
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const safe = trimmed.replace(/[^a-zA-Z0-9]/g, '');
+    if (!safe.toLowerCase().startsWith('anonymous')) return null;
+    return safe.slice(0, 60) || null;
+  }
+
+  private sanitizeAnonymousKey(key?: string): string | null {
+    if (!key) return null;
+    const trimmed = key.trim();
+    if (!trimmed) return null;
+    const safe = trimmed.replace(/[^a-zA-Z0-9_-]/g, '');
+    return safe.slice(0, 120) || null;
+  }
+
+  private async resolveActorUserId(input: {
+    userId?: string;
+    anonymousName?: string;
+    anonymousKey?: string;
+  }): Promise<string> {
+    if (input.userId) return input.userId;
+
+    const anonymousName = this.sanitizeAnonymousName(input.anonymousName);
+    const anonymousKey = this.sanitizeAnonymousKey(input.anonymousKey);
+    if (!anonymousName || !anonymousKey) {
+      throw new BadRequestException('Anonymous identity is required');
+    }
+
+    const anonymousEmail = `anon.${anonymousKey}@guest.blog.local`;
+    const existing = await this.prisma.user.findFirst({
+      where: { primaryEmail: anonymousEmail },
+      select: { id: true, firstName: true },
+    });
+    if (existing) {
+      if (existing.firstName !== anonymousName) {
+        await this.prisma.user.update({
+          where: { id: existing.id },
+          data: { firstName: anonymousName },
+        });
+      }
+      return existing.id;
+    }
+
+    const created = await this.prisma.user.create({
+      data: {
+        firstName: anonymousName,
+        lastName: '',
+        primaryEmail: anonymousEmail,
+        email: anonymousEmail,
+      },
+      select: { id: true },
+    });
+    return created.id;
+  }
+
   private sanitizeRichText(value: string): string {
     return sanitizeHtml(value, {
       allowedTags: [
@@ -324,7 +381,11 @@ export class BlogService {
     });
   }
 
-  async createComment(postId: string, userId: string, dto: CreateBlogCommentDto) {
+  async createComment(
+    postId: string,
+    userId: string | undefined,
+    dto: CreateBlogCommentDto,
+  ) {
     const post = await this.prisma.blogPost.findUnique({
       where: { id: postId },
       select: { id: true, isPublished: true },
@@ -346,10 +407,16 @@ export class BlogService {
       }
     }
 
+    const actorUserId = await this.resolveActorUserId({
+      userId,
+      anonymousName: dto.anonymousName,
+      anonymousKey: dto.anonymousKey,
+    });
+
     return this.prisma.blogComment.create({
       data: {
         postId,
-        userId,
+        userId: actorUserId,
         parentId: dto.parentId ?? null,
         content: dto.content.trim(),
       },
@@ -382,7 +449,14 @@ export class BlogService {
     return { deleted: true };
   }
 
-  async setReaction(postId: string, userId: string, dto: SetBlogReactionDto) {
+  async deleteCommentAsAdmin(commentId: string) {
+    const comment = await this.prisma.blogComment.findUnique({ where: { id: commentId } });
+    if (!comment) throw new NotFoundException('Comment not found');
+    await this.prisma.blogComment.delete({ where: { id: commentId } });
+    return { deleted: true };
+  }
+
+  async setReaction(postId: string, userId: string | undefined, dto: SetBlogReactionDto) {
     const post = await this.prisma.blogPost.findUnique({
       where: { id: postId },
       select: { id: true, isPublished: true },
@@ -391,8 +465,14 @@ export class BlogService {
       throw new NotFoundException('Blog post not found');
     }
 
+    const actorUserId = await this.resolveActorUserId({
+      userId,
+      anonymousName: dto.anonymousName,
+      anonymousKey: dto.anonymousKey,
+    });
+
     const existing = await this.prisma.blogReaction.findUnique({
-      where: { postId_userId: { postId, userId } },
+      where: { postId_userId: { postId, userId: actorUserId } },
     });
 
     if (existing?.type === (dto.type as BlogReactionType)) {
@@ -406,7 +486,7 @@ export class BlogService {
       await this.prisma.blogReaction.create({
         data: {
           postId,
-          userId,
+          userId: actorUserId,
           type: dto.type as BlogReactionType,
         },
       });
@@ -426,7 +506,7 @@ export class BlogService {
       myReaction:
         (
           await this.prisma.blogReaction.findUnique({
-            where: { postId_userId: { postId, userId } },
+            where: { postId_userId: { postId, userId: actorUserId } },
           })
         )?.type ?? null,
     };

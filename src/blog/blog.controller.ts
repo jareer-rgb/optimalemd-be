@@ -19,6 +19,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { BlogService } from './blog.service';
 import {
   CreateBlogCommentDto,
@@ -73,15 +74,16 @@ export class BlogController {
     return this.blogService.getComments(post.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @Post(':slug/comments')
   async createComment(
     @Param('slug') slug: string,
     @Body() dto: CreateBlogCommentDto,
     @Req() req: any,
   ) {
-    const post = await this.blogService.getPublicPostBySlug(slug, req.user.id);
-    return this.blogService.createComment(post.id, req.user.id, dto);
+    const maybeUserId = req.user?.id;
+    const post = await this.blogService.getPublicPostBySlug(slug, maybeUserId);
+    return this.blogService.createComment(post.id, maybeUserId, dto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -100,15 +102,16 @@ export class BlogController {
     return this.blogService.deleteComment(commentId, req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @Post(':slug/reactions')
   async setReaction(
     @Param('slug') slug: string,
     @Body() dto: SetBlogReactionDto,
     @Req() req: any,
   ) {
-    const post = await this.blogService.getPublicPostBySlug(slug, req.user.id);
-    return this.blogService.setReaction(post.id, req.user.id, dto);
+    const maybeUserId = req.user?.id;
+    const post = await this.blogService.getPublicPostBySlug(slug, maybeUserId);
+    return this.blogService.setReaction(post.id, maybeUserId, dto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -121,6 +124,20 @@ export class BlogController {
   ) {
     this.assertAdmin(req);
     return this.blogService.listAdminPosts(page, limit, undefined, search);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('admin/:postId/comments')
+  async listAdminComments(@Req() req: any, @Param('postId') postId: string) {
+    this.assertAdmin(req);
+    return this.blogService.getComments(postId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('admin/comments/:commentId')
+  async deleteAdminComment(@Req() req: any, @Param('commentId') commentId: string) {
+    this.assertAdmin(req);
+    return this.blogService.deleteCommentAsAdmin(commentId);
   }
 
   @UseGuards(JwtAuthGuard)

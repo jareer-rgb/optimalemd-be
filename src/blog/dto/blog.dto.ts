@@ -154,6 +154,16 @@ export class CreateBlogCommentDto {
   @IsOptional()
   @IsString()
   parentId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  anonymousName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  anonymousKey?: string;
 }
 
 export class UpdateBlogCommentDto {
@@ -166,4 +176,14 @@ export class UpdateBlogCommentDto {
 export class SetBlogReactionDto {
   @IsEnum(BlogReactionTypeDto)
   type: BlogReactionTypeDto;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  anonymousName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  anonymousKey?: string;
 }
