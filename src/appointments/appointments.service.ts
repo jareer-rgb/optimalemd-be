@@ -840,6 +840,34 @@ export class AppointmentsService {
     return updatedAppointment;
   }
 
+  async updateDrAssessmentNotes(
+    appointmentId: string,
+    drAssessmentNotes: string,
+    doctorId: string,
+  ): Promise<AppointmentResponseDto> {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: {
+        id: appointmentId,
+        doctorId: doctorId,
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found or you do not have permission to update this appointment');
+    }
+
+    if (appointment.notesSignedAt) {
+      throw new BadRequestException('Cannot update notes. Appointment has already been signed.');
+    }
+
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { drAssessmentNotes },
+    });
+
+    return updatedAppointment;
+  }
+
   /**
    * Sign notes for an appointment (sets notesSignedAt timestamp)
    */

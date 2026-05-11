@@ -328,6 +328,9 @@ export class AppointmentResponseDto {
   @ApiProperty({ description: 'Doctor internal notes', required: false })
   internalNotes?: string | null;
 
+  @ApiProperty({ description: 'Doctor-only assessment notes (not exposed to patients)', required: false })
+  drAssessmentNotes?: string | null;
+
   @ApiProperty({ description: 'Prescribed medications', required: false })
   medications?: any;
 

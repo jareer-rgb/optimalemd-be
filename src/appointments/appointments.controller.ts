@@ -51,6 +51,27 @@ import {
 } from './dto';
 import { BaseApiResponse, PaginatedApiResponse, SuccessApiResponseWithData } from '../common/dto/api-response.dto';
 
+function omitDrAssessmentNotesForPatientUser<T extends Record<string, unknown>>(
+  entity: T,
+  user: { userType?: string } | undefined,
+): T {
+  if (!entity || user?.userType !== 'user') {
+    return entity;
+  }
+  const { drAssessmentNotes: _omit, ...rest } = entity;
+  return rest as T;
+}
+
+function omitDrAssessmentNotesForPatientUserList<T extends Record<string, unknown>>(
+  items: T[],
+  user: { userType?: string } | undefined,
+): T[] {
+  if (user?.userType !== 'user') {
+    return items;
+  }
+  return items.map((row) => omitDrAssessmentNotesForPatientUser(row, user));
+}
+
 @ApiTags('appointments')
 @Controller('appointments')
 @UseGuards(JwtAuthGuard)
@@ -355,17 +376,19 @@ export class AppointmentsController {
   async getPatientAppointments(
     @Param('patientId') patientId: string,
     @Query() query: QueryAppointmentsDto,
+    @CurrentUser() user: any,
   ): Promise<PaginatedApiResponse<AppointmentWithRelationsResponseDto>> {
     const { appointments, total } = await this.appointmentsService.getPatientAppointments(patientId, query);
     const page = query.page || 1;
     const limit = query.limit || 10;
     const totalPages = Math.ceil(total / limit);
+    const data = omitDrAssessmentNotesForPatientUserList(appointments as any[], user);
 
     return {
       success: true,
       statusCode: HttpStatus.OK,
       message: 'Patient appointments retrieved successfully',
-      data: appointments,
+      data,
       timestamp: new Date().toISOString(),
       path: `/api/appointments/patient/${patientId}`,
       pagination: {
@@ -529,8 +552,12 @@ export class AppointmentsController {
   @ApiUnauthorizedResponse({
     description: 'Unauthorized - invalid or missing JWT token',
   })
-  async getAppointment(@Param('id') id: string): Promise<BaseApiResponse<AppointmentWithRelationsResponseDto>> {
-    const data = await this.appointmentsService.findById(id);
+  async getAppointment(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+  ): Promise<BaseApiResponse<AppointmentWithRelationsResponseDto>> {
+    const raw = await this.appointmentsService.findById(id);
+    const data = omitDrAssessmentNotesForPatientUser(raw as any, user);
     return {
       success: true,
       statusCode: HttpStatus.OK,
@@ -753,6 +780,54 @@ export class AppointmentsController {
       data,
       timestamp: new Date().toISOString(),
       path: `/api/appointments/${id}/subjective-notes`,
+    };
+  }
+
+  @Put(':id/dr-assessment-notes')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update Dr assessment notes',
+    description: 'Doctor-only assessment notes for this appointment (not shown to patients).',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Appointment ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiBody({
+    description: 'Dr assessment notes (HTML from rich text editor)',
+    schema: {
+      type: 'object',
+      properties: {
+        drAssessmentNotes: {
+          type: 'string',
+          description: 'Doctor-only assessment notes',
+        },
+      },
+      required: ['drAssessmentNotes'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'Dr assessment notes updated successfully',
+    type: BaseApiResponse<AppointmentResponseDto>,
+  })
+  async updateDrAssessmentNotes(
+    @Param('id') id: string,
+    @Body() body: { drAssessmentNotes: string },
+    @CurrentUser() user: any,
+  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
+    if (user.userType !== 'doctor') {
+      throw new ForbiddenException('Only doctors can update Dr assessment notes');
+    }
+    const data = await this.appointmentsService.updateDrAssessmentNotes(id, body.drAssessmentNotes, user.id);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Dr assessment notes updated successfully',
+      data,
+      timestamp: new Date().toISOString(),
+      path: `/api/appointments/${id}/dr-assessment-notes`,
     };
   }
 

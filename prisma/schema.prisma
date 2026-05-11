@@ -563,6 +563,7 @@ model Appointment {
   internalNotes     String?  // Doctor's internal notes for this appointment
   subjectiveNotes   String?  // Doctor's subjective notes for this appointment
   carePlan          String?  // Doctor's care plan for this appointment (default 4-liner)
+  drAssessmentNotes String?  // Doctor-only assessment notes (not shown to patient / care plan)
   
   // Prescribed medications grouped by medical service
   // Example shape: { "Hormone Optimization / TRT": ["Testosterone injections", "Enclomiphene"], "Hair Loss Treatments": ["Oral Minoxidil"] }
