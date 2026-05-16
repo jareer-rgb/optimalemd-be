@@ -7,6 +7,8 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleGenAI } from '@google/genai';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
 
 type LabTrendSourceFile = {
@@ -59,13 +61,23 @@ export class AiService {
     const project = this.configService.get<string>('GOOGLE_CLOUD_PROJECT');
     const location = this.getLocation();
     const model = this.getModel();
+    const hasCredentialsPath = Boolean(
+      this.configService.get<string>('GOOGLE_APPLICATION_CREDENTIALS') ||
+        process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    );
+    const hasCredentialsJson = Boolean(
+      this.configService.get<string>('GOOGLE_APPLICATION_CREDENTIALS_JSON') ||
+        this.configService.get<string>('GOOGLE_APPLICATION_CREDENTIALS_BASE64'),
+    );
 
     return {
       configured: Boolean(project),
       project: project || null,
       location,
       model,
-      authMode: 'application-default-credentials',
+      authMode: hasCredentialsPath || hasCredentialsJson
+        ? 'service-account'
+        : 'application-default-credentials',
       missing: project ? [] : ['GOOGLE_CLOUD_PROJECT'],
     };
   }
@@ -86,6 +98,8 @@ export class AiService {
     }
 
     try {
+      this.ensureVertexCredentials();
+
       const client = new GoogleGenAI({
         vertexai: true,
         project,
@@ -342,6 +356,44 @@ export class AiService {
     return this.configService.get<string>('GEMINI_MODEL') || this.defaultModel;
   }
 
+  private ensureVertexCredentials() {
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      return;
+    }
+
+    const credentialsPath = this.configService.get<string>('GOOGLE_APPLICATION_CREDENTIALS');
+    if (credentialsPath) {
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = credentialsPath;
+      return;
+    }
+
+    const credentialsJson = this.configService.get<string>('GOOGLE_APPLICATION_CREDENTIALS_JSON');
+    const credentialsBase64 = this.configService.get<string>('GOOGLE_APPLICATION_CREDENTIALS_BASE64');
+
+    if (!credentialsJson && !credentialsBase64) {
+      return;
+    }
+
+    const rawCredentials = credentialsJson ||
+      Buffer.from(credentialsBase64 as string, 'base64').toString('utf8');
+
+    try {
+      JSON.parse(rawCredentials);
+    } catch {
+      throw new BadRequestException(
+        'Google service account credentials are not valid JSON. Check GOOGLE_APPLICATION_CREDENTIALS_JSON or GOOGLE_APPLICATION_CREDENTIALS_BASE64.',
+      );
+    }
+
+    const tempCredentialsPath = path.join(
+      os.tmpdir(),
+      'optimalemd-vertex-service-account.json',
+    );
+
+    fs.writeFileSync(tempCredentialsPath, rawCredentials, { mode: 0o600 });
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = tempCredentialsPath;
+  }
+
   private async runGeminiLabTrendAnalysis({
     patient,
     labOrders,
@@ -364,6 +416,8 @@ export class AiService {
         'GOOGLE_CLOUD_PROJECT is not configured in the backend environment.',
       );
     }
+
+    this.ensureVertexCredentials();
 
     const client = new GoogleGenAI({
       vertexai: true,
