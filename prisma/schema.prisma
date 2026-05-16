@@ -564,6 +564,9 @@ model Appointment {
   subjectiveNotes   String?  // Doctor's subjective notes for this appointment
   carePlan          String?  // Doctor's care plan for this appointment (default 4-liner)
   drAssessmentNotes String?  // Doctor-only assessment notes (not shown to patient / care plan)
+  labTrendAnalysisHash String? // Last analyzed lab file fingerprint
+  labTrendAnalysisNote String? // Last AI-generated lab trend note block
+  labTrendAnalysisAt DateTime? // When lab trends were last analyzed
   
   // Prescribed medications grouped by medical service
   // Example shape: { "Hormone Optimization / TRT": ["Testosterone injections", "Enclomiphene"], "Hair Loss Treatments": ["Oral Minoxidil"] }

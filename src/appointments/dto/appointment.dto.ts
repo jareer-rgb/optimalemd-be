@@ -331,6 +331,15 @@ export class AppointmentResponseDto {
   @ApiProperty({ description: 'Doctor-only assessment notes (not exposed to patients)', required: false })
   drAssessmentNotes?: string | null;
 
+  @ApiProperty({ description: 'Last analyzed lab trend fingerprint', required: false })
+  labTrendAnalysisHash?: string | null;
+
+  @ApiProperty({ description: 'Last AI-generated lab trend note block', required: false })
+  labTrendAnalysisNote?: string | null;
+
+  @ApiProperty({ description: 'Last lab trend analysis timestamp', required: false })
+  labTrendAnalysisAt?: Date | null;
+
   @ApiProperty({ description: 'Prescribed medications', required: false })
   medications?: any;
 

@@ -58,7 +58,13 @@ function omitDrAssessmentNotesForPatientUser<T extends Record<string, unknown>>(
   if (!entity || user?.userType !== 'user') {
     return entity;
   }
-  const { drAssessmentNotes: _omit, ...rest } = entity;
+  const {
+    drAssessmentNotes: _omitDrAssessmentNotes,
+    labTrendAnalysisHash: _omitLabTrendAnalysisHash,
+    labTrendAnalysisNote: _omitLabTrendAnalysisNote,
+    labTrendAnalysisAt: _omitLabTrendAnalysisAt,
+    ...rest
+  } = entity;
   return rest as T;
 }
 
