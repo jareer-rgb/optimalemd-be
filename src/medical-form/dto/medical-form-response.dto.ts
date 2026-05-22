@@ -61,6 +61,9 @@ export class MedicalFormResponseDto {
   @ApiProperty({ description: 'Current medications', required: false })
   currentMedications?: string;
 
+  @ApiProperty({ description: 'Family history', required: false })
+  familyHistory?: string;
+
   @ApiProperty({ description: 'Allergies', required: false })
   allergies?: string;
 
@@ -80,11 +83,26 @@ export class MedicalFormResponseDto {
   @ApiProperty({ description: 'Alcohol use', required: false })
   alcoholUse?: string;
 
+  @ApiProperty({ description: 'Alcohol days per week', required: false })
+  alcoholDaysPerWeek?: string;
+
+  @ApiProperty({ description: 'Alcohol drinks per typical day', required: false })
+  alcoholDrinksPerDay?: string;
+
   @ApiProperty({ description: 'Alcohol use explanation', required: false })
   alcoholUseExplanation?: string;
 
   @ApiProperty({ description: 'Tobacco use', required: false })
   tobaccoUse?: string;
+
+  @ApiProperty({ description: 'Tobacco product types', required: false })
+  tobaccoProductTypes?: string;
+
+  @ApiProperty({ description: 'Cigarette smoking frequency', required: false })
+  tobaccoCigaretteFrequency?: string;
+
+  @ApiProperty({ description: 'Non-cigarette tobacco frequency', required: false })
+  tobaccoNonCigaretteFrequency?: string;
 
   @ApiProperty({ description: 'Tobacco use explanation', required: false })
   tobaccoUseExplanation?: string;
@@ -100,6 +118,19 @@ export class MedicalFormResponseDto {
 
   @ApiProperty({ description: 'Stress level', required: false })
   stressLevel?: string;
+
+  // Personal & Family
+  @ApiProperty({ description: 'Marital status', required: false })
+  maritalStatus?: string;
+
+  @ApiProperty({ description: 'Has children', required: false })
+  hasChildren?: boolean;
+
+  @ApiProperty({ description: 'Children count and ages', required: false })
+  childrenCountAndAges?: string;
+
+  @ApiProperty({ description: 'Wants future children', required: false })
+  wantsFutureChildren?: string;
 
   // Work Info
   @ApiProperty({ description: 'Job/Occupation', required: false })
@@ -202,9 +233,6 @@ export class MedicalFormResponseDto {
 
   @ApiProperty({ description: 'Other social history', required: false })
   otherSocialHistory?: string;
-
-  @ApiProperty({ description: 'Family history', required: false })
-  familyHistory?: string;
 
   @ApiProperty({ description: 'Work history', required: false })
   workHistory?: string;

@@ -742,6 +742,7 @@ model MedicalForm {
   chronicConditions String? // List of chronic conditions
   pastSurgeriesHospitalizations String? // Text box for past surgeries/hospitalizations
   currentMedications String? // Auto-complete field for current medications
+  familyHistory String? // Conditions in family with relation to patient
   allergies String? // Text box for allergies
   
   // Screen 5 - Lifestyle & Habits
@@ -749,14 +750,25 @@ model MedicalForm {
   sleepQuality String? // Poor/Fair/Good
   exerciseFrequency String? // None/1-2x/week/3-5x/week/Daily
   dietType String? // Balanced/High protein/Low-carb/Plant-based/Other
-  alcoholUse String? // None/Social/Regular
+  alcoholUse String? // No/Yes (legacy: None/Social/Regular)
+  alcoholDaysPerWeek String?
+  alcoholDrinksPerDay String?
   alcoholUseExplanation String?
-  tobaccoUse String? // Never/Current/Former
+  tobaccoUse String? // No/Yes (legacy: Never/Current/Former)
+  tobaccoProductTypes String?
+  tobaccoCigaretteFrequency String?
+  tobaccoNonCigaretteFrequency String?
   tobaccoUseExplanation String?
   cannabisOtherSubstances String? // None/Yes
   cannabisOtherSubstancesExplanation String?
   cannabisOtherSubstancesList String? // List if Yes
   stressLevel String? // Low/Medium/High
+
+  // Personal & Family (before Work Info)
+  maritalStatus String? // Single/Divorced/Married/Widowed
+  hasChildren Boolean?
+  childrenCountAndAges String?
+  wantsFutureChildren String? // Yes/No
 
   // Work Info
   jobOccupation  String?
@@ -799,7 +811,6 @@ model MedicalForm {
   historyOfPresentIllness String?
   pastMedicalHistory String?
   pastSurgicalHistory String?
-  familyHistory String?
   workHistory String?
   medications String?
   

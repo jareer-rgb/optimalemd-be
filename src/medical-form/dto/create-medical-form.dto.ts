@@ -78,6 +78,11 @@ export class CreateMedicalFormDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
+  familyHistory?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   allergies?: string;
 
   // Screen 5 - Lifestyle & Habits
@@ -109,12 +114,37 @@ export class CreateMedicalFormDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
+  alcoholDaysPerWeek?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  alcoholDrinksPerDay?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   alcoholUseExplanation?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   tobaccoUse?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  tobaccoProductTypes?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  tobaccoCigaretteFrequency?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  tobaccoNonCigaretteFrequency?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -140,6 +170,27 @@ export class CreateMedicalFormDto {
   @IsOptional()
   @IsString()
   stressLevel?: string;
+
+  // Personal & Family
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  maritalStatus?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  hasChildren?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  childrenCountAndAges?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  wantsFutureChildren?: string;
 
   // Work Info
   @ApiProperty({ required: false })
@@ -296,11 +347,6 @@ export class CreateMedicalFormDto {
   @IsOptional()
   @IsString()
   pastSurgicalHistory?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  familyHistory?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()

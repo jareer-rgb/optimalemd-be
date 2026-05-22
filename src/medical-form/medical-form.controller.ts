@@ -76,7 +76,7 @@ export class MedicalFormController {
   ): Promise<{ success: boolean; message: string; data: MedicalFormResponseDto }> {
     const patientId = req.user.id;
     
-    const medicalForm = await this.medicalFormService.updateMedicalForm(patientId, updateData);
+    const medicalForm = await this.medicalFormService.updateMedicalFormByPatientId(patientId, updateData);
     
     return {
       success: true,

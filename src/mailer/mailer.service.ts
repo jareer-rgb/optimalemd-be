@@ -3456,12 +3456,108 @@ export class MailerService implements OnModuleInit {
     }
   }
 
+  private getFrontendBaseUrl() {
+    return (
+      this.configService.get<string>('FRONTEND_URL')?.replace(/\/$/, '') ||
+      'https://www.optimalemd.health'
+    );
+  }
+
+  private getLabInstructionImagePath(fileName: string) {
+    const candidates = [
+      path.join(__dirname, 'assets', 'email', fileName),
+      path.join(process.cwd(), 'src', 'mailer', 'assets', 'email', fileName),
+      path.join(process.cwd(), 'dist', 'src', 'mailer', 'assets', 'email', fileName),
+      path.join(process.cwd(), '..', 'optimalmd', 'public', fileName),
+    ];
+
+    return candidates.find((candidate) => fs.existsSync(candidate)) || null;
+  }
+
+  private getLabInstructionInlineAttachments(): Array<{
+    filename: string;
+    path: string;
+    cid: string;
+  }> {
+    const images = [
+      { fileName: 'lab-quest-order.png', cid: 'labQuestOrder@optimalemd' },
+      { fileName: 'lab-quest-all-tests.png', cid: 'labQuestAllTests@optimalemd' },
+    ];
+
+    return images.flatMap((image) => {
+      const imagePath = this.getLabInstructionImagePath(image.fileName);
+      if (!imagePath) {
+        console.warn(`[Lab order email] Missing instruction image: ${image.fileName}`);
+        return [];
+      }
+
+      return [
+        {
+          filename: image.fileName,
+          path: imagePath,
+          cid: image.cid,
+        },
+      ];
+    });
+  }
+
+  private buildLabSchedulingInstructionsHtml() {
+    const baseUrl = this.getFrontendBaseUrl();
+    const questAppointmentUrl = 'https://www.questdiagnostics.com/appointment';
+    const orderImagePath = this.getLabInstructionImagePath('lab-quest-order.png');
+    const allTestsImagePath = this.getLabInstructionImagePath('lab-quest-all-tests.png');
+    const orderImageSrc = orderImagePath ? 'cid:labQuestOrder@optimalemd' : `${baseUrl}/lab-quest-order.png`;
+    const allTestsImageSrc = allTestsImagePath
+      ? 'cid:labQuestAllTests@optimalemd'
+      : `${baseUrl}/lab-quest-all-tests.png`;
+
+    return `
+      <div class="instructions-box">
+        <h3 class="instructions-title">How to schedule your lab appointment</h3>
+        <p class="instructions-intro">
+          Your lab order is attached to this email and is also available in your patient portal under
+          <strong>Order Labs</strong>. Follow these steps to schedule at Quest Diagnostics:
+        </p>
+        <ol class="instructions-list">
+          <li>
+            Open the attached lab order PDF. Use the Quest appointment link shown on the order —
+            <a href="${questAppointmentUrl}">${questAppointmentUrl}</a> — as shown below.
+            <p class="screenshot-caption">Lab order — Quest appointment link</p>
+            <img
+              src="${orderImageSrc}"
+              alt="Quest Diagnostics lab order confirmation"
+              class="instruction-image"
+            />
+          </li>
+          <li>Enter your information exactly as it appears on your OptimaleMD profile. This is used to retrieve your exact lab order.</li>
+          <li>
+            Choose <strong>"All Other Tests"</strong> on the Quest scheduling page, as shown below.
+            <p class="screenshot-caption">Quest scheduling — select All Other Tests</p>
+            <img
+              src="${allTestsImageSrc}"
+              alt="Quest Diagnostics — select All Other Tests"
+              class="instruction-image"
+            />
+          </li>
+          <li>Follow the prompts on the Quest portal to choose the date, time, and location for your lab work.</li>
+          <li>After scheduling, you will receive a Quest confirmation email with your appointment details. We recommend scheduling earlier in the day with <strong>12 hours of fasting</strong> when required.</li>
+          <li>Once your labs are complete, we will notify you when results are published. You can then book your provider appointment in the patient portal.</li>
+        </ol>
+        <p class="portal-note">
+          Full instructions with screenshots are also in your portal:
+          <a href="${baseUrl}/dashboard">Log in to OptimaleMD</a> → <strong>Order Labs</strong>.
+        </p>
+      </div>
+    `;
+  }
+
   async sendLabOrderEmail(
     patientEmail: string,
     patientName: string,
     testNames: string,
     attachmentPath?: string,
   ): Promise<void> {
+    const schedulingInstructions = this.buildLabSchedulingInstructionsHtml();
     const html = `
       <!DOCTYPE html>
       <html>
@@ -3478,7 +3574,7 @@ export class MailerService implements OnModuleInit {
             color: #333333;
           }
           .container {
-            max-width: 600px;
+            max-width: 640px;
             margin: 0 auto;
             background-color: #ffffff;
             border-radius: 8px;
@@ -3499,20 +3595,20 @@ export class MailerService implements OnModuleInit {
           }
           .content {
             padding: 30px;
-            text-align: center;
+            text-align: left;
           }
           .title {
             color: #dc2626;
             font-size: 24px;
             font-weight: bold;
             margin-bottom: 20px;
+            text-align: center;
           }
           .info-box {
             background-color: #f9f9f9;
             border-left: 4px solid #dc2626;
             padding: 20px;
             margin: 20px 0;
-            text-align: left;
           }
           .info-item {
             margin: 10px 0;
@@ -3520,6 +3616,53 @@ export class MailerService implements OnModuleInit {
           .info-label {
             font-weight: bold;
             color: #333333;
+          }
+          .instructions-box {
+            background-color: #f9f9f9;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 24px 0;
+          }
+          .instructions-title {
+            color: #111111;
+            font-size: 18px;
+            margin: 0 0 12px;
+          }
+          .instructions-intro {
+            margin: 0 0 16px;
+            color: #444444;
+          }
+          .instructions-list {
+            margin: 0 0 16px;
+            padding-left: 22px;
+            color: #333333;
+          }
+          .instructions-list li {
+            margin-bottom: 10px;
+          }
+          .screenshot-caption {
+            font-size: 13px;
+            color: #666666;
+            margin: 8px 0 6px;
+          }
+          .instruction-image {
+            display: block;
+            max-width: 100%;
+            width: 520px;
+            height: auto;
+            border: 1px solid #dddddd;
+            border-radius: 6px;
+            margin: 0 0 18px;
+          }
+          .portal-note {
+            margin: 16px 0 0;
+            font-size: 14px;
+            color: #444444;
+          }
+          .portal-note a {
+            color: #dc2626;
+            font-weight: bold;
           }
           .footer {
             background-color: #000000;
@@ -3538,15 +3681,20 @@ export class MailerService implements OnModuleInit {
           <div class="content">
             <h2 class="title">Lab Order Confirmed</h2>
             <p>Dear ${patientName},</p>
-            <p>Your lab order has been confirmed. Please find the details below:</p>
+            <p>Your lab order has been confirmed. Please use the instructions below to schedule your Quest Diagnostics appointment.</p>
             
             <div class="info-box">
               <div class="info-item">
-                <span class="info-label">Lab Panel:</span> Your lab panel contains 60+ bio markers
+                <span class="info-label">Tests ordered:</span> ${testNames || 'Lab panel'}
+              </div>
+              <div class="info-item">
+                <span class="info-label">Lab panel:</span> Your lab panel contains 60+ biomarkers
               </div>
             </div>
 
-            <p>Your lab order has been attached to this email and is also available in your patient portal. You can view it by logging into your patient portal.</p>
+            <p>Your lab order PDF is attached to this email and is also available in your patient portal.</p>
+
+            ${schedulingInstructions}
             
             <p style="margin-top: 30px;">Best regards,<br><strong>The OptimaleMD Team</strong></p>
           </div>
@@ -3567,15 +3715,21 @@ export class MailerService implements OnModuleInit {
         html,
       };
 
-      // Add attachment if file path is provided
+      const attachments: Array<{
+        filename: string;
+        path: string;
+        cid?: string;
+      }> = [...this.getLabInstructionInlineAttachments()];
+
       if (attachmentPath && fs.existsSync(attachmentPath)) {
-        const fileName = path.basename(attachmentPath);
-        mailOptions.attachments = [
-          {
-            filename: fileName,
-            path: attachmentPath,
-          },
-        ];
+        attachments.push({
+          filename: path.basename(attachmentPath),
+          path: attachmentPath,
+        });
+      }
+
+      if (attachments.length > 0) {
+        mailOptions.attachments = attachments;
       }
 
       await this.transporter.sendMail(mailOptions);

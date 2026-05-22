@@ -78,6 +78,11 @@ export class CreateIntakeFormDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
+  familyHistory?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   allergies?: string;
 
   // Screen 5 - Lifestyle & Habits
@@ -109,7 +114,32 @@ export class CreateIntakeFormDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
+  alcoholDaysPerWeek?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  alcoholDrinksPerDay?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   tobaccoUse?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  tobaccoProductTypes?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  tobaccoCigaretteFrequency?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  tobaccoNonCigaretteFrequency?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -125,6 +155,27 @@ export class CreateIntakeFormDto {
   @IsOptional()
   @IsString()
   stressLevel?: string;
+
+  // Personal & Family
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  maritalStatus?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  hasChildren?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  childrenCountAndAges?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  wantsFutureChildren?: string;
 
   // Work Info
   @ApiProperty({ required: false })
@@ -189,20 +240,40 @@ export class CreateIntakeFormDto {
   @IsBoolean()
   historyProstateBreastCancer?: boolean;
 
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  historyProstateBreastCancerExplanation?: string;
+
   @ApiProperty({ required: false, default: false })
   @IsOptional()
   @IsBoolean()
   historyBloodClotsMIStroke?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  historyBloodClotsMIStrokeExplanation?: string;
 
   @ApiProperty({ required: false, default: false })
   @IsOptional()
   @IsBoolean()
   currentlyUsingHormonesPeptides?: boolean;
 
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  currentlyUsingHormonesPeptidesExplanation?: string;
+
   @ApiProperty({ required: false, default: false })
   @IsOptional()
   @IsBoolean()
   planningChildrenNext12Months?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  planningChildrenNext12MonthsExplanation?: string;
 
   // Screen 8 - Labs & Uploads
   @ApiProperty({ required: false })

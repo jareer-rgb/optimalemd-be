@@ -205,6 +205,7 @@ export class MedicalFormService {
       chronicConditions: medicalForm.chronicConditions,
       pastSurgeriesHospitalizations: medicalForm.pastSurgeriesHospitalizations,
       currentMedications: medicalForm.currentMedications,
+      familyHistory: medicalForm.familyHistory,
       allergies: medicalForm.allergies,
       
       // Screen 5 - Lifestyle & Habits
@@ -213,10 +214,23 @@ export class MedicalFormService {
       exerciseFrequency: medicalForm.exerciseFrequency,
       dietType: medicalForm.dietType,
       alcoholUse: medicalForm.alcoholUse,
+      alcoholDaysPerWeek: medicalForm.alcoholDaysPerWeek,
+      alcoholDrinksPerDay: medicalForm.alcoholDrinksPerDay,
+      alcoholUseExplanation: medicalForm.alcoholUseExplanation,
       tobaccoUse: medicalForm.tobaccoUse,
+      tobaccoProductTypes: medicalForm.tobaccoProductTypes,
+      tobaccoCigaretteFrequency: medicalForm.tobaccoCigaretteFrequency,
+      tobaccoNonCigaretteFrequency: medicalForm.tobaccoNonCigaretteFrequency,
+      tobaccoUseExplanation: medicalForm.tobaccoUseExplanation,
       cannabisOtherSubstances: medicalForm.cannabisOtherSubstances,
       cannabisOtherSubstancesList: medicalForm.cannabisOtherSubstancesList,
       stressLevel: medicalForm.stressLevel,
+
+      // Personal & Family
+      maritalStatus: medicalForm.maritalStatus,
+      hasChildren: medicalForm.hasChildren,
+      childrenCountAndAges: medicalForm.childrenCountAndAges,
+      wantsFutureChildren: medicalForm.wantsFutureChildren,
 
       // Work Info
       jobOccupation: medicalForm.jobOccupation,
@@ -235,9 +249,13 @@ export class MedicalFormService {
       
       // Screen 7 - Safety Check
       historyProstateBreastCancer: medicalForm.historyProstateBreastCancer,
+      historyProstateBreastCancerExplanation: medicalForm.historyProstateBreastCancerExplanation,
       historyBloodClotsMIStroke: medicalForm.historyBloodClotsMIStroke,
+      historyBloodClotsMIStrokeExplanation: medicalForm.historyBloodClotsMIStrokeExplanation,
       currentlyUsingHormonesPeptides: medicalForm.currentlyUsingHormonesPeptides,
+      currentlyUsingHormonesPeptidesExplanation: medicalForm.currentlyUsingHormonesPeptidesExplanation,
       planningChildrenNext12Months: medicalForm.planningChildrenNext12Months,
+      planningChildrenNext12MonthsExplanation: medicalForm.planningChildrenNext12MonthsExplanation,
       
       // Screen 8 - Labs & Uploads
       labUploads: medicalForm.labUploads,
@@ -257,7 +275,6 @@ export class MedicalFormService {
       pastSurgicalHistory: medicalForm.pastSurgicalHistory,
       recreationalDrugs: medicalForm.recreationalDrugs,
       otherSocialHistory: medicalForm.otherSocialHistory,
-      familyHistory: medicalForm.familyHistory,
       workHistory: medicalForm.workHistory,
       medications: medicalForm.medications,
       generalSymptoms: medicalForm.generalSymptoms,

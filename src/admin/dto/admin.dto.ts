@@ -448,6 +448,11 @@ export class AdminCreateMedicalFormDto {
   @IsOptional()
   currentMedications?: string;
 
+  @ApiProperty({ description: 'Family history', required: false })
+  @IsString()
+  @IsOptional()
+  familyHistory?: string;
+
   @ApiProperty({ description: 'Allergies', required: false })
   @IsString()
   @IsOptional()
@@ -479,10 +484,35 @@ export class AdminCreateMedicalFormDto {
   @IsOptional()
   alcoholUse?: string;
 
-  @ApiProperty({ description: 'Tobacco use', example: 'Never', required: false })
+  @ApiProperty({ description: 'Alcohol days per week', required: false })
+  @IsString()
+  @IsOptional()
+  alcoholDaysPerWeek?: string;
+
+  @ApiProperty({ description: 'Alcohol drinks per typical day', required: false })
+  @IsString()
+  @IsOptional()
+  alcoholDrinksPerDay?: string;
+
+  @ApiProperty({ description: 'Tobacco use', example: 'No', required: false })
   @IsString()
   @IsOptional()
   tobaccoUse?: string;
+
+  @ApiProperty({ description: 'Tobacco product types', required: false })
+  @IsString()
+  @IsOptional()
+  tobaccoProductTypes?: string;
+
+  @ApiProperty({ description: 'Cigarette smoking frequency', required: false })
+  @IsString()
+  @IsOptional()
+  tobaccoCigaretteFrequency?: string;
+
+  @ApiProperty({ description: 'Non-cigarette tobacco frequency', required: false })
+  @IsString()
+  @IsOptional()
+  tobaccoNonCigaretteFrequency?: string;
 
   @ApiProperty({ description: 'Cannabis/other substances', example: 'None', required: false })
   @IsString()
@@ -498,6 +528,26 @@ export class AdminCreateMedicalFormDto {
   @IsString()
   @IsOptional()
   stressLevel?: string;
+
+  // Personal & Family
+  @ApiProperty({ description: 'Marital status', required: false })
+  @IsString()
+  @IsOptional()
+  maritalStatus?: string;
+
+  @ApiProperty({ description: 'Has children', required: false })
+  @IsOptional()
+  hasChildren?: boolean;
+
+  @ApiProperty({ description: 'Children count and ages', required: false })
+  @IsString()
+  @IsOptional()
+  childrenCountAndAges?: string;
+
+  @ApiProperty({ description: 'Wants future children', required: false })
+  @IsString()
+  @IsOptional()
+  wantsFutureChildren?: string;
 
   // Work Info
   @ApiProperty({ description: 'Job/Occupation', required: false })
