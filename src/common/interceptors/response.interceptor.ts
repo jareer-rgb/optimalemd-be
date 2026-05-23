@@ -53,6 +53,9 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, BaseApiRespons
         if (url.includes('/auth/login')) {
           return 'User authenticated successfully';
         }
+        if (url.includes('/newsletter/subscribe')) {
+          return 'Newsletter subscription processed';
+        }
         return 'Resource created successfully';
       
       case 'PUT':

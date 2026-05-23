@@ -12,6 +12,18 @@ import {
   SubscribeNewsletterDto,
 } from './dto/newsletter.dto';
 
+export type NewsletterSubscribeStatus =
+  | 'already_subscribed'
+  | 'new_subscription'
+  | 'resubscribed';
+
+export interface NewsletterSubscribeResult {
+  success: true;
+  status: NewsletterSubscribeStatus;
+  message: string;
+  alreadySubscribed: boolean;
+}
+
 @Injectable()
 export class NewsletterService {
   constructor(
@@ -71,9 +83,7 @@ export class NewsletterService {
     };
   }
 
-  async subscribe(
-    dto: SubscribeNewsletterDto,
-  ): Promise<{ message: string; alreadySubscribed: boolean }> {
+  async subscribe(dto: SubscribeNewsletterDto): Promise<NewsletterSubscribeResult> {
     const email = dto.email.trim().toLowerCase();
     const firstName = dto.firstName.trim();
     const lastName = dto.lastName.trim();
@@ -82,49 +92,79 @@ export class NewsletterService {
       where: { email },
     });
 
-    let alreadySubscribed = false;
+    let status: NewsletterSubscribeStatus;
+    let message: string;
+    let shouldSendEmail = true;
 
-    if (existing) {
-      if (existing.isActive) {
-        alreadySubscribed = true;
-      } else {
+    if (existing?.isActive) {
+      status = 'already_subscribed';
+      message =
+        "You're already subscribed to our newsletter. We'll keep sending you health optimization insights—no need to sign up again.";
+      shouldSendEmail = false;
+
+      if (
+        existing.firstName !== firstName ||
+        existing.lastName !== lastName
+      ) {
         await this.prisma.newsletterSubscriber.update({
           where: { email },
-          data: {
-            firstName,
-            lastName,
-            isActive: true,
-            subscribedAt: new Date(),
-            unsubscribedAt: null,
-          },
+          data: { firstName, lastName },
         });
       }
+    } else if (existing && !existing.isActive) {
+      status = 'resubscribed';
+      message =
+        "Welcome back! You're subscribed again. Check your inbox—we've sent you our latest blog article.";
+      await this.prisma.newsletterSubscriber.update({
+        where: { email },
+        data: {
+          firstName,
+          lastName,
+          isActive: true,
+          subscribedAt: new Date(),
+          unsubscribedAt: null,
+        },
+      });
     } else {
+      status = 'new_subscription';
+      message =
+        "You're subscribed! Check your email for our latest blog and expert health optimization tips.";
       await this.prisma.newsletterSubscriber.create({
         data: { email, firstName, lastName },
       });
     }
 
-    const latestBlog = await this.getLatestPublishedBlog();
-    const blogsListUrl = `${this.getFrontendBaseUrl()}/our-blog`;
+    const alreadySubscribed = status === 'already_subscribed';
 
-    try {
-      await this.mailerService.sendNewsletterWelcomeEmail({
-        to: email,
-        firstName,
-        latestBlogTitle: latestBlog?.title,
-        latestBlogUrl: latestBlog?.url ?? blogsListUrl,
-        blogsListUrl,
-        isResubscribe: alreadySubscribed,
-      });
-    } catch (err) {
-      console.error('Newsletter welcome email failed (subscription saved):', err);
+    if (shouldSendEmail) {
+      const latestBlog = await this.getLatestPublishedBlog();
+      const blogsListUrl = `${this.getFrontendBaseUrl()}/our-blog`;
+
+      try {
+        await this.mailerService.sendNewsletterWelcomeEmail({
+          to: email,
+          firstName,
+          latestBlogTitle: latestBlog?.title,
+          latestBlogUrl: latestBlog?.url ?? blogsListUrl,
+          blogsListUrl,
+          isResubscribe: status === 'resubscribed',
+        });
+      } catch (err) {
+        console.error('Newsletter welcome email failed (subscription saved):', err);
+        if (status === 'new_subscription') {
+          message =
+            "You're subscribed! We saved your signup—if you don't see our email shortly, check your spam folder.";
+        } else if (status === 'resubscribed') {
+          message =
+            "Welcome back! You're re-subscribed. If you don't see our email shortly, check your spam folder.";
+        }
+      }
     }
 
     return {
-      message: alreadySubscribed
-        ? 'You are already subscribed. We sent you our latest blog link again.'
-        : 'Thanks for subscribing! Check your inbox for our latest insights.',
+      success: true,
+      status,
+      message,
       alreadySubscribed,
     };
   }
