@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateBlogCommentDto,
   CreateBlogPostDto,
+  RecordBlogViewDto,
   SetBlogReactionDto,
   UpdateBlogCommentDto,
   UpdateBlogPostDto,
@@ -37,6 +38,20 @@ export class BlogService {
     if (!trimmed) return null;
     const safe = trimmed.replace(/[^a-zA-Z0-9_-]/g, '');
     return safe.slice(0, 120) || null;
+  }
+
+  private resolveVisitorKey(
+    userId: string | undefined,
+    anonymousKey?: string,
+  ): { visitorKey: string; userId: string | null } {
+    if (userId) {
+      return { visitorKey: `user:${userId}`, userId };
+    }
+    const key = this.sanitizeAnonymousKey(anonymousKey);
+    if (!key) {
+      throw new BadRequestException('anonymousKey is required for guest blog views');
+    }
+    return { visitorKey: `anon:${key}`, userId: null };
   }
 
   private async resolveActorUserId(input: {
@@ -356,6 +371,62 @@ export class BlogService {
     return {
       ...post,
       reactions: { upvotes, downvotes, myReaction: myReaction?.type ?? null },
+    };
+  }
+
+  async recordPostView(
+    slug: string,
+    userId: string | undefined,
+    dto: RecordBlogViewDto,
+  ) {
+    const post = await this.prisma.blogPost.findFirst({
+      where: {
+        slug,
+        isPublished: true,
+        status: BlogPostStatus.PUBLISHED,
+      },
+      select: { id: true },
+    });
+    if (!post) throw new NotFoundException('Blog post not found');
+
+    const { visitorKey, userId: resolvedUserId } = this.resolveVisitorKey(
+      userId,
+      dto.anonymousKey,
+    );
+
+    const priorView = await this.prisma.blogPostView.findFirst({
+      where: { postId: post.id, visitorKey },
+      select: { id: true },
+    });
+
+    const isNewUniqueVisitor = !priorView;
+
+    await this.prisma.$transaction([
+      this.prisma.blogPostView.create({
+        data: {
+          postId: post.id,
+          visitorKey,
+          userId: resolvedUserId,
+        },
+      }),
+      this.prisma.blogPost.update({
+        where: { id: post.id },
+        data: {
+          totalReadCount: { increment: 1 },
+          ...(isNewUniqueVisitor ? { uniqueReadCount: { increment: 1 } } : {}),
+        },
+      }),
+    ]);
+
+    const updated = await this.prisma.blogPost.findUnique({
+      where: { id: post.id },
+      select: { totalReadCount: true, uniqueReadCount: true },
+    });
+
+    return {
+      totalReads: updated?.totalReadCount ?? 0,
+      uniqueReads: updated?.uniqueReadCount ?? 0,
+      isNewUniqueVisitor,
     };
   }
 

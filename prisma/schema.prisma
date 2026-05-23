@@ -264,9 +264,14 @@ model BlogPost {
   authorAdminId      String
   authorAdmin        Admin    @relation(fields: [authorAdminId], references: [id], onDelete: Restrict)
 
+  // Read analytics
+  totalReadCount     Int      @default(0)
+  uniqueReadCount    Int      @default(0)
+
   // Relations
   comments           BlogComment[]
   reactions          BlogReaction[]
+  views              BlogPostView[]
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -274,6 +279,34 @@ model BlogPost {
   @@index([status, isPublished, publishedAt])
   @@index([createdAt])
   @@map("blog_posts")
+}
+
+model BlogPostView {
+  id         String   @id @default(uuid())
+  postId     String
+  post       BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  visitorKey String
+  userId     String?
+  viewedAt   DateTime @default(now())
+
+  @@index([postId, viewedAt])
+  @@index([postId, visitorKey])
+  @@map("blog_post_views")
+}
+
+model NewsletterSubscriber {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  firstName      String
+  lastName       String
+  isActive       Boolean   @default(true)
+  subscribedAt   DateTime  @default(now())
+  unsubscribedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([isActive, subscribedAt])
+  @@map("newsletter_subscribers")
 }
 
 model BlogComment {

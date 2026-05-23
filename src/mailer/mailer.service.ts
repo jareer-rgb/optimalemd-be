@@ -4056,4 +4056,97 @@ export class MailerService implements OnModuleInit {
       throw error;
     }
   }
+
+  async sendNewsletterWelcomeEmail(params: {
+    to: string;
+    firstName: string;
+    latestBlogTitle?: string;
+    latestBlogUrl: string;
+    blogsListUrl: string;
+    isResubscribe?: boolean;
+  }): Promise<void> {
+    const {
+      to,
+      firstName,
+      latestBlogTitle,
+      latestBlogUrl,
+      blogsListUrl,
+      isResubscribe,
+    } = params;
+
+    const safeName = firstName || 'there';
+    const intro = isResubscribe
+      ? `You're already on our list — here's the latest from OptimaleMD.`
+      : `Thanks for subscribing to the OptimaleMD newsletter!`;
+
+    const blogBlock = latestBlogTitle
+      ? `
+            <p>Our latest article: <strong>${latestBlogTitle}</strong></p>
+            <p style="text-align: center; margin: 28px 0;">
+              <a href="${latestBlogUrl}" class="cta-button">Read the latest blog</a>
+            </p>
+          `
+      : `
+            <p style="text-align: center; margin: 28px 0;">
+              <a href="${blogsListUrl}" class="cta-button">Browse our blog</a>
+            </p>
+          `;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; color: #333333; }
+          .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }
+          .header { background-color: #000000; padding: 25px; text-align: center; }
+          .logo { color: #ffffff; font-size: 24px; font-weight: bold; text-transform: uppercase; margin: 0; }
+          .content { padding: 30px; }
+          .cta-button { display: inline-block; background-color: #dc2626; color: #ffffff !important; text-decoration: none; padding: 14px 28px; border-radius: 999px; font-weight: bold; font-size: 16px; }
+          .secondary-link { color: #dc2626; font-weight: bold; }
+          .footer { background-color: #f9f9f9; padding: 20px; text-align: center; color: #666666; font-size: 12px; border-top: 1px solid #eeeeee; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <p class="logo">OptimaleMD</p>
+          </div>
+          <div class="content">
+            <h2>Welcome to OptimaleMD Insights</h2>
+            <p>Hi ${safeName},</p>
+            <p>${intro}</p>
+            <p>You'll receive expert tips on hormones, metabolism, performance, and longevity — straight to your inbox.</p>
+            ${blogBlock}
+            <p>Explore more articles anytime: <a href="${blogsListUrl}" class="secondary-link">View all blogs</a></p>
+            <p>— The OptimaleMD Team</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} OptimaleMD. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const subject = latestBlogTitle
+      ? `Welcome! Read our latest: ${latestBlogTitle}`
+      : 'Welcome to the OptimaleMD newsletter';
+
+    try {
+      await this.transporter.sendMail({
+        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        to,
+        subject,
+        html,
+        text: `${intro}\n\nRead the latest: ${latestBlogUrl}\n\nAll blogs: ${blogsListUrl}`,
+      });
+      console.log(`Newsletter welcome email sent to ${to}`);
+    } catch (error) {
+      console.error('Failed to send newsletter welcome email:', error);
+      throw error;
+    }
+  }
 } 

@@ -24,6 +24,7 @@ import { BlogService } from './blog.service';
 import {
   CreateBlogCommentDto,
   CreateBlogPostDto,
+  RecordBlogViewDto,
   SetBlogReactionDto,
   UpdateBlogCommentDto,
   UpdateBlogPostDto,
@@ -112,6 +113,16 @@ export class BlogController {
     const maybeUserId = req.user?.id;
     const post = await this.blogService.getPublicPostBySlug(slug, maybeUserId);
     return this.blogService.setReaction(post.id, maybeUserId, dto);
+  }
+
+  @UseGuards(OptionalJwtAuthGuard)
+  @Post(':slug/views')
+  async recordView(
+    @Param('slug') slug: string,
+    @Body() dto: RecordBlogViewDto,
+    @Req() req: any,
+  ) {
+    return this.blogService.recordPostView(slug, req.user?.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)

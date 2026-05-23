@@ -187,3 +187,10 @@ export class SetBlogReactionDto {
   @MaxLength(120)
   anonymousKey?: string;
 }
+
+export class RecordBlogViewDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  anonymousKey?: string;
+}
