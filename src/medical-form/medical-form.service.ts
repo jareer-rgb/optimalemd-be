@@ -115,18 +115,29 @@ export class MedicalFormService {
   }
 
   async updateMedicalFormByPatientId(patientId: string, updateData: Partial<CreateMedicalFormDto>): Promise<MedicalFormResponseDto> {
+    const processedUpdateData = this.processMedicalFormWriteData(updateData);
+
     const count = await this.prisma.medicalForm.count({ where: { patientId } });
 
     if (count === 0) {
-      throw new NotFoundException('Medical form not found for this patient');
+      const medicalForm = await this.prisma.medicalForm.create({
+        data: {
+          patientId,
+          ...processedUpdateData,
+        },
+      });
+
+      await this.prisma.user.update({
+        where: { id: patientId },
+        data: {
+          hasCompletedMedicalForm: true,
+          medicalFormCompletedAt: new Date(),
+        },
+      });
+
+      return this.mapToResponseDto(medicalForm);
     }
 
-    const processedUpdateData = {
-      ...updateData,
-      labSchedulingNeeded: updateData.labSchedulingNeeded !== undefined ? updateData.labSchedulingNeeded : true,
-    };
-
-    // Update ALL forms for this patient so every appointment reflects the latest data
     await this.prisma.medicalForm.updateMany({
       where: { patientId },
       data: processedUpdateData,
@@ -138,6 +149,22 @@ export class MedicalFormService {
     });
 
     return this.mapToResponseDto(updatedForm!);
+  }
+
+  private processMedicalFormWriteData(updateData: Partial<CreateMedicalFormDto>) {
+    const processed: Record<string, unknown> = {
+      ...updateData,
+      labSchedulingNeeded:
+        updateData.labSchedulingNeeded !== undefined
+          ? updateData.labSchedulingNeeded
+          : true,
+    };
+
+    if (updateData.consentDate) {
+      processed.consentDate = new Date(updateData.consentDate as string);
+    }
+
+    return processed;
   }
 
   async updateMedicalFormByAppointmentId(appointmentId: string, updateData: Partial<CreateMedicalFormDto>): Promise<MedicalFormResponseDto> {

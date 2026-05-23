@@ -612,20 +612,40 @@ export class AdminCreateMedicalFormDto {
   @IsOptional()
   historyProstateBreastCancer?: boolean;
 
+  @ApiProperty({ description: 'Prostate/breast cancer explanation', required: false })
+  @IsString()
+  @IsOptional()
+  historyProstateBreastCancerExplanation?: string;
+
   @ApiProperty({ description: 'History of blood clots/MI/stroke', required: false })
   @IsBoolean()
   @IsOptional()
   historyBloodClotsMIStroke?: boolean;
+
+  @ApiProperty({ description: 'Blood clots/MI/stroke explanation', required: false })
+  @IsString()
+  @IsOptional()
+  historyBloodClotsMIStrokeExplanation?: string;
 
   @ApiProperty({ description: 'Currently using hormones/peptides', required: false })
   @IsBoolean()
   @IsOptional()
   currentlyUsingHormonesPeptides?: boolean;
 
+  @ApiProperty({ description: 'Hormones/peptides explanation', required: false })
+  @IsString()
+  @IsOptional()
+  currentlyUsingHormonesPeptidesExplanation?: string;
+
   @ApiProperty({ description: 'Planning children next 12 months', required: false })
   @IsBoolean()
   @IsOptional()
   planningChildrenNext12Months?: boolean;
+
+  @ApiProperty({ description: 'Planning children explanation', required: false })
+  @IsString()
+  @IsOptional()
+  planningChildrenNext12MonthsExplanation?: string;
 
   // Labs & Uploads
   @ApiProperty({ description: 'Lab scheduling needed', required: false })
