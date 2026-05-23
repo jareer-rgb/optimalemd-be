@@ -2,6 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 
+type PosCartItem = {
+  priceId?: string;
+  productId?: string;
+  name?: string;
+  defaultAmount?: number | null;
+  amount?: number;
+  currency?: string;
+  interval?: string;
+};
+
 @Injectable()
 export class StripePosService {
   private stripe: Stripe;
@@ -99,8 +109,8 @@ export class StripePosService {
   async createMembershipSubscription(body: {
     customerId: string;
     setupIntentId: string;
-    oneTimeItems?: any[];
-    subscriptionItems?: any[];
+    oneTimeItems?: PosCartItem[];
+    subscriptionItems?: PosCartItem[];
   }) {
     const {
       customerId,
@@ -151,70 +161,23 @@ export class StripePosService {
       },
     });
 
-    const subscriptionLineItems = subscriptionItems.map((item: any) => {
-      const amount = Number(item.amount);
-      const defaultAmount = Number(item.defaultAmount);
+    const subscriptionLineItems = this.buildSubscriptionLineItems(subscriptionItems);
+    const oneTimeInvoiceItems = this.buildOneTimeInvoiceItems(oneTimeItems);
 
-      if (!item.priceId && !item.productId) {
-        throw new Error(
-          `Subscription item "${item.name}" is missing both priceId and productId.`,
-        );
-      }
-
-      if (amount !== defaultAmount) {
-        if (!item.productId) {
-          throw new Error(
-            `Subscription item "${item.name}" is missing productId for custom pricing.`,
-          );
-        }
-
-        return {
-          price_data: {
-            currency: item.currency || 'usd',
-            product: item.productId,
-            recurring: {
-              interval: item.interval || 'month',
-            },
-            unit_amount: amount,
-          },
-        };
-      }
-
+    if (oneTimeItems.length > 0 && subscriptionItems.length === 0) {
+      const charged = await this.chargeOneTimeOnly(
+        customerId,
+        generatedCardId,
+        oneTimeInvoiceItems,
+      );
       return {
-        price: item.priceId,
+        ok: true,
+        generatedCardId,
+        subscriptionId: null,
+        invoiceId: charged.invoiceId,
+        status: charged.status,
       };
-    });
-
-    const oneTimeInvoiceItems = oneTimeItems.map((item: any) => {
-      const amount = Number(item.amount);
-      const defaultAmount = Number(item.defaultAmount);
-
-      if (!item.priceId && !item.productId) {
-        throw new Error(
-          `One-time item "${item.name}" is missing both priceId and productId.`,
-        );
-      }
-
-      if (amount !== defaultAmount) {
-        if (!item.productId) {
-          throw new Error(
-            `One-time item "${item.name}" is missing productId for custom pricing.`,
-          );
-        }
-
-        return {
-          price_data: {
-            currency: item.currency || 'usd',
-            product: item.productId,
-            unit_amount: amount,
-          },
-        };
-      }
-
-      return {
-        price: item.priceId,
-      };
-    });
+    }
 
     const subscription = await this.stripe.subscriptions.create({
       customer: customerId,
@@ -237,6 +200,121 @@ export class StripePosService {
       invoiceId: latestInvoice ? latestInvoice.id : null,
       status: subscription.status,
     };
+  }
+
+  private async chargeOneTimeOnly(
+    customerId: string,
+    paymentMethodId: string,
+    oneTimeInvoiceItems: Stripe.SubscriptionCreateParams.AddInvoiceItem[],
+  ) {
+    for (const line of oneTimeInvoiceItems) {
+      if (line.price) {
+        await this.stripe.invoiceItems.create({
+          customer: customerId,
+          pricing: { price: line.price },
+        });
+      } else if (line.price_data) {
+        await this.stripe.invoiceItems.create({
+          customer: customerId,
+          price_data: line.price_data as Stripe.InvoiceItemCreateParams.PriceData,
+        });
+      }
+    }
+
+    const invoice = await this.stripe.invoices.create({
+      customer: customerId,
+      default_payment_method: paymentMethodId,
+      auto_advance: true,
+      collection_method: 'charge_automatically',
+    });
+
+    if (!invoice.id) {
+      throw new Error('Invoice creation failed: missing invoice id.');
+    }
+
+    const finalized = await this.stripe.invoices.finalizeInvoice(invoice.id);
+    const invoiceId = finalized.id ?? invoice.id;
+
+    const paid =
+      finalized.status === 'paid'
+        ? finalized
+        : await this.stripe.invoices.pay(invoiceId);
+
+    return {
+      invoiceId: paid.id ?? invoiceId,
+      status: paid.status,
+    };
+  }
+
+  private buildSubscriptionLineItems(subscriptionItems: PosCartItem[]) {
+    return subscriptionItems.map((item) => {
+      const amount = Number(item.amount);
+      const defaultAmount = Number(item.defaultAmount);
+      const label = item.name || 'Subscription item';
+
+      if (!item.priceId && !item.productId) {
+        throw new Error(
+          `Subscription item "${label}" is missing both priceId and productId.`,
+        );
+      }
+
+      if (amount !== defaultAmount) {
+        if (!item.productId) {
+          throw new Error(
+            `Subscription item "${label}" is missing productId for custom pricing.`,
+          );
+        }
+
+        const interval = (item.interval || 'month') as Stripe.Price.Recurring.Interval;
+
+        return {
+          price_data: {
+            currency: item.currency || 'usd',
+            product: item.productId,
+            recurring: { interval },
+            unit_amount: amount,
+          },
+        };
+      }
+
+      return {
+        price: item.priceId!,
+      };
+    }) as Stripe.SubscriptionCreateParams.Item[];
+  }
+
+  private buildOneTimeInvoiceItems(oneTimeItems: PosCartItem[]) {
+    return oneTimeItems.map((item) => {
+      const amount = Number(item.amount);
+      const defaultAmount = Number(item.defaultAmount);
+      const label = item.name || 'One-time item';
+
+      if (!item.priceId && !item.productId) {
+        throw new Error(
+          `One-time item "${label}" is missing both priceId and productId.`,
+        );
+      }
+
+      if (amount !== defaultAmount) {
+        if (!item.productId) {
+          throw new Error(
+            `One-time item "${label}" is missing productId for custom pricing.`,
+          );
+        }
+
+        return {
+          price_data: {
+            currency: item.currency || 'usd',
+            product: item.productId,
+            unit_amount: amount,
+          },
+        };
+      }
+
+      return {
+        price: item.priceId!,
+      };
+    }) as Stripe.SubscriptionCreateParams.AddInvoiceItem[];
   }
 
   async catalogOneTime() {
