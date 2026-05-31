@@ -4,6 +4,7 @@ import {
   Get,
   HttpException,
   Post,
+  Query,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -118,6 +119,27 @@ export class StripePosController {
       return result;
     } catch (err: any) {
       if (err instanceof HttpException) throw err;
+      throw new HttpException({ ok: false, error: err.message }, 400);
+    }
+  }
+
+  @Get('setup-intent-status')
+  async setupIntentStatus(@Query('id') id: string) {
+    if (!id) {
+      throw new HttpException({ ok: false, error: 'Missing id' }, 400);
+    }
+    try {
+      return await this.stripePosService.getSetupIntentStatus(id);
+    } catch (err: any) {
+      throw new HttpException({ ok: false, error: err.message }, 400);
+    }
+  }
+
+  @Get('search-customers')
+  async searchCustomers(@Query('q') q: string) {
+    try {
+      return await this.stripePosService.searchCustomers(q || '');
+    } catch (err: any) {
       throw new HttpException({ ok: false, error: err.message }, 400);
     }
   }

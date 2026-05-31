@@ -34,6 +34,8 @@ async function bootstrap() {
       { path: 'create-membership-subscription', method: RequestMethod.POST },
       { path: 'catalog/one-time', method: RequestMethod.GET },
       { path: 'catalog/recurring', method: RequestMethod.GET },
+      { path: 'setup-intent-status', method: RequestMethod.GET },
+      { path: 'search-customers', method: RequestMethod.GET },
       { path: 'pos', method: RequestMethod.GET },
     ],
   });

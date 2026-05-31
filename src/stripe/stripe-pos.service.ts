@@ -74,14 +74,77 @@ export class StripePosService {
   }
 
   async createCustomer(name: string, email: string) {
+    // Dedup: if a customer with this email already exists, reuse it.
+    // Email-based lookup so the receptionist can't accidentally create duplicate
+    // Stripe profiles for the same patient on follow-up charges.
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    if (normalizedEmail) {
+      const existing = await this.stripe.customers.list({
+        email: normalizedEmail,
+        limit: 1,
+      });
+      if (existing.data.length > 0) {
+        const found = existing.data[0];
+        // Lightly backfill the name if the existing record didn't have one
+        if (!found.name && name) {
+          await this.stripe.customers.update(found.id, { name });
+        }
+        return {
+          ok: true,
+          customerId: found.id,
+          reused: true,
+        };
+      }
+    }
+
     const customer = await this.stripe.customers.create({
       name,
-      email,
+      email: normalizedEmail || email,
     });
 
     return {
       ok: true,
       customerId: customer.id,
+      reused: false,
+    };
+  }
+
+  async getSetupIntentStatus(setupIntentId: string) {
+    const setupIntent = await this.stripe.setupIntents.retrieve(setupIntentId);
+    return {
+      ok: true,
+      id: setupIntent.id,
+      status: setupIntent.status,
+      lastSetupError: setupIntent.last_setup_error
+        ? {
+            code: setupIntent.last_setup_error.code,
+            message: setupIntent.last_setup_error.message,
+          }
+        : null,
+    };
+  }
+
+  async searchCustomers(query: string, limit = 10) {
+    const q = (query || '').trim();
+    if (!q) {
+      return { ok: true, customers: [] as any[] };
+    }
+
+    // Stripe's search supports `email:` and `name:` predicates with substring matching via `~`.
+    const escaped = q.replace(/"/g, '\\"');
+    const search = await this.stripe.customers.search({
+      query: `email~"${escaped}" OR name~"${escaped}"`,
+      limit,
+    });
+
+    return {
+      ok: true,
+      customers: search.data.map((c) => ({
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        created: c.created,
+      })),
     };
   }
 
