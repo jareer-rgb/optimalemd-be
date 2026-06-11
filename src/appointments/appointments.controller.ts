@@ -1710,4 +1710,40 @@ export class AppointmentsController {
   async deleteBooking(@Param('id') id: string): Promise<void> {
     await this.bookingsService.deleteBooking(id);
   }
+
+  // ── Manual appointment reminder (admin) ────────────────────────────────
+  @Get(':id/manual-reminder-preview')
+  @ApiOperation({
+    summary: 'Get default reminder email content for an appointment',
+    description: 'Returns a populated subject + HTML body that the admin can edit and then send.',
+  })
+  @ApiParam({ name: 'id', description: 'Appointment ID' })
+  async getManualReminderPreview(@Param('id') id: string) {
+    const data = await this.appointmentsService.getManualReminderPreview(id);
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Reminder preview generated',
+      data,
+    };
+  }
+
+  @Post(':id/send-manual-reminder')
+  @ApiOperation({
+    summary: 'Send a manual reminder email for an appointment',
+    description: 'Admin sends an appointment reminder. Optional overrides: recipientEmail, subject, html, text.',
+  })
+  @ApiParam({ name: 'id', description: 'Appointment ID' })
+  async sendManualReminder(
+    @Param('id') id: string,
+    @Body() body: { recipientEmail?: string; subject?: string; html?: string; text?: string },
+  ) {
+    const data = await this.appointmentsService.sendManualReminder(id, body || {});
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Reminder email sent successfully',
+      data,
+    };
+  }
 }

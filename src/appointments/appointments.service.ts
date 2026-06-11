@@ -2351,4 +2351,151 @@ export class AppointmentsService {
 
     return updatedAppointment;
   }
+
+  /**
+   * Build a default appointment reminder email (subject + HTML body) populated
+   * with the appointment's actual details. Returned so the admin UI can preview
+   * and optionally edit before sending.
+   */
+  async getManualReminderPreview(
+    appointmentId: string,
+  ): Promise<{
+    subject: string;
+    html: string;
+    text: string;
+    recipientEmail: string;
+    patientName: string;
+    appointmentSummary: {
+      doctor: string;
+      service: string;
+      date: string;
+      time: string;
+      timezone: string;
+      googleMeetLink: string | null;
+    };
+  }> {
+    const appt: any = await this.findById(appointmentId);
+    if (!appt) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    const patient = appt.patient || {};
+    const doctor = appt.doctor || {};
+    const service = appt.service || {};
+    const patientName = `${patient.firstName ?? ''} ${patient.lastName ?? ''}`.trim() || 'Patient';
+    const doctorName = `Dr. ${doctor.firstName ?? ''} ${doctor.lastName ?? ''}`.trim();
+    const serviceName = service.name || 'your appointment';
+    const recipientEmail = patient.email || '';
+
+    // Date / time formatting — mirror the confirmation email logic for consistency
+    // appointmentDate may come back as a Date object (Prisma) OR a string; normalize to YYYY-MM-DD.
+    const apptDateRaw = appt.appointmentDate;
+    const apptDate: string =
+      apptDateRaw instanceof Date
+        ? apptDateRaw.toISOString().slice(0, 10)
+        : typeof apptDateRaw === 'string'
+          ? apptDateRaw.slice(0, 10)
+          : '';
+    const apptTime: string = typeof appt.appointmentTime === 'string' ? appt.appointmentTime : '';
+    const [yy, mo, dd] = apptDate.split('-').map(Number);
+    const [hh, mm] = apptTime.split(':').map(Number);
+    const utcDate = new Date(Date.UTC(yy || 1970, (mo || 1) - 1, dd || 1, hh || 0, mm || 0, 0));
+    const tz = doctor?.timezone || 'America/Chicago';
+
+    const timeFmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true,
+    });
+    const dateFmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+    const displayTime = timeFmt.format(utcDate);
+    const displayDate = dateFmt.format(utcDate);
+    const tzAbbr = (this.mailerService as any).getTimezoneAbbreviation?.(tz, utcDate) || '';
+
+    const meetLink: string | null = appt.googleMeetLink || null;
+
+    const subject = `Reminder: Your appointment with ${doctorName || 'your provider'} — ${displayDate}`;
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:Arial,sans-serif;line-height:1.6;margin:0;padding:20px;background:#f4f4f4;color:#333;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);overflow:hidden;">
+    <div style="background:#000;padding:25px;text-align:center;">
+      <h1 style="color:#fff;margin:0;font-size:24px;">OptimaleMD</h1>
+      <p style="color:#ef4444;margin:8px 0 0;font-size:14px;letter-spacing:1px;">APPOINTMENT REMINDER</p>
+    </div>
+    <div style="padding:30px;">
+      <p>Hi <strong>${patientName}</strong>,</p>
+      <p>This is a friendly reminder of your upcoming appointment with OptimaleMD.</p>
+      <div style="background:#f9f9f9;border-left:4px solid #ef4444;padding:16px 20px;margin:20px 0;border-radius:4px;">
+        <p style="margin:0 0 8px;"><strong>Provider:</strong> ${doctorName || '—'}</p>
+        <p style="margin:0 0 8px;"><strong>Service:</strong> ${serviceName}</p>
+        <p style="margin:0 0 8px;"><strong>Date:</strong> ${displayDate}</p>
+        <p style="margin:0;"><strong>Time:</strong> ${displayTime}${tzAbbr ? ` (${tzAbbr})` : ''}</p>
+      </div>
+      ${meetLink ? `<p style="text-align:center;margin:24px 0;"><a href="${meetLink}" style="display:inline-block;background:#ef4444;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">Join Video Visit</a></p>` : ''}
+      <p>If you need to reschedule or have any questions, please reach out to us right away.</p>
+      <p style="margin-top:30px;">See you soon,<br><strong>The OptimaleMD Team</strong></p>
+    </div>
+    <div style="background:#f4f4f4;padding:16px;text-align:center;color:#999;font-size:12px;">
+      <p style="margin:0;">This is an automated reminder. Please do not reply directly to this email.</p>
+    </div>
+  </div>
+</body></html>`;
+
+    const text = `Hi ${patientName},
+
+This is a friendly reminder of your upcoming appointment with OptimaleMD.
+
+Provider: ${doctorName || '—'}
+Service: ${serviceName}
+Date: ${displayDate}
+Time: ${displayTime}${tzAbbr ? ` (${tzAbbr})` : ''}
+${meetLink ? `\nJoin link: ${meetLink}\n` : ''}
+If you need to reschedule or have questions, please reach out to us right away.
+
+See you soon,
+The OptimaleMD Team`;
+
+    return {
+      subject,
+      html,
+      text,
+      recipientEmail,
+      patientName,
+      appointmentSummary: {
+        doctor: doctorName,
+        service: serviceName,
+        date: displayDate,
+        time: `${displayTime}${tzAbbr ? ` (${tzAbbr})` : ''}`,
+        timezone: tz,
+        googleMeetLink: meetLink,
+      },
+    };
+  }
+
+  /**
+   * Send a manual reminder email. Admin can override recipient/subject/html/text.
+   */
+  async sendManualReminder(
+    appointmentId: string,
+    overrides: { recipientEmail?: string; subject?: string; html?: string; text?: string },
+  ): Promise<{ sentTo: string; subject: string }> {
+    const preview = await this.getManualReminderPreview(appointmentId);
+
+    const to = (overrides.recipientEmail || preview.recipientEmail || '').trim();
+    if (!to) {
+      throw new BadRequestException('Recipient email is required');
+    }
+    const subject = (overrides.subject || preview.subject).trim();
+    if (!subject) {
+      throw new BadRequestException('Subject is required');
+    }
+    const html = overrides.html || preview.html;
+    const text = overrides.text || preview.text;
+
+    await this.mailerService.sendEmail(to, subject, text, html);
+
+    return { sentTo: to, subject };
+  }
 }
