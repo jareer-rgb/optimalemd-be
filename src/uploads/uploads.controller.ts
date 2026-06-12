@@ -17,6 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { UploadsService } from './uploads.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -481,18 +482,20 @@ export class UploadsController {
   }
 
   @Delete('admin/documents/:documentId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('superadmin')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Delete a patient document (Admin)' })
+  @ApiOperation({ summary: 'Delete a patient document (Superadmin only)' })
   async deletePatientDocumentAdmin(@Param('documentId') documentId: string) {
     await this.uploadsService.deletePatientDocument(documentId);
     return { success: true, statusCode: HttpStatus.OK, message: 'Document deleted successfully' };
   }
 
   @Delete('lab-order/:orderId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('superadmin')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Remove lab order (Admin)', description: 'Remove a lab order for a lab order' })
+  @ApiOperation({ summary: 'Remove lab order (Superadmin only)', description: 'Remove a lab order — restricted to superadmin' })
   @ApiResponse({ status: 200, description: 'Lab order removed successfully' })
   @ApiResponse({ status: 404, description: 'Lab order not found' })
   async removeLabOrder(
@@ -507,9 +510,10 @@ export class UploadsController {
   }
 
   @Delete('lab-results/:orderId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('superadmin')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Remove all lab results (Admin)', description: 'Remove all lab results for a lab order' })
+  @ApiOperation({ summary: 'Remove all lab results (Superadmin only)', description: 'Remove all lab results for a lab order — restricted to superadmin' })
   @ApiResponse({ status: 200, description: 'Lab results removed successfully' })
   @ApiResponse({ status: 404, description: 'Lab order or results not found' })
   async removeLabResults(
@@ -524,9 +528,10 @@ export class UploadsController {
   }
 
   @Delete('lab-result-file/:resultFileId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('superadmin')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Remove specific lab result file (Admin)', description: 'Remove a specific lab result file by ID' })
+  @ApiOperation({ summary: 'Remove specific lab result file (Superadmin only)', description: 'Remove a specific lab result file by ID — restricted to superadmin' })
   @ApiResponse({ status: 200, description: 'Lab result file removed successfully' })
   @ApiResponse({ status: 404, description: 'Lab result file not found' })
   async removeLabResultFile(
