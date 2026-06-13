@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
@@ -458,17 +458,54 @@ export class StripeService {
   /**
    * Create a subscription for a patient
    */
+  /**
+   * Find the authoritative PREMIUM subscription for a Stripe customer by querying Stripe live.
+   * Returns an active/trialing/past_due/unpaid one if present, else the most recently created
+   * premium subscription, else null.
+   *
+   * This is the source of truth used to keep the platform in sync even when webhooks were
+   * missed (local dev, or changes made directly in the Stripe dashboard). We filter by
+   * metadata.type === 'premium_subscription' so medication subscriptions are never mistaken
+   * for the membership.
+   */
+  private async findPremiumSubscriptionFromStripe(
+    customerId: string,
+  ): Promise<Stripe.Subscription | null> {
+    if (!customerId) return null;
+    try {
+      const subs = await this.stripe.subscriptions.list({
+        customer: customerId,
+        status: 'all',
+        limit: 100,
+      });
+      const premium = subs.data.filter(
+        (s) => s.metadata?.type === 'premium_subscription',
+      );
+      if (premium.length === 0) return null;
+
+      const liveStatuses = ['active', 'trialing', 'past_due', 'unpaid'];
+      const active = premium.find((s) => liveStatuses.includes(s.status));
+      if (active) return active;
+
+      // None active — return the most recently created premium subscription.
+      return premium.sort((a, b) => b.created - a.created)[0];
+    } catch (e: any) {
+      console.error('findPremiumSubscriptionFromStripe error:', e.message);
+      return null;
+    }
+  }
+
   async createSubscription(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { 
-        id: true, 
-        firstName: true, 
-        lastName: true, 
-        primaryEmail: true, 
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        primaryEmail: true,
         email: true,
         stripeCustomerId: true,
-        isSubscribed: true 
+        isSubscribed: true
       },
     });
 
@@ -476,7 +513,30 @@ export class StripeService {
       throw new NotFoundException('User not found');
     }
 
-    if (user.isSubscribed) {
+    // Guard against duplicate subscriptions. Trust Stripe (live), not just the local flag —
+    // the flag drifts whenever a cancel/create webhook is missed (always on localhost) or a
+    // change is made directly in the Stripe dashboard. This stale flag is what previously
+    // allowed a patient to subscribe multiple times, orphaning prior subs that kept billing.
+    if (user.stripeCustomerId) {
+      const existingPremium = await this.findPremiumSubscriptionFromStripe(
+        user.stripeCustomerId,
+      );
+      const liveStatuses = ['active', 'trialing', 'past_due', 'unpaid'];
+      if (existingPremium && liveStatuses.includes(existingPremium.status)) {
+        // Self-heal the local DB so the UI reflects reality, then refuse the duplicate.
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: {
+            isSubscribed: true,
+            stripeSubscriptionId: existingPremium.id,
+            subscriptionStatus: existingPremium.status,
+          },
+        });
+        throw new BadRequestException(
+          'You already have an active premium subscription.',
+        );
+      }
+    } else if (user.isSubscribed) {
       throw new BadRequestException('User already has an active subscription');
     }
 
@@ -688,7 +748,17 @@ export class StripeService {
   async confirmSubscriptionPayment(paymentIntentId: string, userId: string) {
     // Verify payment intent
     const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
-    
+
+    // P0 (IDOR): the paymentIntentId comes from the client. Without this check a user could pass
+    // ANOTHER user's payment intent id and activate their own subscription off someone else's
+    // payment. Require the payment intent to belong to the calling user.
+    if (
+      paymentIntent.metadata?.userId &&
+      paymentIntent.metadata.userId !== userId
+    ) {
+      throw new ForbiddenException('This payment does not belong to the current user');
+    }
+
     if (paymentIntent.status !== 'succeeded') {
       throw new BadRequestException('Payment not completed');
     }
@@ -701,6 +771,14 @@ export class StripeService {
 
     // Retrieve subscription
     const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+
+    // P0 (IDOR) second layer: the subscription itself must belong to this user.
+    if (
+      subscription.metadata?.userId &&
+      subscription.metadata.userId !== userId
+    ) {
+      throw new ForbiddenException('This subscription does not belong to the current user');
+    }
     
     // Pay the invoice if it exists and is open
     const invoiceId = paymentIntent.metadata?.invoiceId;
@@ -938,6 +1016,67 @@ export class StripeService {
   }
 
   /**
+   * Create a Stripe Billing Portal session so a patient can self-manage their
+   * billing — update/replace card, view invoices, update billing address.
+   * Anchored to the patient's stripeCustomerId (created if missing, keyed by email).
+   */
+  async createBillingPortalSession(userId: string, returnUrl?: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        primaryEmail: true,
+        email: true,
+        stripeCustomerId: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Ensure the patient has a Stripe customer — create one (keyed by email) if not.
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const email = user.primaryEmail || user.email;
+      if (!email) {
+        throw new BadRequestException(
+          'An email address is required to manage billing.',
+        );
+      }
+
+      // Reuse an existing Stripe customer with this email before creating a new one (dedup).
+      const existing = await this.stripe.customers.list({ email, limit: 1 });
+      if (existing.data.length > 0) {
+        customerId = existing.data[0].id;
+      } else {
+        const customer = await this.stripe.customers.create({
+          email,
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          metadata: { userId: user.id },
+        });
+        customerId = customer.id;
+      }
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { stripeCustomerId: customerId },
+      });
+    }
+
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    const session = await this.stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: returnUrl || `${frontendUrl}/profile`,
+    });
+
+    return { url: session.url };
+  }
+
+  /**
    * Renew or reactivate a subscription
    * Handles:
    * 1. Reactivating a canceled subscription (removes cancel_at_period_end)
@@ -983,14 +1122,17 @@ export class StripeService {
           cancel_at_period_end: subscription.cancel_at_period_end,
         });
 
-        // If subscription is canceling, reactivate it
-        if (subscription.cancel_at_period_end) {
+        // If subscription is canceling, reactivate it. A cancellation may be scheduled via
+        // cancel_at_period_end OR a cancel_at timestamp (Stripe Billing Portal uses cancel_at).
+        // Stripe rejects passing both params together, so clear only the one that was used.
+        if (subscription.cancel_at_period_end || (subscription as any).cancel_at) {
           console.log(`🔄 [RENEW] Subscription is canceling - reactivating...`);
+          const reactivateParams: Stripe.SubscriptionUpdateParams = (subscription as any).cancel_at
+            ? { cancel_at: '' }
+            : { cancel_at_period_end: false };
           const updatedSubscription = await this.stripe.subscriptions.update(
             user.stripeSubscriptionId,
-            {
-              cancel_at_period_end: false,
-            }
+            reactivateParams,
           );
 
           const sub = updatedSubscription as any;
@@ -1312,11 +1454,46 @@ export class StripeService {
         subscriptionEndDate: true,
         subscriptionCanceledAt: true,
         stripeSubscriptionId: true,
+        stripeCustomerId: true,
       },
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
+    }
+
+    // Reconcile with Stripe live before reading status. The platform only stores ONE
+    // stripeSubscriptionId, but a customer can have drifted/duplicate premium subs in Stripe.
+    // We find the authoritative premium subscription and adopt it, so a cancellation made
+    // directly in Stripe (or a missed webhook) is always reflected here.
+    if (user.stripeCustomerId) {
+      const livePremium = await this.findPremiumSubscriptionFromStripe(
+        user.stripeCustomerId,
+      );
+      if (livePremium) {
+        if (livePremium.id !== user.stripeSubscriptionId) {
+          user.stripeSubscriptionId = livePremium.id;
+          await this.prisma.user.update({
+            where: { id: userId },
+            data: { stripeSubscriptionId: livePremium.id },
+          });
+        }
+      } else {
+        // No premium subscription exists in Stripe at all — ensure DB reflects unsubscribed.
+        if (user.isSubscribed || user.stripeSubscriptionId) {
+          await this.prisma.user.update({
+            where: { id: userId },
+            data: {
+              isSubscribed: false,
+              subscriptionStatus: 'canceled',
+              stripeSubscriptionId: null,
+            },
+          });
+        }
+        user.isSubscribed = false;
+        user.subscriptionStatus = 'canceled';
+        user.stripeSubscriptionId = null;
+      }
     }
 
     let stripeSubscription: any = null;
@@ -1451,7 +1628,10 @@ export class StripeService {
           endDate: endDateValue ? (endDateValue instanceof Date ? endDateValue.toISOString() : endDateValue) : null,
           canceledAt: user.subscriptionCanceledAt ? (user.subscriptionCanceledAt instanceof Date ? user.subscriptionCanceledAt.toISOString() : user.subscriptionCanceledAt) : null,
           stripeStatus: stripeStatus,
-          cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+          // A cancellation can be scheduled two ways: the cancel_at_period_end boolean,
+          // OR a cancel_at timestamp (which is what the Stripe Billing Portal uses).
+          // Treat either as "canceling" so the UI doesn't keep offering "Stop Recurring Payment".
+          cancelAtPeriodEnd: !!(stripeSubscription.cancel_at_period_end || stripeSubscription.cancel_at),
         };
       } catch (error: any) {
         console.error('Error retrieving subscription from Stripe:', error);
@@ -1483,30 +1663,161 @@ export class StripeService {
       endDate: endDateValue ? (endDateValue instanceof Date ? endDateValue.toISOString() : endDateValue) : null,
       canceledAt: canceledAtValue ? (canceledAtValue instanceof Date ? canceledAtValue.toISOString() : canceledAtValue) : null,
       stripeStatus: stripeSubscription?.status,
-      cancelAtPeriodEnd: stripeSubscription?.cancel_at_period_end,
+      cancelAtPeriodEnd: !!(stripeSubscription?.cancel_at_period_end || stripeSubscription?.cancel_at),
     };
+  }
+
+  /**
+   * Record a MONTHLY PREMIUM SUBSCRIPTION payment into the subscription_transactions ledger.
+   * Idempotent (upsert by stripeInvoiceId) and strictly gated to premium subscriptions, so
+   * medication / appointment / welcome invoices are never written here. Never throws — a
+   * ledger failure must not break the webhook's subscription-status handling.
+   */
+  private async recordPremiumSubscriptionTransaction(
+    invoice: any,
+    sub: any,
+    status: 'SUCCEEDED' | 'FAILED',
+  ): Promise<void> {
+    try {
+      // Strict scope: only premium-subscription invoices belong in this ledger.
+      if (sub?.metadata?.type !== 'premium_subscription') return;
+
+      const userId = sub?.metadata?.userId;
+      if (!userId || !invoice?.id) return;
+
+      // FK safety — skip if the user no longer exists.
+      const userExists = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
+      if (!userExists) {
+        console.log(`ℹ️  [LEDGER] Skipping — user ${userId} not found for invoice ${invoice.id}`);
+        return;
+      }
+
+      // Amount: amount_paid on success, amount_due on failure.
+      const amountCents =
+        status === 'SUCCEEDED'
+          ? invoice.amount_paid ?? invoice.amount_due ?? 0
+          : invoice.amount_due ?? 0;
+
+      const paymentIntentId =
+        typeof invoice.payment_intent === 'string'
+          ? invoice.payment_intent
+          : invoice.payment_intent?.id || null;
+
+      // Best-effort card details + receipt from the payment intent's latest charge. Never blocks.
+      let cardBrand: string | null = null;
+      let cardLast4: string | null = null;
+      let receiptUrl: string | null = null;
+      if (paymentIntentId) {
+        try {
+          const pi: any = await this.stripe.paymentIntents.retrieve(paymentIntentId, {
+            expand: ['latest_charge'],
+          });
+          const charge: any = pi?.latest_charge;
+          if (charge) {
+            receiptUrl = charge.receipt_url || null;
+            const card = charge.payment_method_details?.card;
+            if (card) {
+              cardBrand = card.brand || null;
+              cardLast4 = card.last4 || null;
+            }
+          }
+        } catch (e: any) {
+          console.log(`ℹ️  [LEDGER] Could not fetch card details for ${invoice.id}: ${e.message}`);
+        }
+      }
+
+      const data = {
+        userId,
+        stripeSubscriptionId:
+          typeof invoice.subscription === 'string' ? invoice.subscription : sub?.id || null,
+        stripeCustomerId:
+          typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id || null,
+        stripePaymentIntentId: paymentIntentId,
+        amount: amountCents / 100,
+        currency: invoice.currency || 'usd',
+        status: status as any,
+        cardBrand,
+        cardLast4,
+        invoiceUrl: invoice.hosted_invoice_url || null,
+        receiptUrl,
+        periodStart: invoice.period_start ? new Date(invoice.period_start * 1000) : null,
+        periodEnd: invoice.period_end ? new Date(invoice.period_end * 1000) : null,
+        paidAt:
+          status === 'SUCCEEDED'
+            ? invoice.status_transitions?.paid_at
+              ? new Date(invoice.status_transitions.paid_at * 1000)
+              : new Date()
+            : null,
+      };
+
+      await this.prisma.subscriptionTransaction.upsert({
+        where: { stripeInvoiceId: invoice.id },
+        create: { stripeInvoiceId: invoice.id, ...data },
+        update: data,
+      });
+
+      console.log(
+        `🧾 [LEDGER] Recorded premium subscription transaction for invoice ${invoice.id} (${status})`,
+      );
+    } catch (e: any) {
+      // Ledger must never break the webhook flow.
+      console.error(`❌ [LEDGER] Failed to record subscription transaction: ${e.message}`);
+    }
   }
 
   /**
    * Handle Stripe webhook for subscription events
    * This automatically updates subscription status when:
    * - Monthly renewal succeeds (invoice.payment_succeeded)
-   * - Payment fails (invoice.payment_failed) 
+   * - Payment fails (invoice.payment_failed)
    * - Subscription is canceled or expires
    */
   async handleSubscriptionWebhook(event: Stripe.Event) {
     console.log(`🎯 Processing webhook event: ${event.type}`);
-    
+
+    // Idempotency: atomically claim this event id. Stripe delivers at-least-once, so a row
+    // that already exists means this is a replay — skip it to avoid re-applying side effects.
+    try {
+      await this.prisma.processedStripeEvent.create({
+        data: { eventId: event.id, eventType: event.type },
+      });
+    } catch (e: any) {
+      if (e?.code === 'P2002') {
+        console.log(`↩️  Duplicate webhook event ${event.id} (${event.type}) — skipping`);
+        return { received: true, duplicate: true };
+      }
+      throw e;
+    }
+
     try {
       switch (event.type) {
         case 'customer.subscription.created':
         case 'customer.subscription.updated': {
-          const subscription = event.data.object as Stripe.Subscription;
-          const userId = subscription.metadata.userId;
+          const eventSub = event.data.object as Stripe.Subscription;
+          const userId = eventSub.metadata.userId;
 
           if (!userId) {
             console.error('❌ No userId in subscription metadata');
             return { received: false, error: 'Missing userId' };
+          }
+
+          // P0: only the premium membership subscription may touch the user's premium fields.
+          // Medication/other subscriptions are tracked by their own models — skip here.
+          if (eventSub.metadata?.type !== 'premium_subscription') {
+            console.log(`ℹ️  Skipping non-premium subscription event (type=${eventSub.metadata?.type})`);
+            break;
+          }
+
+          // P0 ordering guard: events can arrive out of order. Re-fetch the LIVE subscription so
+          // we always apply current truth instead of a possibly-stale event payload.
+          let subscription: Stripe.Subscription;
+          try {
+            subscription = await this.stripe.subscriptions.retrieve(eventSub.id);
+          } catch {
+            subscription = eventSub;
           }
 
           const sub = subscription as any;
@@ -1587,6 +1898,28 @@ export class StripeService {
             return { received: false, error: 'Missing userId' };
           }
 
+          // P0: only premium-membership subscriptions affect premium status.
+          if (subscription.metadata?.type !== 'premium_subscription') {
+            console.log(`ℹ️  Skipping non-premium subscription deletion (type=${subscription.metadata?.type})`);
+            break;
+          }
+
+          // P0 ordering guard: only downgrade if the deleted subscription is the user's CURRENT
+          // tracked subscription. A stale deletion of an OLD sub must not revoke a newer active one.
+          const current = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { stripeSubscriptionId: true },
+          });
+          if (
+            current?.stripeSubscriptionId &&
+            current.stripeSubscriptionId !== subscription.id
+          ) {
+            console.log(
+              `ℹ️  Ignoring deletion of ${subscription.id}; user's current sub is ${current.stripeSubscriptionId}`,
+            );
+            break;
+          }
+
           console.log(`🗑️  Subscription deleted: ${subscription.id} for user ${userId}`);
 
           await this.prisma.user.update({
@@ -1622,6 +1955,13 @@ export class StripeService {
           if (!userId) {
             console.error('❌ No userId in subscription metadata');
             return { received: false, error: 'Missing userId' };
+          }
+
+          // P0: only premium-membership invoices update the user's premium fields. A medication
+          // (or other) subscription invoice must not flip premium membership status/dates.
+          if (sub.metadata?.type !== 'premium_subscription') {
+            console.log(`ℹ️  Skipping non-premium invoice.payment_succeeded (type=${sub.metadata?.type})`);
+            break;
           }
 
           console.log(`✅ Activating subscription for user ${userId}`);
@@ -1676,6 +2016,9 @@ export class StripeService {
           });
 
           console.log(`✅ User ${userId} subscription renewed successfully`);
+
+          // Ledger: record this premium-subscription charge (no-op for non-premium invoices).
+          await this.recordPremiumSubscriptionTransaction(invoice, sub, 'SUCCEEDED');
           break;
         }
 
@@ -1702,6 +2045,12 @@ export class StripeService {
             return { received: false, error: 'Missing userId' };
           }
 
+          // P0: only premium-membership invoices update the user's premium fields.
+          if (sub.metadata?.type !== 'premium_subscription') {
+            console.log(`ℹ️  Skipping non-premium invoice.payment_failed (type=${sub.metadata?.type})`);
+            break;
+          }
+
           console.log(`⚠️  Marking user ${userId} subscription as past_due`);
 
           await this.prisma.user.update({
@@ -1713,6 +2062,9 @@ export class StripeService {
           });
 
           console.log(`✅ User ${userId} marked as past_due (access revoked)`);
+
+          // Ledger: record this failed premium-subscription charge (no-op for non-premium invoices).
+          await this.recordPremiumSubscriptionTransaction(invoice, sub, 'FAILED');
           break;
         }
 
@@ -1723,6 +2075,10 @@ export class StripeService {
       return { received: true };
     } catch (error: any) {
       console.error(`❌ Error processing webhook ${event.type}:`, error.message);
+      // Release the idempotency claim so Stripe's automatic retry can reprocess this event.
+      await this.prisma.processedStripeEvent
+        .delete({ where: { eventId: event.id } })
+        .catch(() => {});
       throw error;
     }
   }

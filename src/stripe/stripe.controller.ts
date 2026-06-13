@@ -158,6 +158,26 @@ export class StripeController {
     };
   }
 
+  @Post('billing-portal')
+  @ApiOperation({ summary: 'Create a Stripe Billing Portal session for the authenticated user' })
+  @ApiResponse({ status: 200, description: 'Billing portal session created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async createBillingPortalSession(
+    @Request() req,
+    @Body() body: { returnUrl?: string },
+  ) {
+    const userId = req.user.id;
+    const result = await this.stripeService.createBillingPortalSession(
+      userId,
+      body?.returnUrl,
+    );
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
   @Get('medications/invoice/:appointmentId')
   @ApiOperation({ summary: 'Calculate medication invoice for an appointment' })
   @ApiResponse({ status: 200, description: 'Invoice calculated successfully' })
@@ -270,18 +290,14 @@ export class StripeWebhookController {
     @Req() request: RawBodyRequest<Request>,
   ) {
     const webhookSecret = this.configService.get('STRIPE_WEBHOOK_SECRET');
-    
-    if (!webhookSecret) {
-      console.warn('⚠️  STRIPE_WEBHOOK_SECRET not configured. Webhook signature verification disabled.');
-      console.warn('⚠️  This is insecure for production. Set STRIPE_WEBHOOK_SECRET in your .env file.');
-    }
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
 
     let event: Stripe.Event;
 
     try {
       // Get raw body for signature verification
       const rawBody = request.rawBody;
-      
+
       if (!rawBody) {
         throw new BadRequestException('Missing raw body for webhook verification');
       }
@@ -294,11 +310,17 @@ export class StripeWebhookController {
           webhookSecret
         );
         console.log(`✅ Webhook signature verified for event: ${event.type}`);
-      } else {
-        // For development: accept webhook without verification
-        // WARNING: This should never be used in production!
+      } else if (!isProduction && !webhookSecret) {
+        // Dev-only escape hatch: when NO secret is configured locally, accept unverified
+        // so local testing works. NEVER reachable in production (fails closed below).
         event = JSON.parse(rawBody.toString());
-        console.warn(`⚠️  Processing webhook WITHOUT signature verification: ${event.type}`);
+        console.warn(`⚠️  [DEV ONLY] Processing webhook WITHOUT signature verification: ${event.type}`);
+      } else {
+        // Fail closed: production, or a secret is configured but the signature is missing/invalid.
+        // Previously this fell through to JSON.parse of an UNTRUSTED body, letting anyone forge
+        // subscription events and grant/revoke premium access. Reject instead.
+        console.error('❌ Webhook rejected: signature verification required but unavailable.');
+        throw new BadRequestException('Webhook signature verification required');
       }
 
       // Process the webhook event

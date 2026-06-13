@@ -128,6 +128,7 @@ model User {
   followUpIntakeForms FollowUpIntakeForm[]
   blogComments       BlogComment[]
   blogReactions      BlogReaction[]
+  subscriptionTransactions SubscriptionTransaction[]
 
   @@map("users")
 }
@@ -516,8 +517,51 @@ model MedicationPayment {
   
   // Relations
   appointment       Appointment @relation("MedicationPayments", fields: [appointmentId], references: [id], onDelete: Restrict)
-  
+
   @@map("medication_payments")
+}
+
+// Ledger of MONTHLY PREMIUM SUBSCRIPTION payments only (one row per Stripe invoice).
+// Source of truth remains Stripe; this is a read/reporting mirror populated by webhooks.
+// Strictly scoped to premium subscription — medication/appointment/welcome payments are
+// tracked by their own models and are never written here.
+model SubscriptionTransaction {
+  id                    String        @id @default(uuid())
+  userId                String
+  stripeInvoiceId       String        @unique // idempotency key — upsert target
+  stripeSubscriptionId  String?
+  stripeCustomerId      String?
+  stripePaymentIntentId String?
+  amount                Decimal       @db.Decimal(10, 2)
+  currency              String        @default("usd")
+  status                PaymentStatus // SUCCEEDED | FAILED
+  cardBrand             String?
+  cardLast4             String?
+  invoiceUrl            String?
+  receiptUrl            String?
+  periodStart           DateTime?
+  periodEnd             DateTime?
+  paidAt                DateTime?
+
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("subscription_transactions")
+}
+
+// Idempotency ledger for Stripe webhook events. Stripe delivers at-least-once, so we claim
+// each event id here before processing to drop replays. If processing fails the claim is
+// released so Stripe's retry can reprocess.
+model ProcessedStripeEvent {
+  id        String   @id @default(uuid())
+  eventId   String   @unique
+  eventType String
+  createdAt DateTime @default(now())
+
+  @@map("processed_stripe_events")
 }
 
 model PrimaryService {
