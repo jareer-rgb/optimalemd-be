@@ -1061,8 +1061,9 @@ model LabOrder {
   notes         String?  // Additional notes from patient
   
   // Lab order and results (uploaded by admin)
-  receiptPath   String?  // Path to uploaded lab order
-  resultsPath   String?  // Path to uploaded lab results (legacy - kept for backward compatibility)
+  receiptPath     String?  // Path to uploaded lab order
+  receiptFileName String?  // Original filename of uploaded lab order
+  resultsPath     String?  // Path to uploaded lab results (legacy - kept for backward compatibility)
   
   // Timestamps
   createdAt     DateTime @default(now())

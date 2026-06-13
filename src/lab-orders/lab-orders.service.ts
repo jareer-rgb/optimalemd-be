@@ -400,6 +400,7 @@ export class LabOrdersService {
       status: order.status,
       notes: order.notes || undefined,
       receiptPath: order.receiptPath || undefined,
+      receiptFileName: order.receiptFileName || undefined,
       resultsPath: order.resultsPath || undefined,
       items: order.items.map((item: any) => ({
         id: item.id,

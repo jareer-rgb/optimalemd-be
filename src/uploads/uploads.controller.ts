@@ -253,25 +253,18 @@ export class UploadsController {
     @Res() res: Response,
   ) {
     try {
-      const filePath = await this.uploadsService.getLabFilePath(orderId, 'receipt');
-      
-      // Determine content type from file extension
+      const { filePath, originalName } = await this.uploadsService.getLabFileInfo(orderId, 'receipt');
+
       const ext = path.extname(filePath).toLowerCase();
       let contentType = 'application/octet-stream';
-      
-      if (ext === '.pdf') {
-        contentType = 'application/pdf';
-      } else if (ext === '.jpg' || ext === '.jpeg') {
-        contentType = 'image/jpeg';
-      } else if (ext === '.png') {
-        contentType = 'image/png';
-      } else if (ext === '.webp') {
-        contentType = 'image/webp';
-      }
-      
-      // Set content type header
+      if (ext === '.pdf') contentType = 'application/pdf';
+      else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
+      else if (ext === '.png') contentType = 'image/png';
+      else if (ext === '.webp') contentType = 'image/webp';
+
       res.setHeader('Content-Type', contentType);
-      
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(originalName)}"`);
+
       return res.sendFile(filePath);
     } catch (error) {
       return res.status(HttpStatus.NOT_FOUND).json({ message: 'File not found' });
@@ -343,24 +336,20 @@ export class UploadsController {
       const resultFile = await this.uploadsService.getLabResultFileInfo(resultFileId);
 
       let contentType = resultFile?.mimeType || 'application/octet-stream';
-      
-      // Fallback to extension-based detection if mimeType not available
+
       if (contentType === 'application/octet-stream') {
         const ext = path.extname(filePath).toLowerCase();
-        if (ext === '.pdf') {
-          contentType = 'application/pdf';
-        } else if (ext === '.jpg' || ext === '.jpeg') {
-          contentType = 'image/jpeg';
-        } else if (ext === '.png') {
-          contentType = 'image/png';
-        } else if (ext === '.webp') {
-          contentType = 'image/webp';
-        }
+        if (ext === '.pdf') contentType = 'application/pdf';
+        else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
+        else if (ext === '.png') contentType = 'image/png';
+        else if (ext === '.webp') contentType = 'image/webp';
       }
-      
-      // Set content type header
+
       res.setHeader('Content-Type', contentType);
-      
+      if (resultFile?.fileName) {
+        res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(resultFile.fileName)}"`);
+      }
+
       return res.sendFile(filePath);
     } catch (error) {
       return res.status(HttpStatus.NOT_FOUND).json({ message: 'File not found' });

@@ -97,6 +97,9 @@ export class LabOrderDto {
   receiptPath?: string;
 
   @ApiPropertyOptional()
+  receiptFileName?: string;
+
+  @ApiPropertyOptional()
   resultsPath?: string;
 
   @ApiProperty({ type: [LabOrderItemDto] })

@@ -130,7 +130,7 @@ export class UploadsService {
     }
 
     // Update lab order record - change status to confirmed if it was pending
-    const updateData: any = { receiptPath: filePath };
+    const updateData: any = { receiptPath: filePath, receiptFileName: file.originalname };
     if (labOrder.status === 'pending') {
       updateData.status = 'confirmed';
     }
@@ -492,9 +492,14 @@ export class UploadsService {
   }
 
   async getLabFilePath(orderId: string, type: 'receipt' | 'results'): Promise<string> {
+    const info = await this.getLabFileInfo(orderId, type);
+    return info.filePath;
+  }
+
+  async getLabFileInfo(orderId: string, type: 'receipt' | 'results'): Promise<{ filePath: string; originalName: string }> {
     const labOrder = await this.prisma.labOrder.findUnique({
       where: { id: orderId },
-      select: { receiptPath: true, resultsPath: true },
+      select: { receiptPath: true, receiptFileName: true, resultsPath: true },
     });
 
     if (!labOrder) {
@@ -508,7 +513,12 @@ export class UploadsService {
       throw new NotFoundException(`Lab ${type} file not found`);
     }
 
-    return filePath;
+    const originalName =
+      type === 'receipt' && labOrder.receiptFileName
+        ? labOrder.receiptFileName
+        : path.basename(filePath);
+
+    return { filePath, originalName };
   }
 
   async getLabResultFilePath(resultFileId: string): Promise<string> {
