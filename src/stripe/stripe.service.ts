@@ -2280,6 +2280,38 @@ export class StripeService {
   }
 
   /**
+   * Find an ACTIVELY-BILLING medication subscription for a given appointment by querying Stripe
+   * live. Strictly scoped to medication subscriptions (metadata.type === 'medication_subscription')
+   * for THIS appointment. Returns the sub if present, else null. Used to stop duplicate medication
+   * subscriptions that would double-bill the patient.
+   */
+  private async findActiveMedicationSubscriptionFromStripe(
+    customerId: string,
+    appointmentId: string,
+  ): Promise<Stripe.Subscription | null> {
+    if (!customerId) return null;
+    try {
+      const subs = await this.stripe.subscriptions.list({
+        customer: customerId,
+        status: 'all',
+        limit: 100,
+      });
+      const liveStatuses = ['active', 'trialing', 'past_due', 'unpaid'];
+      return (
+        subs.data.find(
+          (s) =>
+            s.metadata?.type === 'medication_subscription' &&
+            s.metadata?.appointmentId === appointmentId &&
+            liveStatuses.includes(s.status),
+        ) || null
+      );
+    } catch (e: any) {
+      console.error('findActiveMedicationSubscriptionFromStripe error:', e.message);
+      return null;
+    }
+  }
+
+  /**
    * Create subscription for medication invoice (monthly billing)
    */
   async createMedicationPaymentIntent(appointmentId: string, userId: string) {
@@ -2364,6 +2396,40 @@ export class StripeService {
       }
     }
 
+    // P0 (M1): guard against duplicate medication subscriptions. Trust Stripe live, not just the
+    // local DB row (which can drift). If an actively-billing medication subscription already exists
+    // for this appointment, sync the DB row and refuse to create another that would double-bill.
+    const existingActiveSub = await this.findActiveMedicationSubscriptionFromStripe(
+      customerId,
+      appointmentId,
+    );
+    if (existingActiveSub) {
+      await this.prisma.medicationPayment.upsert({
+        where: { appointmentId },
+        create: {
+          appointmentId,
+          stripeSubscriptionId: existingActiveSub.id,
+          stripeCustomerId: customerId,
+          amount: invoice.total,
+          currency: invoice.currency,
+          status: 'SUCCEEDED',
+          subscriptionStatus: existingActiveSub.status as any,
+        },
+        update: {
+          stripeSubscriptionId: existingActiveSub.id,
+          stripeCustomerId: customerId,
+          subscriptionStatus: existingActiveSub.status as any,
+        },
+      });
+      throw new BadRequestException(
+        'A medication subscription is already active for this appointment.',
+      );
+    }
+
+    // P0 (M2): deterministic idempotency key base so concurrent/retried requests for the SAME
+    // appointment + amount reuse the same Stripe objects instead of creating duplicates.
+    const idemBase = `med-${appointmentId}-${Math.round(invoice.total * 100)}`;
+
     // For dynamic pricing, we create a new price each time since the amount varies
     // We use a base product name but create unique prices for each appointment's medication set
     // Check if we already have a product for this appointment (in case of retries)
@@ -2392,61 +2458,70 @@ export class StripeService {
     if (productId) {
       product = await this.stripe.products.retrieve(productId);
     } else {
-      product = await this.stripe.products.create({
-        name: `Medications – ${patientFullName}`,
-        metadata: {
-          appointmentId,
-          userId,
-          patientName: patientFullName,
-          patientEmail: email,
-          type: 'medication',
-          medications: medNames.substring(0, 500),
+      product = await this.stripe.products.create(
+        {
+          name: `Medications – ${patientFullName}`,
+          metadata: {
+            appointmentId,
+            userId,
+            patientName: patientFullName,
+            patientEmail: email,
+            type: 'medication',
+            medications: medNames.substring(0, 500),
+          },
         },
-      });
+        { idempotencyKey: `${idemBase}-product` },
+      );
       console.log(`✅ Created new product ${product.id} for appointment ${appointmentId}`);
     }
 
     // Create a new price with the current invoice total (amounts can change)
-    // This allows for dynamic pricing per appointment
-    const price = await this.stripe.prices.create({
-      unit_amount: Math.round(invoice.total * 100), // Convert to cents
-      currency: invoice.currency,
-      recurring: {
-        interval: 'month',
+    // This allows for dynamic pricing per appointment. (No volatile fields in metadata so the
+    // idempotency key reliably reuses the same price on concurrent/retried requests.)
+    const price = await this.stripe.prices.create(
+      {
+        unit_amount: Math.round(invoice.total * 100), // Convert to cents
+        currency: invoice.currency,
+        recurring: {
+          interval: 'month',
+        },
+        product: product.id, // Use existing product
+        metadata: {
+          appointmentId,
+          userId,
+          type: 'medication',
+          invoiceTotal: invoice.total.toString(),
+        },
       },
-      product: product.id, // Use existing product
-      metadata: {
-        appointmentId,
-        userId,
-        type: 'medication',
-        invoiceTotal: invoice.total.toString(),
-        createdAt: new Date().toISOString(),
-      },
-    });
+      { idempotencyKey: `${idemBase}-price` },
+    );
     console.log(`✅ Created new price ${price.id} for $${invoice.total} (appointment ${appointmentId})`);
 
     // Create subscription with payment intent
     let subscription: Stripe.Subscription;
     try {
-      subscription = await this.stripe.subscriptions.create({
-      customer: customerId,
-      items: [{ price: price.id }],
-      payment_behavior: 'default_incomplete',
-      payment_settings: {
-        save_default_payment_method: 'on_subscription',
-        payment_method_types: ['card'],
-      },
-      expand: ['latest_invoice.payment_intent'],
-      description: `Monthly Medications – ${patientFullName} | ${medNames.substring(0, 200)}`,
-      metadata: {
-        appointmentId,
-        userId,
-        patientName: patientFullName,
-        patientEmail: email,
-        medications: medNames.substring(0, 500),
-        type: 'medication_subscription',
-      },
-    });
+      subscription = await this.stripe.subscriptions.create(
+        {
+          customer: customerId,
+          items: [{ price: price.id }],
+          payment_behavior: 'default_incomplete',
+          payment_settings: {
+            save_default_payment_method: 'on_subscription',
+            payment_method_types: ['card'],
+          },
+          expand: ['latest_invoice.payment_intent'],
+          description: `Monthly Medications – ${patientFullName} | ${medNames.substring(0, 200)}`,
+          metadata: {
+            appointmentId,
+            userId,
+            patientName: patientFullName,
+            patientEmail: email,
+            medications: medNames.substring(0, 500),
+            type: 'medication_subscription',
+          },
+        },
+        { idempotencyKey: `${idemBase}-sub` },
+      );
     } catch (error: any) {
       // If customer doesn't exist, create a new one and retry
       if (error.code === 'resource_missing' && error.param === 'customer') {
@@ -2466,26 +2541,30 @@ export class StripeService {
           data: { stripeCustomerId: customerId },
         });
 
-        // Retry subscription creation with new customer
-        subscription = await this.stripe.subscriptions.create({
-          customer: customerId,
-          items: [{ price: price.id }],
-          payment_behavior: 'default_incomplete',
-          payment_settings: {
-            save_default_payment_method: 'on_subscription',
-            payment_method_types: ['card'],
+        // Retry subscription creation with new customer (distinct idempotency key — the
+        // customer param changed, so it must not collide with the first attempt's key).
+        subscription = await this.stripe.subscriptions.create(
+          {
+            customer: customerId,
+            items: [{ price: price.id }],
+            payment_behavior: 'default_incomplete',
+            payment_settings: {
+              save_default_payment_method: 'on_subscription',
+              payment_method_types: ['card'],
+            },
+            expand: ['latest_invoice.payment_intent'],
+            description: `Monthly Medications – ${patientFullName} | ${medNames.substring(0, 200)}`,
+            metadata: {
+              appointmentId,
+              userId,
+              patientName: patientFullName,
+              patientEmail: email,
+              medications: medNames.substring(0, 500),
+              type: 'medication_subscription',
+            },
           },
-          expand: ['latest_invoice.payment_intent'],
-          description: `Monthly Medications – ${patientFullName} | ${medNames.substring(0, 200)}`,
-          metadata: {
-            appointmentId,
-            userId,
-            patientName: patientFullName,
-            patientEmail: email,
-            medications: medNames.substring(0, 500),
-            type: 'medication_subscription',
-          },
-        });
+          { idempotencyKey: `${idemBase}-sub-retry` },
+        );
       } else {
         throw error;
       }
@@ -2864,7 +2943,10 @@ export class StripeService {
       try {
         const subscription = await this.stripe.subscriptions.retrieve(payment.stripeSubscriptionId);
         subscriptionStatus = subscription.status;
-        cancelAtPeriodEnd = subscription.cancel_at_period_end || false;
+        // A cancellation can be scheduled via cancel_at_period_end OR a cancel_at timestamp
+        // (the Stripe Billing Portal / dashboard use cancel_at). Treat either as canceling so a
+        // cancellation done directly in Stripe is reflected here.
+        cancelAtPeriodEnd = !!(subscription.cancel_at_period_end || (subscription as any).cancel_at);
         currentPeriodEnd = (subscription as any).current_period_end
           ? new Date((subscription as any).current_period_end * 1000)
           : null;
@@ -3225,13 +3307,16 @@ export class StripeService {
         throw new BadRequestException('Subscription is already canceled and cannot be reactivated');
       }
 
-      // Reactivate subscription if it's set to cancel at period end
-      if (subscription.cancel_at_period_end) {
+      // Reactivate subscription if a cancellation is scheduled — either via cancel_at_period_end
+      // or a cancel_at timestamp (Billing Portal / dashboard). Stripe rejects passing both params,
+      // so clear only the one that was actually used.
+      if (subscription.cancel_at_period_end || (subscription as any).cancel_at) {
+        const reactivateParams: Stripe.SubscriptionUpdateParams = (subscription as any).cancel_at
+          ? { cancel_at: '' }
+          : { cancel_at_period_end: false };
         const updatedSubscription = await this.stripe.subscriptions.update(
           payment.stripeSubscriptionId,
-          {
-            cancel_at_period_end: false,
-          }
+          reactivateParams,
         );
 
         // Get subscription end date with robust fallback logic
