@@ -280,6 +280,83 @@ export class LabOrdersService {
   }
 
   /**
+   * Get all lab orders paginated by patient (admin access)
+   * Returns patients ordered by their most recent order, 10 patients per page.
+   */
+  async getAllLabOrdersAdmin(page: number, limit: number, search?: string, status?: string): Promise<{
+    orders: LabOrderDto[];
+    totalPatients: number;
+    page: number;
+    totalPages: number;
+  }> {
+    const whereFilter: any = {};
+    if (search) {
+      whereFilter.patient = {
+        OR: [
+          { firstName: { contains: search, mode: 'insensitive' as const } },
+          { lastName: { contains: search, mode: 'insensitive' as const } },
+          { email: { contains: search, mode: 'insensitive' as const } },
+        ],
+      };
+    }
+    if (status && status !== 'all') {
+      whereFilter.status = status;
+    }
+
+    // Step 1: get distinct patient IDs ordered by their most recent matching order
+    const allPatientRows = await this.prisma.labOrder.findMany({
+      where: whereFilter,
+      select: { patientId: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      distinct: ['patientId'],
+    });
+
+    const totalPatients = allPatientRows.length;
+    const totalPages = Math.max(1, Math.ceil(totalPatients / limit));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const paginatedIds = allPatientRows
+      .slice((safePage - 1) * limit, safePage * limit)
+      .map((r) => r.patientId);
+
+    if (paginatedIds.length === 0) {
+      return { orders: [], totalPatients, page: safePage, totalPages };
+    }
+
+    // Step 2: fetch only matching orders for those patients
+    const orderWhere: any = { patientId: { in: paginatedIds } };
+    if (status && status !== 'all') orderWhere.status = status;
+
+    const orders = await this.prisma.labOrder.findMany({
+      where: orderWhere,
+      include: {
+        items: { include: { labTestType: true } },
+        resultFiles: { orderBy: { createdAt: 'desc' } },
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            drivingLicensePath: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Preserve the patient order from Step 1
+    const idOrder = new Map(paginatedIds.map((id, i) => [id, i]));
+    orders.sort((a, b) => (idOrder.get(a.patientId) ?? 0) - (idOrder.get(b.patientId) ?? 0));
+
+    return {
+      orders: orders.map((o) => this.mapToLabOrderDto(o)),
+      totalPatients,
+      page: safePage,
+      totalPages,
+    };
+  }
+
+  /**
    * Get all lab orders for a patient (admin access)
    */
   async getPatientLabOrdersAdmin(patientId: string): Promise<LabOrderDto[]> {
@@ -420,6 +497,13 @@ export class LabOrdersService {
         mimeType: file.mimeType || undefined,
         createdAt: file.createdAt,
       })) : undefined,
+      patient: order.patient ? {
+        id: order.patient.id,
+        firstName: order.patient.firstName,
+        lastName: order.patient.lastName,
+        email: order.patient.email,
+        drivingLicensePath: order.patient.drivingLicensePath ?? null,
+      } : undefined,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };

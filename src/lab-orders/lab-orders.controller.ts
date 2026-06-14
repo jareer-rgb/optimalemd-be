@@ -5,6 +5,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   HttpStatus,
   HttpCode,
@@ -158,6 +159,31 @@ export class LabOrdersController {
       data: order,
       timestamp: new Date().toISOString(),
       path: `/api/lab-orders/${orderId}`,
+    };
+  }
+
+  @Get('admin/all')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get all lab orders paginated by patient (Admin)',
+    description: 'Returns patients ordered by most recent lab order, 10 patients per page.',
+  })
+  async getAllLabOrdersAdmin(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+  ) {
+    const pageNum = Math.max(1, parseInt(page || '1', 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit || '10', 10) || 10));
+    const result = await this.labOrdersService.getAllLabOrdersAdmin(pageNum, limitNum, search?.trim() || undefined, status?.trim() || undefined);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Lab orders retrieved successfully',
+      data: result,
+      timestamp: new Date().toISOString(),
+      path: '/api/lab-orders/admin/all',
     };
   }
 

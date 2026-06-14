@@ -74,6 +74,19 @@ export class LabResultFileDto {
   createdAt: Date;
 }
 
+export class PatientInfoDto {
+  @ApiProperty()
+  id: string;
+  @ApiProperty()
+  firstName: string;
+  @ApiProperty()
+  lastName: string;
+  @ApiProperty()
+  email: string;
+  @ApiPropertyOptional()
+  drivingLicensePath?: string | null;
+}
+
 export class LabOrderDto {
   @ApiProperty()
   id: string;
@@ -107,6 +120,9 @@ export class LabOrderDto {
 
   @ApiPropertyOptional({ type: [LabResultFileDto] })
   resultFiles?: LabResultFileDto[];
+
+  @ApiPropertyOptional({ type: PatientInfoDto })
+  patient?: PatientInfoDto;
 
   @ApiProperty()
   createdAt: Date;
