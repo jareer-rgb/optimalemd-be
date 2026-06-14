@@ -668,7 +668,13 @@ model Appointment {
   // Cancellation and rescheduling
   cancellationReason String?
   rescheduledFrom   String?  // Reference to previous appointment ID
-  
+
+  // Clinical visit outcome (set by staff/physician — separate from booking status)
+  visitStatus       VisitStatus?
+  visitStatusNote   String?      // Optional staff note (e.g. reason for no-show)
+  visitStatusSetAt  DateTime?
+  visitStatusSetBy  String?      // userId of who set it
+
   // Timestamps
   scheduledAt       DateTime @default(now())
   confirmedAt       DateTime?
@@ -773,6 +779,14 @@ enum AppointmentStatus {
   COMPLETED
   CANCELLED
   NO_SHOW
+  RESCHEDULED
+}
+
+enum VisitStatus {
+  COMPLETED
+  NO_SHOW
+  CANCELLED_BY_PATIENT
+  CANCELLED_BY_CLINIC
   RESCHEDULED
 }
 

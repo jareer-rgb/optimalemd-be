@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum, IsNumber, IsBoolean, IsDecimal, Min, MaxLength, IsArray } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { AppointmentStatus, UrgencyLevel } from '@prisma/client';
+import { AppointmentStatus, UrgencyLevel, VisitStatus } from '@prisma/client';
 
 export class CreateAppointmentDto {
   @ApiProperty({ description: 'Patient ID', example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -116,6 +116,19 @@ export class UpdateAppointmentDto {
   @IsOptional()
   @IsString()
   paymentMethod?: string;
+}
+
+export class UpdateVisitStatusDto {
+  @ApiProperty({ description: 'Clinical visit outcome (null to clear)', enum: VisitStatus, nullable: true, required: false })
+  @IsOptional()
+  @IsEnum(VisitStatus)
+  visitStatus?: VisitStatus | null;
+
+  @ApiProperty({ description: 'Optional note (e.g. reason for no-show)', required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  visitStatusNote?: string;
 }
 
 export class QueryAppointmentsDto {

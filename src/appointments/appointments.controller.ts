@@ -36,6 +36,7 @@ import { CurrentUser } from '../auth/decorators/user.decorator';
 import {
   CreateAppointmentDto,
   UpdateAppointmentDto,
+  UpdateVisitStatusDto,
   QueryAppointmentsDto,
   CancelAppointmentDto,
   RescheduleAppointmentDto,
@@ -614,6 +615,20 @@ export class AppointmentsController {
       timestamp: new Date().toISOString(),
       path: `/api/appointments/${id}`,
     };
+  }
+
+  @Patch(':id/visit-status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Set clinical visit status', description: 'Record what happened at the visit (completed, no-show, cancelled, etc.). Does not affect booking status.' })
+  @ApiParam({ name: 'id', description: 'Appointment ID' })
+  async updateVisitStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateVisitStatusDto,
+    @CurrentUser() user: any,
+  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
+    const data = await this.appointmentsService.updateVisitStatus(id, dto.visitStatus ?? null, dto.visitStatusNote, user.id);
+    return { success: true, statusCode: HttpStatus.OK, message: 'Visit status updated', data, timestamp: new Date().toISOString(), path: `/api/appointments/${id}/visit-status` };
   }
 
   @Put(':id/internal-notes')

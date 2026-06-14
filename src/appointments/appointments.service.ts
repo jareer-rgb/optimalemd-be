@@ -754,6 +754,30 @@ export class AppointmentsService {
   }
 
   /**
+   * Set clinical visit status (doctor/staff — does not affect booking status)
+   */
+  async updateVisitStatus(
+    appointmentId: string,
+    visitStatus: string | null | undefined,
+    visitStatusNote: string | undefined,
+    setByUserId: string,
+  ): Promise<AppointmentResponseDto> {
+    const appointment = await this.prisma.appointment.findUnique({ where: { id: appointmentId } });
+    if (!appointment) throw new NotFoundException('Appointment not found');
+
+    const updated = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        visitStatus: (visitStatus ?? null) as any,
+        visitStatusNote: visitStatus ? (visitStatusNote ?? null) : null,
+        visitStatusSetAt: visitStatus ? new Date() : null,
+        visitStatusSetBy: visitStatus ? setByUserId : null,
+      },
+    });
+    return updated as any;
+  }
+
+  /**
    * Update internal notes for an appointment (doctor only)
    */
   async updateInternalNotes(appointmentId: string, internalNotes: string, doctorId: string): Promise<AppointmentResponseDto> {
