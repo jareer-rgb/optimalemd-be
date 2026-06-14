@@ -131,6 +131,13 @@ export class UpdateVisitStatusDto {
   visitStatusNote?: string;
 }
 
+export class CheckInDto {
+  @ApiProperty({ description: 'true to check in, false to undo', required: false, default: true })
+  @IsOptional()
+  @IsBoolean()
+  checkedIn?: boolean;
+}
+
 export class QueryAppointmentsDto {
   @ApiProperty({ description: 'Patient ID filter', required: false })
   @IsOptional()
@@ -174,6 +181,11 @@ export class QueryAppointmentsDto {
   @Type(() => Number)
   @IsNumber()
   limit?: number;
+
+  @ApiProperty({ description: "Sort order by date/time: 'asc' (soonest first) or 'desc' (default)", required: false })
+  @IsOptional()
+  @IsString()
+  order?: 'asc' | 'desc';
 
   @ApiProperty({ description: 'Search term for patient name, doctor name, or service', required: false })
   @IsOptional()
@@ -358,6 +370,30 @@ export class AppointmentResponseDto {
 
   @ApiProperty({ description: 'Generated PDF report path', required: false })
   reportPdfPath?: string | null;
+
+  @ApiProperty({ description: 'Clinical visit outcome', enum: VisitStatus, required: false })
+  visitStatus?: VisitStatus | null;
+
+  @ApiProperty({ description: 'Visit status note', required: false })
+  visitStatusNote?: string | null;
+
+  @ApiProperty({ description: 'Front-desk check-in timestamp', required: false })
+  checkedInAt?: Date | null;
+
+  @ApiProperty({ description: 'User who checked the patient in', required: false })
+  checkedInBy?: string | null;
+
+  @ApiProperty({ description: 'Reschedule audit history', required: false })
+  rescheduleLogs?: Array<{
+    id: string;
+    fromDate: Date;
+    fromTime: string;
+    toDate: Date;
+    toTime: string;
+    reason?: string | null;
+    rescheduledBy?: string | null;
+    createdAt: Date;
+  }>;
 }
 
 export class AppointmentWithRelationsResponseDto extends AppointmentResponseDto {

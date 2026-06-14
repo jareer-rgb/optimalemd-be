@@ -15,7 +15,7 @@ import {
   SlotWithScheduleInfoDto,
   AvailableSlotsQueryDto,
 } from './dto';
-import { dateStringToUTC, isDateInPast, addDaysUTC, getUTCDayOfWeek, toISODateString } from '../common/utils/timezone.utils';
+import { dateStringToUTC, isDateInPast, addDaysUTC, getUTCDayOfWeek, toISODateString, getUTCMidnight, getUTCEndOfDay } from '../common/utils/timezone.utils';
 
 @Injectable()
 export class SchedulesService {
@@ -267,6 +267,77 @@ export class SchedulesService {
     ]);
 
     return { schedules, total };
+  }
+
+  /**
+   * Day view for front desk: every physician's slots (open + booked) with the booked
+   * patient/appointment summary. Supports a date range and returns results grouped by
+   * day, then by physician — so the front desk can see a whole week at once.
+   */
+  async getDayView(startDate: string, endDate?: string, doctorId?: string) {
+    const where: any = {
+      date: {
+        gte: getUTCMidnight(dateStringToUTC(startDate)),
+        lte: getUTCEndOfDay(dateStringToUTC(endDate || startDate)),
+      },
+    };
+    if (doctorId) where.doctorId = doctorId;
+
+    const schedules = await this.prisma.schedule.findMany({
+      where,
+      include: {
+        doctor: { select: { id: true, firstName: true, lastName: true, specialization: true } },
+        slots: {
+          orderBy: { startTime: 'asc' },
+          include: {
+            appointment: {
+              where: { status: { not: 'CANCELLED' as any } },
+              select: {
+                id: true,
+                status: true,
+                visitStatus: true,
+                checkedInAt: true,
+                appointmentTime: true,
+                patient: { select: { id: true, firstName: true, lastName: true } },
+                service: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+    });
+
+    // Group: date → physician → slots (a doctor may have several blocks per day)
+    const byDate = new Map<string, Map<string, any>>();
+    for (const s of schedules) {
+      const dateKey = toISODateString(s.date);
+      if (!byDate.has(dateKey)) byDate.set(dateKey, new Map());
+      const byDoctor = byDate.get(dateKey)!;
+      if (!byDoctor.has(s.doctorId)) {
+        byDoctor.set(s.doctorId, { doctor: s.doctor, slots: [] });
+      }
+      for (const slot of s.slots) {
+        const appt = (slot.appointment && slot.appointment[0]) || null;
+        byDoctor.get(s.doctorId).slots.push({
+          id: slot.id,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          isAvailable: slot.isAvailable,
+          appointment: appt,
+        });
+      }
+    }
+
+    return Array.from(byDate.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, byDoctor]) => ({
+        date,
+        physicians: Array.from(byDoctor.values()).map((d) => ({
+          doctor: d.doctor,
+          slots: d.slots.sort((a: any, b: any) => (a.startTime || '').localeCompare(b.startTime || '')),
+        })),
+      }));
   }
 
   /**

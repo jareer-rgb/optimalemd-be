@@ -117,6 +117,28 @@ export class SchedulesController {
      };
    }
 
+  @Get('day-view')
+  @ApiOperation({
+    summary: 'Front-desk day/range view',
+    description: "Every physician's slots (open + booked, with patient) over a date range, grouped by day then physician."
+  })
+  @ApiQuery({ name: 'startDate', required: true, description: 'Range start (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'endDate', required: false, description: 'Range end (YYYY-MM-DD); defaults to startDate' })
+  @ApiQuery({ name: 'doctorId', required: false, description: 'Filter by doctor ID' })
+  @ApiResponse({ status: 200, description: 'Day view retrieved successfully' })
+  async getDayView(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate?: string,
+    @Query('doctorId') doctorId?: string,
+  ): Promise<SuccessApiResponseWithData<any>> {
+    const data = await this.schedulesService.getDayView(startDate, endDate || undefined, doctorId || undefined);
+    return {
+      success: true,
+      message: 'Day view retrieved successfully',
+      data,
+    };
+  }
+
   @Post('multiple')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({

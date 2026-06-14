@@ -675,6 +675,10 @@ model Appointment {
   visitStatusSetAt  DateTime?
   visitStatusSetBy  String?      // userId of who set it
 
+  // Front-desk check-in (operational, not a final outcome)
+  checkedInAt       DateTime?
+  checkedInBy       String?      // userId of who checked the patient in
+
   // Timestamps
   scheduledAt       DateTime @default(now())
   confirmedAt       DateTime?
@@ -697,8 +701,28 @@ model Appointment {
   appointmentAssessments AppointmentAssessment[]
   medicationPrescriptions MedicationPrescription[]
   followUpIntakeForm FollowUpIntakeForm?
+  rescheduleLogs    AppointmentRescheduleLog[]
 
   @@map("appointments")
+}
+
+// Audit log of each reschedule (front desk / patient). Keeps the original date/time
+// visible in the chart while the appointment row itself is updated in place.
+model AppointmentRescheduleLog {
+  id            String   @id @default(uuid())
+  appointmentId String
+  fromDate      DateTime @db.Date
+  fromTime      String
+  toDate        DateTime @db.Date
+  toTime        String
+  reason        String?
+  rescheduledBy String?  // userId of who performed the reschedule
+  createdAt     DateTime @default(now())
+
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId])
+  @@map("appointment_reschedule_logs")
 }
 
 model FollowUpIntakeForm {

@@ -37,6 +37,7 @@ import {
   CreateAppointmentDto,
   UpdateAppointmentDto,
   UpdateVisitStatusDto,
+  CheckInDto,
   QueryAppointmentsDto,
   CancelAppointmentDto,
   RescheduleAppointmentDto,
@@ -620,7 +621,7 @@ export class AppointmentsController {
   @Patch(':id/visit-status')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Set clinical visit status', description: 'Record what happened at the visit (completed, no-show, cancelled, etc.). Does not affect booking status.' })
+  @ApiOperation({ summary: 'Set clinical visit status', description: 'Record what happened at the visit (completed, no-show, cancelled, rescheduled). Mirrors the booking status so the schedule stays consistent. No time restriction.' })
   @ApiParam({ name: 'id', description: 'Appointment ID' })
   async updateVisitStatus(
     @Param('id') id: string,
@@ -629,6 +630,21 @@ export class AppointmentsController {
   ): Promise<BaseApiResponse<AppointmentResponseDto>> {
     const data = await this.appointmentsService.updateVisitStatus(id, dto.visitStatus ?? null, dto.visitStatusNote, user.id);
     return { success: true, statusCode: HttpStatus.OK, message: 'Visit status updated', data, timestamp: new Date().toISOString(), path: `/api/appointments/${id}/visit-status` };
+  }
+
+  @Patch(':id/check-in')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Check in / undo check-in', description: 'Front-desk operational check-in. Sets or clears the checkedInAt timestamp.' })
+  @ApiParam({ name: 'id', description: 'Appointment ID' })
+  async checkInAppointment(
+    @Param('id') id: string,
+    @Body() dto: CheckInDto,
+    @CurrentUser() user: any,
+  ): Promise<BaseApiResponse<AppointmentResponseDto>> {
+    const checkedIn = dto?.checkedIn !== false; // default true
+    const data = await this.appointmentsService.checkInAppointment(id, user.id, checkedIn);
+    return { success: true, statusCode: HttpStatus.OK, message: checkedIn ? 'Patient checked in' : 'Check-in cleared', data, timestamp: new Date().toISOString(), path: `/api/appointments/${id}/check-in` };
   }
 
   @Put(':id/internal-notes')
@@ -1243,8 +1259,9 @@ export class AppointmentsController {
   async rescheduleAppointment(
     @Param('id') id: string,
     @Body() rescheduleAppointmentDto: RescheduleAppointmentDto,
+    @CurrentUser() user: any,
   ): Promise<BaseApiResponse<AppointmentResponseDto>> {
-    const data = await this.appointmentsService.rescheduleAppointment(id, rescheduleAppointmentDto);
+    const data = await this.appointmentsService.rescheduleAppointment(id, rescheduleAppointmentDto, user?.id);
     return {
       success: true,
       statusCode: HttpStatus.OK,

@@ -460,7 +460,8 @@ export class AppointmentsService {
           }
         },
         medicalForm: true, // Include medical form data
-        medicationPrescriptions: true // Include medication prescriptions
+        medicationPrescriptions: true, // Include medication prescriptions
+        rescheduleLogs: { orderBy: { createdAt: 'asc' } } // Reschedule audit history for the chart
       }
     });
 
@@ -472,11 +473,32 @@ export class AppointmentsService {
   }
 
   /**
+   * Parse a search term into a single-day UTC range if it looks like a date of birth.
+   * Accepts YYYY-MM-DD, MM/DD/YYYY and M/D/YYYY. Returns null if not a date.
+   */
+  private parseDobRange(input: string): { gte: Date; lte: Date } | null {
+    if (!input) return null;
+    let iso: string | null = null;
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(input)) {
+      const [y, m, d] = input.split('-').map((n) => parseInt(n, 10));
+      iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(input)) {
+      const [m, d, y] = input.split('/').map((n) => parseInt(n, 10));
+      iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+    if (!iso) return null;
+    const base = dateStringToUTC(iso);
+    if (isNaN(base.getTime())) return null;
+    return { gte: getUTCMidnight(base), lte: getUTCEndOfDay(base) };
+  }
+
+  /**
    * Get all appointments with filtering and pagination
    */
   async findAll(query: QueryAppointmentsDto): Promise<{ appointments: AppointmentWithRelationsResponseDto[], total: number }> {
-    const { patientId, doctorId, serviceId, status, startDate, endDate, search, page = 1, limit = 10 } = query;
+    const { patientId, doctorId, serviceId, status, startDate, endDate, search, order, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
+    const sortDir: 'asc' | 'desc' = order === 'asc' ? 'asc' : 'desc';
 
     const where: any = {};
 
@@ -501,7 +523,7 @@ export class AppointmentsService {
       const searchTerms = search.trim().split(/\s+/).filter(term => term.length > 0);
       
       if (searchTerms.length === 1) {
-        // Single term search
+        // Single term search (name, email, service, or date of birth)
         where.OR = [
           {
             patient: {
@@ -528,6 +550,11 @@ export class AppointmentsService {
             }
           }
         ];
+        // If the term looks like a date, also match patient date of birth
+        const dob = this.parseDobRange(search.trim());
+        if (dob) {
+          where.OR.push({ patient: { dateOfBirth: { gte: dob.gte, lte: dob.lte } } });
+        }
       } else {
         // Multiple terms search
         const searchConditions: any[] = [];
@@ -696,13 +723,14 @@ export class AppointmentsService {
                 }
               }
             }
-          }
+          },
+          rescheduleLogs: { orderBy: { createdAt: 'asc' } } // Reschedule audit history
         },
         skip,
         take: limit,
         orderBy: [
-          { appointmentDate: 'desc' },
-          { appointmentTime: 'desc' }
+          { appointmentDate: sortDir },
+          { appointmentTime: sortDir }
         ]
       }),
       this.prisma.appointment.count({ where })
@@ -754,7 +782,9 @@ export class AppointmentsService {
   }
 
   /**
-   * Set clinical visit status (doctor/staff — does not affect booking status)
+   * Set clinical visit status (doctor/staff). Single source of truth: mirrors the
+   * booking `status` so the admin schedule/list filter stays consistent with the
+   * recorded outcome. Has no time restriction (works for past appointments, e.g. no-show).
    */
   async updateVisitStatus(
     appointmentId: string,
@@ -765,13 +795,60 @@ export class AppointmentsService {
     const appointment = await this.prisma.appointment.findUnique({ where: { id: appointmentId } });
     if (!appointment) throw new NotFoundException('Appointment not found');
 
+    // Mirror booking status from the recorded clinical outcome.
+    const now = new Date();
+    const bookingMirror: any = {};
+    switch (visitStatus) {
+      case 'COMPLETED':
+        bookingMirror.status = AppointmentStatus.COMPLETED;
+        bookingMirror.completedAt = now;
+        break;
+      case 'NO_SHOW':
+        bookingMirror.status = AppointmentStatus.NO_SHOW;
+        break;
+      case 'CANCELLED_BY_PATIENT':
+      case 'CANCELLED_BY_CLINIC':
+        bookingMirror.status = AppointmentStatus.CANCELLED;
+        bookingMirror.cancelledAt = now;
+        break;
+      case 'RESCHEDULED':
+        bookingMirror.status = AppointmentStatus.RESCHEDULED;
+        break;
+      default:
+        // Clearing the outcome — revert to CONFIRMED so it reappears as an active booking.
+        bookingMirror.status = AppointmentStatus.CONFIRMED;
+        break;
+    }
+
     const updated = await this.prisma.appointment.update({
       where: { id: appointmentId },
       data: {
         visitStatus: (visitStatus ?? null) as any,
         visitStatusNote: visitStatus ? (visitStatusNote ?? null) : null,
-        visitStatusSetAt: visitStatus ? new Date() : null,
+        visitStatusSetAt: visitStatus ? now : null,
         visitStatusSetBy: visitStatus ? setByUserId : null,
+        ...bookingMirror,
+      },
+    });
+    return updated as any;
+  }
+
+  /**
+   * Front-desk check-in (operational). Sets/clears the checkedInAt timestamp.
+   */
+  async checkInAppointment(
+    appointmentId: string,
+    setByUserId: string,
+    checkedIn: boolean,
+  ): Promise<AppointmentResponseDto> {
+    const appointment = await this.prisma.appointment.findUnique({ where: { id: appointmentId } });
+    if (!appointment) throw new NotFoundException('Appointment not found');
+
+    const updated = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        checkedInAt: checkedIn ? new Date() : null,
+        checkedInBy: checkedIn ? setByUserId : null,
       },
     });
     return updated as any;
@@ -1117,7 +1194,7 @@ export class AppointmentsService {
   /**
    * Reschedule appointment
    */
-  async rescheduleAppointment(id: string, rescheduleAppointmentDto: RescheduleAppointmentDto): Promise<AppointmentResponseDto> {
+  async rescheduleAppointment(id: string, rescheduleAppointmentDto: RescheduleAppointmentDto, rescheduledBy?: string): Promise<AppointmentResponseDto> {
     const { newSlotId, reason, patientTimezone } = rescheduleAppointmentDto;
 
     const appointment = await this.prisma.appointment.findUnique({
@@ -1254,6 +1331,20 @@ export class AppointmentsService {
         data: { isAvailable: false }
       });
 
+      // Record the reschedule in the audit log so the original date/time stays
+      // visible in the patient chart (the appointment row itself is mutated in place).
+      await prisma.appointmentRescheduleLog.create({
+        data: {
+          appointmentId: id,
+          fromDate: appointment.appointmentDate,
+          fromTime: oldTime,
+          toDate: newSlot.schedule.date,
+          toTime: newSlot.startTime,
+          reason: reason || null,
+          rescheduledBy: rescheduledBy || null,
+        },
+      });
+
       return updatedAppointment;
     });
 
@@ -1362,7 +1453,8 @@ export class AppointmentsService {
               }
             }
           },
-          medicalForm: true // Include medical form data
+          medicalForm: true, // Include medical form data
+          rescheduleLogs: { orderBy: { createdAt: 'asc' } } // Reschedule audit history
         },
         skip,
         take: limit,
