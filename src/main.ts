@@ -4,7 +4,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  console.log('🚀 Starting OptimaleMD Backend...');
+  console.log('🚀 Starting FormaMD Backend...');
   console.log('NODE_ENV:', process.env.NODE_ENV);
   console.log('PORT:', process.env.PORT);
   
@@ -46,8 +46,8 @@ async function bootstrap() {
       origin: [
         'https://optimalmd-mu.vercel.app',
         'http://localhost:3000',  
-        'https://www.optimalemd.health',
-        'https://optimalemd.health',
+        'https://www.formamd.com',
+        'https://formamd.com',
         'http://localhost:5173',
         'http://localhost:5174',
         'http://localhost:8080'
@@ -60,8 +60,8 @@ async function bootstrap() {
   
   // Swagger configuration
   const config = new DocumentBuilder()
-    .setTitle('OptimaleMD API')
-    .setDescription('The OptimaleMD Backend API for patient management and authentication')
+    .setTitle('FormaMD API')
+    .setDescription('The FormaMD Backend API for patient management and authentication')
     .setVersion('1.0')
     .addTag('auth', 'Authentication endpoints')
     .addTag('users', 'User management endpoints')

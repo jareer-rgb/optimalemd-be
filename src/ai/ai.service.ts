@@ -49,7 +49,7 @@ export class AiService {
   private readonly defaultLocation = 'us-central1';
   private readonly defaultModel = 'gemini-2.5-pro';
 
-  private readonly productionApiBaseUrl = 'https://optimalemd.health/api';
+  private readonly productionApiBaseUrl = 'https://formamd.com/api';
   private readonly labTrendAnalysisVersion = 'lab-trends-v3-structured-json-ui';
 
   constructor(

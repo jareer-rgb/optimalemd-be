@@ -102,7 +102,7 @@ export class MailerService implements OnModuleInit {
   ): Promise<void> {
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
         subject,
         text,
@@ -124,7 +124,7 @@ export class MailerService implements OnModuleInit {
   ): Promise<void> {
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
         subject,
         text,
@@ -248,8 +248,8 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
@@ -271,7 +271,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -280,9 +280,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Verify Your Email - OptimaleMD',
+        subject: 'Verify Your Email - FormaMD',
         html,
       });
       console.log(`Email verification email sent successfully to ${to}`);
@@ -411,8 +411,8 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
@@ -439,7 +439,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -448,9 +448,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Reset Your Password - OptimaleMD',
+        subject: 'Reset Your Password - FormaMD',
         html,
       });
       console.log(`Password reset email sent successfully to ${to}`);
@@ -573,19 +573,19 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
-            <h2 class="title">Welcome to OptimaleMD!</h2>
+            <h2 class="title">Welcome to FormaMD!</h2>
             <p class="description">Hi ${name},</p>
-            <p class="description">Welcome to OptimaleMD! Your account has been successfully verified.</p>
+            <p class="description">Welcome to FormaMD! Your account has been successfully verified.</p>
             
             <div class="welcome-message">
               <span class="welcome-icon">🎉</span>
               <p style="margin: 0 0 10px 0; color: #000000; font-weight: bold; font-size: 18px;">Your account is now active!</p>
-              <p style="margin: 0;">You can now access all features of OptimaleMD.</p>
+              <p style="margin: 0;">You can now access all features of FormaMD.</p>
             </div>
             
             <div class="cta-section">
@@ -594,11 +594,11 @@ export class MailerService implements OnModuleInit {
               <a href="${this.configService.get<string>('frontend.url')}/login" class="cta-button">Login Now</a>
             </div>
             
-            <p class="description">Thank you for choosing OptimaleMD!</p>
+            <p class="description">Thank you for choosing FormaMD!</p>
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -607,9 +607,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Welcome to OptimaleMD!',
+        subject: 'Welcome to FormaMD!',
         html,
       });
       console.log(`Welcome email sent successfully to ${to}`);
@@ -773,8 +773,8 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
@@ -818,7 +818,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -828,9 +828,9 @@ export class MailerService implements OnModuleInit {
     try {
       const fromEmail = this.configService.get<string>('APPOINTMENT_SMTP_FROM') || this.configService.get<string>('SMTP_FROM');
       await this.appointmentTransporter.sendMail({
-        from: `"OptimaleMD" <${fromEmail}>`,
+        from: `"FormaMD" <${fromEmail}>`,
         to: patientEmail,
-        subject: 'Appointment Confirmed - OptimaleMD',
+        subject: 'Appointment Confirmed - FormaMD',
         html,
       });
       console.log(`Appointment confirmation email sent successfully to ${patientEmail}`);
@@ -994,8 +994,8 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
@@ -1038,7 +1038,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -1048,9 +1048,9 @@ export class MailerService implements OnModuleInit {
     try {
       const fromEmail = this.configService.get<string>('APPOINTMENT_SMTP_FROM') || this.configService.get<string>('SMTP_FROM');
       await this.appointmentTransporter.sendMail({
-        from: `"OptimaleMD" <${fromEmail}>`,
+        from: `"FormaMD" <${fromEmail}>`,
         to: doctorEmail,
-        subject: 'New Appointment Scheduled - OptimaleMD',
+        subject: 'New Appointment Scheduled - FormaMD',
         html,
       });
       console.log(`Doctor appointment notification sent successfully to ${doctorEmail}`);
@@ -1210,8 +1210,8 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
@@ -1247,7 +1247,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -1257,9 +1257,9 @@ export class MailerService implements OnModuleInit {
     try {
       const fromEmail = this.configService.get<string>('APPOINTMENT_SMTP_FROM') || this.configService.get<string>('SMTP_FROM');
       await this.appointmentTransporter.sendMail({
-        from: `"OptimaleMD" <${fromEmail}>`,
+        from: `"FormaMD" <${fromEmail}>`,
         to: patientEmail,
-        subject: 'Appointment Cancelled - OptimaleMD',
+        subject: 'Appointment Cancelled - FormaMD',
         html,
       });
       console.log(`Cancellation email sent successfully to ${patientEmail}`);
@@ -1423,8 +1423,8 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
@@ -1462,7 +1462,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -1472,9 +1472,9 @@ export class MailerService implements OnModuleInit {
     try {
       const fromEmail = this.configService.get<string>('APPOINTMENT_SMTP_FROM') || this.configService.get<string>('SMTP_FROM');
       await this.appointmentTransporter.sendMail({
-        from: `"OptimaleMD" <${fromEmail}>`,
+        from: `"FormaMD" <${fromEmail}>`,
         to: doctorEmail,
-        subject: 'Appointment Cancelled - OptimaleMD',
+        subject: 'Appointment Cancelled - FormaMD',
         html,
       });
       console.log(`Doctor cancellation notification sent successfully to ${doctorEmail}`);
@@ -1656,8 +1656,8 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
@@ -1706,7 +1706,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -1716,9 +1716,9 @@ export class MailerService implements OnModuleInit {
     try {
       const fromEmail = this.configService.get<string>('APPOINTMENT_SMTP_FROM') || this.configService.get<string>('SMTP_FROM');
       await this.appointmentTransporter.sendMail({
-        from: `"OptimaleMD" <${fromEmail}>`,
+        from: `"FormaMD" <${fromEmail}>`,
         to: patientEmail,
-        subject: 'Appointment Rescheduled - OptimaleMD',
+        subject: 'Appointment Rescheduled - FormaMD',
         html,
       });
       console.log(`Reschedule email sent successfully to ${patientEmail}`);
@@ -1900,8 +1900,8 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
@@ -1950,7 +1950,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -1960,9 +1960,9 @@ export class MailerService implements OnModuleInit {
     try {
       const fromEmail = this.configService.get<string>('APPOINTMENT_SMTP_FROM') || this.configService.get<string>('SMTP_FROM');
       await this.appointmentTransporter.sendMail({
-        from: `"OptimaleMD" <${fromEmail}>`,
+        from: `"FormaMD" <${fromEmail}>`,
         to: doctorEmail,
-        subject: 'Appointment Rescheduled - OptimaleMD',
+        subject: 'Appointment Rescheduled - FormaMD',
         html,
       });
       console.log(`Doctor reschedule notification sent successfully to ${doctorEmail}`);
@@ -2091,14 +2091,14 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
             <h2 class="title">Complete Your Medical Consultation Form</h2>
             <p class="description">Hi ${name},</p>
-            <p class="description">Welcome to OptimaleMD! To ensure we can provide you with the best possible care, please complete your medical consultation form.</p>
+            <p class="description">Welcome to FormaMD! To ensure we can provide you with the best possible care, please complete your medical consultation form.</p>
             
             <a href="${formLink}" class="form-button">Complete Medical Form</a>
             
@@ -2118,11 +2118,11 @@ export class MailerService implements OnModuleInit {
               <a href="${formLink}">${formLink}</a>
             </div>
             
-            <p class="description">Thank you for choosing OptimaleMD for your healthcare needs!</p>
+            <p class="description">Thank you for choosing FormaMD for your healthcare needs!</p>
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -2131,9 +2131,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Complete Your Medical Consultation Form - OptimaleMD',
+        subject: 'Complete Your Medical Consultation Form - FormaMD',
         html,
       });
       console.log(`Medical form email sent successfully to ${to}`);
@@ -2287,15 +2287,15 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">OptimaleMD</div>
-            <h1>Welcome to OptimaleMD!</h1>
+            <div class="logo">FormaMD</div>
+            <h1>Welcome to FormaMD!</h1>
             <p>Your account has been created by our admin team</p>
           </div>
           
           <div class="content">
             <h2>Hello ${name}!</h2>
             
-            <p>Great news! Your OptimaleMD patient account has been successfully created by our administrative team. You can now access our platform to manage your healthcare journey.</p>
+            <p>Great news! Your FormaMD patient account has been successfully created by our administrative team. You can now access our platform to manage your healthcare journey.</p>
             
             <div class="credentials-box">
               <h3>🔐 Your Login Credentials</h3>
@@ -2329,20 +2329,20 @@ export class MailerService implements OnModuleInit {
               </a>
             </div>
             
-            <p>If you have any questions or need assistance, please don't hesitate to contact our support team at <a href="mailto:support@optimalemd.health" style="color: #000000; font-weight: bold;">support@optimalemd.health</a>. We're here to help you every step of the way!</p>
+            <p>If you have any questions or need assistance, please don't hesitate to contact our support team at <a href="mailto:support@formamd.com" style="color: #000000; font-weight: bold;">support@formamd.com</a>. We're here to help you every step of the way!</p>
             
             <p style="margin-top: 30px;">
-              <strong>The OptimaleMD Team</strong><br>
+              <strong>The FormaMD Team</strong><br>
               <em>Optimizing your health, one step at a time</em>
             </p>
           </div>
           
           <div class="footer">
-            <p><strong>OptimaleMD</strong></p>
+            <p><strong>FormaMD</strong></p>
             <p>This email was sent because an account was created for you by our admin team.</p>
-            <p>If you believe this was sent in error, please contact our support team at <a href="mailto:support@optimalemd.health" style="color: #000000; font-weight: bold;">support@optimalemd.health</a> immediately.</p>
+            <p>If you believe this was sent in error, please contact our support team at <a href="mailto:support@formamd.com" style="color: #000000; font-weight: bold;">support@formamd.com</a> immediately.</p>
             <p style="margin-top: 20px; font-size: 12px; color: #999999;">
-              © 2026 OptimaleMD. All rights reserved.
+              © 2026 FormaMD. All rights reserved.
             </p>
           </div>
         </div>
@@ -2351,9 +2351,9 @@ export class MailerService implements OnModuleInit {
     `;
 
     const mailOptions = {
-      from: `"OptimaleMD" <${this.configService.get<string>('SMTP_USER')}>`,
+      from: `"FormaMD" <${this.configService.get<string>('SMTP_USER')}>`,
       to,
-      subject: '🎉 Welcome to OptimaleMD - Your Account is Ready!',
+      subject: '🎉 Welcome to FormaMD - Your Account is Ready!',
       html,
     };
 
@@ -2503,14 +2503,14 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
             <h2 class="title">Subscription Confirmed!</h2>
             <p class="description">Hi ${name},</p>
-            <p class="description">Thank you for subscribing to OptimaleMD! Your subscription has been successfully activated.</p>
+            <p class="description">Thank you for subscribing to FormaMD! Your subscription has been successfully activated.</p>
             
             <div class="success-message">
               <span style="font-size: 32px; display: block; margin-bottom: 10px;">🎉</span>
@@ -2545,7 +2545,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -2554,9 +2554,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Subscription Confirmed - OptimaleMD',
+        subject: 'Subscription Confirmed - FormaMD',
         html,
       });
       console.log(`Subscription confirmation email sent successfully to ${to}`);
@@ -2694,8 +2694,8 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
@@ -2723,7 +2723,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -2732,9 +2732,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Subscription Cancellation Confirmation - OptimaleMD',
+        subject: 'Subscription Cancellation Confirmation - FormaMD',
         html,
       });
       console.log(`Subscription cancellation email sent successfully to ${to}`);
@@ -2875,8 +2875,8 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
@@ -2913,11 +2913,11 @@ export class MailerService implements OnModuleInit {
               </ul>
             </div>
             
-            <p class="description">We're excited to have you join OptimaleMD and look forward to helping you on your health journey!</p>
+            <p class="description">We're excited to have you join FormaMD and look forward to helping you on your health journey!</p>
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -2926,9 +2926,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Payment Confirmed - OptimaleMD',
+        subject: 'Payment Confirmed - FormaMD',
         html,
       });
       console.log(`Payment confirmation email sent successfully to ${to}`);
@@ -3145,8 +3145,8 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
@@ -3210,7 +3210,7 @@ export class MailerService implements OnModuleInit {
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -3219,9 +3219,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Medication Subscription Activated - OptimaleMD',
+        subject: 'Medication Subscription Activated - FormaMD',
         html,
       });
       console.log(`Medication payment confirmation email sent successfully to ${to}`);
@@ -3378,14 +3378,14 @@ export class MailerService implements OnModuleInit {
         <div class="container">
           <div class="header">
             <div class="logo-container">
-              <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-              <div class="logo">OptimaleMD</div>
+              <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+              <div class="logo">FormaMD</div>
             </div>
           </div>
           <div class="content">
             <h2 class="title">Medication Subscription Canceled</h2>
             <p class="description">Hi ${name},</p>
-            <p class="description">We are reaching out to inform you of a supervised change to your current medication regimen. After a thorough review of your latest ${serviceName || 'appointment'}, the clinical team at OptimaleMD has decided to transition your treatment from ${oldMedicationName || 'your current medication'}. The new medication will be discussed in the upcoming appointment.</p>
+            <p class="description">We are reaching out to inform you of a supervised change to your current medication regimen. After a thorough review of your latest ${serviceName || 'appointment'}, the clinical team at FormaMD has decided to transition your treatment from ${oldMedicationName || 'your current medication'}. The new medication will be discussed in the upcoming appointment.</p>
             
             <p class="description">Our primary goal is to ensure your treatment remains as effective and safe as possible. If you have any questions regarding this change or how to transition between these medications, please reply to this email or schedule a brief check-in via the patient portal.</p>
             
@@ -3403,11 +3403,11 @@ export class MailerService implements OnModuleInit {
             </div>
             
             <p class="description" style="margin-top: 30px;">Best regards,</p>
-            <p class="description" style="margin-top: 10px;"><strong>The Clinical Support Team</strong><br>OptimaleMD</p>
+            <p class="description" style="margin-top: 10px;"><strong>The Clinical Support Team</strong><br>FormaMD</p>
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -3416,9 +3416,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
-        subject: 'Medication Subscription Cancellation Request - OptimaleMD',
+        subject: 'Medication Subscription Cancellation Request - FormaMD',
         html,
       });
       console.log(`Medication subscription cancellation email sent successfully to ${to}`);
@@ -3459,7 +3459,7 @@ export class MailerService implements OnModuleInit {
   private getFrontendBaseUrl() {
     return (
       this.configService.get<string>('FRONTEND_URL')?.replace(/\/$/, '') ||
-      'https://www.optimalemd.health'
+      'https://www.formamd.com'
     );
   }
 
@@ -3529,7 +3529,7 @@ export class MailerService implements OnModuleInit {
               class="instruction-image"
             />
           </li>
-          <li>Enter your information exactly as it appears on your OptimaleMD profile. This is used to retrieve your exact lab order.</li>
+          <li>Enter your information exactly as it appears on your FormaMD profile. This is used to retrieve your exact lab order.</li>
           <li>
             Choose <strong>"All Other Tests"</strong> on the Quest scheduling page, as shown below.
             <p class="screenshot-caption">Quest scheduling — select All Other Tests</p>
@@ -3545,7 +3545,7 @@ export class MailerService implements OnModuleInit {
         </ol>
         <p class="portal-note">
           Full instructions with screenshots are also in your portal:
-          <a href="${baseUrl}/dashboard">Log in to OptimaleMD</a> → <strong>Order Labs</strong>.
+          <a href="${baseUrl}/dashboard">Log in to FormaMD</a> → <strong>Order Labs</strong>.
         </p>
       </div>
     `;
@@ -3676,7 +3676,7 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <h1 class="logo">OptimaleMD</h1>
+            <h1 class="logo">FormaMD</h1>
           </div>
           <div class="content">
             <h2 class="title">Lab Order Confirmed</h2>
@@ -3696,11 +3696,11 @@ export class MailerService implements OnModuleInit {
 
             ${schedulingInstructions}
             
-            <p style="margin-top: 30px;">Best regards,<br><strong>The OptimaleMD Team</strong></p>
+            <p style="margin-top: 30px;">Best regards,<br><strong>The FormaMD Team</strong></p>
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -3709,9 +3709,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       const mailOptions: any = {
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to: patientEmail,
-        subject: 'Lab Order Confirmed - OptimaleMD',
+        subject: 'Lab Order Confirmed - FormaMD',
         html,
       };
 
@@ -3817,7 +3817,7 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <h1 class="logo">OptimaleMD</h1>
+            <h1 class="logo">FormaMD</h1>
           </div>
           <div class="content">
             <h2 class="title">Lab Results Available</h2>
@@ -3837,11 +3837,11 @@ export class MailerService implements OnModuleInit {
               <p style="margin: 10px 0 0 0; color: #1e3a8a;">Your lab results are now available. You can now book an appointment to discuss your results with your healthcare provider.</p>
             </div>
             
-            <p style="margin-top: 30px;">Best regards,<br><strong>The OptimaleMD Team</strong></p>
+            <p style="margin-top: 30px;">Best regards,<br><strong>The FormaMD Team</strong></p>
           </div>
           <div class="footer">
             <p>This is an automated email, please do not reply.</p>
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD</p>
           </div>
         </div>
       </body>
@@ -3850,9 +3850,9 @@ export class MailerService implements OnModuleInit {
 
     try {
       const mailOptions: any = {
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to: patientEmail,
-        subject: 'Lab Results Available - OptimaleMD',
+        subject: 'Lab Results Available - FormaMD',
         html,
       };
 
@@ -3896,7 +3896,7 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <p class="logo">OptimaleMD</p>
+            <p class="logo">FormaMD</p>
           </div>
           <div class="content">
             <h2>You earned a referral credit! 🎉</h2>
@@ -3905,11 +3905,11 @@ export class MailerService implements OnModuleInit {
             <div class="credit-badge">${creditPct}% OFF</div>
             <p>This credit will automatically be applied to ${context}. Credits expire 30 days after being earned, so use them soon!</p>
             <p>Keep sharing your referral link to earn more credits. You can view your current balance in the <strong>Referrals &amp; Credits</strong> section of your dashboard.</p>
-            <p>Thank you for helping grow the OptimaleMD community!</p>
-            <p>— The OptimaleMD Team</p>
+            <p>Thank you for helping grow the FormaMD community!</p>
+            <p>— The FormaMD Team</p>
           </div>
           <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD. All rights reserved.</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -3917,7 +3917,7 @@ export class MailerService implements OnModuleInit {
     `;
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
         subject: `You earned ${creditPct}% credit — referral qualified!`,
         html,
@@ -3950,7 +3950,7 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <p class="logo">OptimaleMD</p>
+            <p class="logo">FormaMD</p>
           </div>
           <div class="content">
             <h2>Your review credit has been applied! ⭐</h2>
@@ -3959,11 +3959,11 @@ export class MailerService implements OnModuleInit {
             <div class="credit-badge">${creditPct}% OFF</div>
             <p>This credit will automatically be applied to ${context}. Credits expire 30 days after being earned.</p>
             <p>You can view your current balance in the <strong>Referrals &amp; Credits</strong> section of your dashboard.</p>
-            <p>Thank you for being a valued member of the OptimaleMD community!</p>
-            <p>— The OptimaleMD Team</p>
+            <p>Thank you for being a valued member of the FormaMD community!</p>
+            <p>— The FormaMD Team</p>
           </div>
           <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD. All rights reserved.</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -3971,7 +3971,7 @@ export class MailerService implements OnModuleInit {
     `;
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
         subject: `Your ${creditPct}% review credit has been applied!`,
         html,
@@ -3989,7 +3989,7 @@ export class MailerService implements OnModuleInit {
     senderName: string,
   ): Promise<void> {
     const safeSenderName = senderName?.trim() || 'your care team';
-    const loginUrl = `https://optimalemd.health/login`;
+    const loginUrl = `https://formamd.com/login`;
     const html = `
       <!DOCTYPE html>
       <html>
@@ -4020,11 +4020,11 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <p class="logo">OptimaleMD</p>
+            <p class="logo">FormaMD</p>
           </div>
           <div class="content">
             <p>Hi ${patientName},</p>
-            <p>You received a new message in your OptimaleMD portal.</p>
+            <p>You received a new message in your FormaMD portal.</p>
             <div class="notice-box">
               <strong>From:</strong> ${safeSenderName}
             </div>
@@ -4033,10 +4033,10 @@ export class MailerService implements OnModuleInit {
               <a href="${loginUrl}" class="cta-button">Log in to Portal</a>
               <p class="link-fallback">If the button does not work, copy and paste this link into your browser: ${loginUrl}</p>
             </div>
-            <p>Best,<br/>The OptimaleMD Team</p>
+            <p>Best,<br/>The FormaMD Team</p>
           </div>
           <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD. All rights reserved.</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -4045,7 +4045,7 @@ export class MailerService implements OnModuleInit {
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to: patientEmail,
         subject: `You received a message from "${safeSenderName}"`,
         html,
@@ -4076,8 +4076,8 @@ export class MailerService implements OnModuleInit {
 
     const safeName = firstName || 'there';
     const intro = isResubscribe
-      ? `You're already on our list — here's the latest from OptimaleMD.`
-      : `Thanks for subscribing to the OptimaleMD newsletter!`;
+      ? `You're already on our list — here's the latest from FormaMD.`
+      : `Thanks for subscribing to the FormaMD newsletter!`;
 
     const blogBlock = latestBlogTitle
       ? `
@@ -4112,19 +4112,19 @@ export class MailerService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <p class="logo">OptimaleMD</p>
+            <p class="logo">FormaMD</p>
           </div>
           <div class="content">
-            <h2>Welcome to OptimaleMD Insights</h2>
+            <h2>Welcome to FormaMD Insights</h2>
             <p>Hi ${safeName},</p>
             <p>${intro}</p>
             <p>You'll receive expert tips on hormones, metabolism, performance, and longevity — straight to your inbox.</p>
             ${blogBlock}
             <p>Explore more articles anytime: <a href="${blogsListUrl}" class="secondary-link">View all blogs</a></p>
-            <p>— The OptimaleMD Team</p>
+            <p>— The FormaMD Team</p>
           </div>
           <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} OptimaleMD. All rights reserved.</p>
+            <p>&copy; ${new Date().getFullYear()} FormaMD. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -4133,11 +4133,11 @@ export class MailerService implements OnModuleInit {
 
     const subject = latestBlogTitle
       ? `Welcome! Read our latest: ${latestBlogTitle}`
-      : 'Welcome to the OptimaleMD newsletter';
+      : 'Welcome to the FormaMD newsletter';
 
     try {
       await this.transporter.sendMail({
-        from: `"OptimaleMD" <${this.configService.get<string>('SMTP_FROM')}>`,
+        from: `"FormaMD" <${this.configService.get<string>('SMTP_FROM')}>`,
         to,
         subject,
         html,

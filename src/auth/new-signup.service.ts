@@ -1234,7 +1234,7 @@ export class NewSignupService {
       // Send email verification email
       try {
         if (user.primaryEmail) {
-          const verificationLink = `https://optimalemd.health/verify-email?token=${emailVerificationToken}`;
+          const verificationLink = `https://formamd.com/verify-email?token=${emailVerificationToken}`;
           console.log('Generated verification link:', verificationLink);
           
           await this.mailerService.sendEmailVerificationEmail(

@@ -160,7 +160,7 @@ export class ReportsService {
         doc
           .fontSize(24)
           .fillColor('#DC2626')
-          .text('OptimaleMD', 50, 50)
+          .text('FormaMD', 50, 50)
           .fontSize(10)
           .fillColor('#666666')
           .text('Patient Medical Report', 50, 80)

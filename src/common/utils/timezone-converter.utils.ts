@@ -1,5 +1,5 @@
 /**
- * Timezone conversion utilities for OptimaleMD
+ * Timezone conversion utilities for FormaMD
  * 
  * IMPORTANT: ALL TIMES IN DATABASE ARE STORED IN UTC
  * 

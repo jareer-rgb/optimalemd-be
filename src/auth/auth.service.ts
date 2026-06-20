@@ -70,7 +70,7 @@ export class AuthService {
 
     // Send email verification email
     try {
-      const verificationLink = `https://optimalemd.health/verify-email?token=${emailVerificationToken}`;
+      const verificationLink = `https://formamd.com/verify-email?token=${emailVerificationToken}`;
       console.log('Generated verification link:', verificationLink);
       
       await this.mailerService.sendEmailVerificationEmail(
@@ -396,7 +396,7 @@ export class AuthService {
     }
 
     // Create reset link using configuration
-    const frontendUrl = "https://optimalemd.health";
+    const frontendUrl = "https://formamd.com";
     const resetLink = `${frontendUrl}/reset-password?token=${resetToken}&type=${accountType}`;
 
     // Send password reset email
@@ -687,7 +687,7 @@ export class AuthService {
 
     // Send new verification email
     try {
-      const verificationLink = `https://optimalemd.health/verify-email?token=${emailVerificationToken}`;
+      const verificationLink = `https://formamd.com/verify-email?token=${emailVerificationToken}`;
       console.log('Resend - Generated verification link:', verificationLink);
       
       await this.mailerService.sendEmailVerificationEmail(

@@ -65,7 +65,7 @@ export class AdminManagementService {
 
     // Send credentials email (best-effort)
     try {
-      const plainText = `Hello ${data.firstName},\n\nAn admin account has been created for you at OptimaleMD.\n\nEmail: ${normalizedEmail}\nTemporary Password: ${tempPassword}\n\nPlease log in at the admin portal and change your password immediately.\n\nBest,\nOptimaleMD Team`;
+      const plainText = `Hello ${data.firstName},\n\nAn admin account has been created for you at FormaMD.\n\nEmail: ${normalizedEmail}\nTemporary Password: ${tempPassword}\n\nPlease log in at the admin portal and change your password immediately.\n\nBest,\nFormaMD Team`;
 
       const html = `
         <!DOCTYPE html>
@@ -175,14 +175,14 @@ export class AdminManagementService {
           <div class="container">
             <div class="header">
               <div class="logo-container">
-                <img src="https://optimalemd.health/logo.png" alt="OptimaleMD Logo" class="logo-img" />
-                <div class="logo">OptimaleMD</div>
+                <img src="https://formamd.com/logo.png" alt="FormaMD Logo" class="logo-img" />
+                <div class="logo">FormaMD</div>
               </div>
             </div>
             <div class="content">
               <h2 class="title">Admin Account Created</h2>
               <p class="description">Hi ${data.firstName},</p>
-              <p class="description">An admin account has been created for you at OptimaleMD. Use the credentials below to log in to the admin portal.</p>
+              <p class="description">An admin account has been created for you at FormaMD. Use the credentials below to log in to the admin portal.</p>
 
               <div class="info-box">
                 <p><span class="label">Email:</span> ${normalizedEmail}</p>
@@ -195,7 +195,7 @@ export class AdminManagementService {
             </div>
             <div class="footer">
               <p>This is an automated email, please do not reply.</p>
-              <p>&copy; ${new Date().getFullYear()} OptimaleMD</p>
+              <p>&copy; ${new Date().getFullYear()} FormaMD</p>
             </div>
           </div>
         </body>
@@ -204,7 +204,7 @@ export class AdminManagementService {
 
       await this.mailerService.sendEmail(
         normalizedEmail,
-        'Your OptimaleMD Admin Account',
+        'Your FormaMD Admin Account',
         plainText,
         html,
       );

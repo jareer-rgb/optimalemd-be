@@ -35,7 +35,7 @@ export class NewsletterService {
   private getFrontendBaseUrl(): string {
     return (
       this.configService.get<string>('FRONTEND_URL')?.replace(/\/$/, '') ||
-      'https://www.optimalemd.health'
+      'https://www.formamd.com'
     );
   }
 

@@ -2537,12 +2537,12 @@ export class AppointmentsService {
 <body style="font-family:Arial,sans-serif;line-height:1.6;margin:0;padding:20px;background:#f4f4f4;color:#333;">
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);overflow:hidden;">
     <div style="background:#000;padding:25px;text-align:center;">
-      <h1 style="color:#fff;margin:0;font-size:24px;">OptimaleMD</h1>
+      <h1 style="color:#fff;margin:0;font-size:24px;">FormaMD</h1>
       <p style="color:#ef4444;margin:8px 0 0;font-size:14px;letter-spacing:1px;">APPOINTMENT REMINDER</p>
     </div>
     <div style="padding:30px;">
       <p>Hi <strong>${patientName}</strong>,</p>
-      <p>This is a friendly reminder of your upcoming appointment with OptimaleMD.</p>
+      <p>This is a friendly reminder of your upcoming appointment with FormaMD.</p>
       <div style="background:#f9f9f9;border-left:4px solid #ef4444;padding:16px 20px;margin:20px 0;border-radius:4px;">
         <p style="margin:0 0 8px;"><strong>Provider:</strong> ${doctorName || '—'}</p>
         <p style="margin:0 0 8px;"><strong>Service:</strong> ${serviceName}</p>
@@ -2551,7 +2551,7 @@ export class AppointmentsService {
       </div>
       ${meetLink ? `<p style="text-align:center;margin:24px 0;"><a href="${meetLink}" style="display:inline-block;background:#ef4444;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">Join Video Visit</a></p>` : ''}
       <p>If you need to reschedule or have any questions, please reach out to us right away.</p>
-      <p style="margin-top:30px;">See you soon,<br><strong>The OptimaleMD Team</strong></p>
+      <p style="margin-top:30px;">See you soon,<br><strong>The FormaMD Team</strong></p>
     </div>
     <div style="background:#f4f4f4;padding:16px;text-align:center;color:#999;font-size:12px;">
       <p style="margin:0;">This is an automated reminder. Please do not reply directly to this email.</p>
@@ -2561,7 +2561,7 @@ export class AppointmentsService {
 
     const text = `Hi ${patientName},
 
-This is a friendly reminder of your upcoming appointment with OptimaleMD.
+This is a friendly reminder of your upcoming appointment with FormaMD.
 
 Provider: ${doctorName || '—'}
 Service: ${serviceName}
@@ -2571,7 +2571,7 @@ ${meetLink ? `\nJoin link: ${meetLink}\n` : ''}
 If you need to reschedule or have questions, please reach out to us right away.
 
 See you soon,
-The OptimaleMD Team`;
+The FormaMD Team`;
 
     return {
       subject,

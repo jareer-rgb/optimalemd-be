@@ -26,9 +26,9 @@ env_variables:
   # # Email Configuration
   # SMTP_HOST: "smtp.gmail.com"
   # SMTP_PORT: "465"
-  # SMTP_USER: "support@optimalemd.health"
+  # SMTP_USER: "support@formamd.com"
   # SMTP_PASS: "ekpmrxhircyeogxs"
-  # SMTP_FROM: "support@optimalemd.health"
+  # SMTP_FROM: "support@formamd.com"
   # # Google Calendar API Configuration
   # GOOGLE_CLIENT_ID: "498337781985-p4248hnlt3hv5vbcvbd0i4tg0rgo26bt.apps.googleusercontent.com"
   # GOOGLE_CLIENT_SECRET: "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"

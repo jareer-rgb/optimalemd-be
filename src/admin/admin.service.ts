@@ -150,7 +150,7 @@ export class AdminService {
     // Send welcome email with credentials if requested
     if (sendWelcomeEmail) {
       try {
-        const verificationLink = `https://optimalemd.health/verify-email?token=${emailVerificationToken}`;
+        const verificationLink = `https://formamd.com/verify-email?token=${emailVerificationToken}`;
         
         await this.mailerService.sendAdminCreatedPatientEmail(
           normalizedPrimaryEmail,
@@ -748,7 +748,7 @@ export class AdminService {
     const email = patient.primaryEmail ?? patient.email;
     if (!email) throw new BadRequestException('Patient has no email address');
 
-    const verificationLink = `https://optimalemd.health/verify-email?token=${emailVerificationToken}`;
+    const verificationLink = `https://formamd.com/verify-email?token=${emailVerificationToken}`;
     await this.mailerService.sendEmailVerificationEmail(email, patient.firstName || 'Patient', verificationLink);
 
     return { message: 'Verification email sent successfully' };
@@ -783,7 +783,7 @@ export class AdminService {
     const email = patient.primaryEmail ?? patient.email;
     if (!email) throw new BadRequestException('Patient has no email address');
 
-    const verificationLink = `https://optimalemd.health/verify-email?token=${emailVerificationToken}`;
+    const verificationLink = `https://formamd.com/verify-email?token=${emailVerificationToken}`;
 
     // Reuse the full admin-created email which includes credentials + verify & login CTA
     await this.mailerService.sendAdminCreatedPatientEmail(

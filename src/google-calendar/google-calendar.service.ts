@@ -157,7 +157,7 @@ export class GoogleCalendarService implements OnModuleInit {
           const newCalendar = await calendar.calendars.insert({
             requestBody: {
               summary: `Dr. ${doctor.firstName} ${doctor.lastName} - Working Hours`,
-              description: 'Working hours and appointments for OptimaleMD',
+              description: 'Working hours and appointments for FormaMD',
               timeZone: 'UTC'
             }
           });
@@ -294,7 +294,7 @@ export class GoogleCalendarService implements OnModuleInit {
       const baseEvent = {
         summary: `${allServices} - ${doctorName}`,
         description: `
-OptimaleMD Telemedicine Appointment
+FormaMD Telemedicine Appointment
 
 Doctor: ${doctorName}
 Patient: ${patientName}
@@ -306,7 +306,7 @@ Joining instructions:
 • Navigate to meet.google.com and enter the code from the link
 • Join using the Google Meet mobile app for best experience
 
-This link was generated automatically by OptimaleMD.
+This link was generated automatically by FormaMD.
         `.trim(),
         start: {
           dateTime: meetingStart.toISOString(),
@@ -709,7 +709,7 @@ This link was generated automatically by OptimaleMD.
       if (doctorEmail) {
         attendees.push({ email: doctorEmail });
       } else {
-        attendees.push({ email: this.configService.get<string>('DOCTOR_EMAIL') || 'doctor@optimaleMD.com' });
+        attendees.push({ email: this.configService.get<string>('DOCTOR_EMAIL') || 'doctor@formaMD.com' });
       }
       
       // Add patient email if provided
@@ -723,7 +723,7 @@ This link was generated automatically by OptimaleMD.
         eventId: eventId,
         resource: {
           summary: `${serviceName} - ${doctorName} & ${patientName}`,
-          description: `OptimaleMD Telemedicine Appointment\n\nDoctor: ${doctorName}\nPatient: ${patientName}\nService: ${serviceName}\n\nPlease join this Google Meet call at your scheduled appointment time.`,
+          description: `FormaMD Telemedicine Appointment\n\nDoctor: ${doctorName}\nPatient: ${patientName}\nService: ${serviceName}\n\nPlease join this Google Meet call at your scheduled appointment time.`,
           start: {
             dateTime: startDateTime,
             timeZone: 'America/New_York',

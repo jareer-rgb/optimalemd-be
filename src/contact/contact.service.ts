@@ -99,7 +99,7 @@ export class ContactService {
         </div>
         
         <div style="margin-top: 20px; text-align: center; color: #666; font-size: 12px;">
-          <p>This email was automatically generated from the OptimaleMD contact form.</p>
+          <p>This email was automatically generated from the FormaMD contact form.</p>
         </div>
       </div>
     `;
@@ -119,7 +119,7 @@ ${contact.message}
 
 Next Steps: Please respond to this inquiry within 1-2 business days as promised on our website.
 
-This email was automatically generated from the OptimaleMD contact form.
+This email was automatically generated from the FormaMD contact form.
     `;
 
     await this.mailerService.sendEmail(
