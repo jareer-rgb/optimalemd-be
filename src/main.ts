@@ -40,7 +40,7 @@ async function bootstrap() {
     ],
   });
   
-  // CORS
+  // CORS 
   app.enableCors(
     {
       origin: [
