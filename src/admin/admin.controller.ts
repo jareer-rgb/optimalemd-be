@@ -264,11 +264,35 @@ export class AdminController {
     @Body() updateMedicalFormDto: Partial<AdminCreateMedicalFormDto>
   ): Promise<{ success: boolean; message: string; data: any }> {
     const medicalForm = await this.adminService.updateMedicalForm(patientId, updateMedicalFormDto);
-    
+
     return {
       success: true,
       message: 'Medical form updated successfully',
       data: medicalForm
     };
+  }
+}
+
+@ApiTags('Admin - Payments')
+@Controller('admin/payments')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth('JWT-auth')
+export class AdminPaymentsController {
+  constructor(private readonly adminService: AdminService) {}
+
+  @Get('overview')
+  @ApiOperation({ summary: 'Get payments overview (balance, subscriptions, charges, signup payments)' })
+  @ApiResponse({ status: 200, description: 'Payments overview retrieved successfully' })
+  async getPaymentsOverview(): Promise<{ success: boolean; data: any }> {
+    const data = await this.adminService.getPaymentsOverview();
+    return { success: true, data };
+  }
+
+  @Get('products')
+  @ApiOperation({ summary: 'Get all Stripe products with their prices' })
+  @ApiResponse({ status: 200, description: 'Products retrieved successfully' })
+  async getProducts(): Promise<{ success: boolean; data: any }> {
+    const data = await this.adminService.getProducts();
+    return { success: true, data };
   }
 }

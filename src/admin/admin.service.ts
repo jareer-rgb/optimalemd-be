@@ -1,17 +1,26 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailerService } from '../mailer/mailer.service';
 import { AdminCreatePatientDto, AdminUpdatePatientDto, AdminCreateMedicalFormDto, PatientWithMedicalFormResponseDto } from './dto/admin.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import * as Stripe from 'stripe';
 import { generateNextPatientId } from '../common/utils/patient-id.utils';
 
 @Injectable()
 export class AdminService {
+  private stripe: Stripe.Stripe;
+
   constructor(
     private prisma: PrismaService,
-    private mailerService: MailerService
-  ) {}
+    private mailerService: MailerService,
+    private configService: ConfigService,
+  ) {
+    this.stripe = new (Stripe as any)(this.configService.get<string>('STRIPE_SECRET_KEY'), {
+      apiVersion: '2025-05-28.basil',
+    });
+  }
 
   /**
    * Normalize phone number: ensure it has country code prefix (+1)
@@ -922,5 +931,246 @@ export class AdminService {
       activeSignedUpMembers,
       activeMembersOnMedications,
     };
+  }
+
+  async getProducts() {
+    const [products, prices] = await Promise.all([
+      this.stripe.products.list({ limit: 100 }),
+      this.stripe.prices.list({ limit: 100, expand: ['data.product'] }),
+    ]);
+
+    return products.data.map(p => {
+      const productPrices = prices.data.filter(pr =>
+        typeof pr.product === 'string' ? pr.product === p.id : (pr.product as any)?.id === p.id
+      );
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        active: p.active,
+        images: p.images,
+        createdAt: new Date(p.created * 1000).toISOString(),
+        prices: productPrices.map(pr => ({
+          id: pr.id,
+          amount: pr.unit_amount,
+          currency: pr.currency,
+          type: pr.type,
+          interval: pr.recurring?.interval ?? null,
+          intervalCount: pr.recurring?.interval_count ?? null,
+          active: pr.active,
+        })),
+      };
+    });
+  }
+
+  async getPaymentsOverview() {
+    const [
+      balance,
+      recentCharges,
+      stripeSubscriptions,
+      welcomeOrders,
+      premiumSubscribers,
+    ] = await Promise.all([
+      this.stripe.balance.retrieve(),
+      this.stripe.charges.list({ limit: 50, expand: ['data.customer'] }),
+      this.stripe.subscriptions.list({ limit: 100, status: 'all', expand: ['data.customer'] }),
+      this.prisma.welcomeOrder.findMany({
+        where: { paymentStatus: 'SUCCEEDED' },
+        select: {
+          id: true,
+          email: true,
+          finalAmount: true,
+          createdAt: true,
+          paymentIntentId: true,
+          user: { select: { firstName: true, lastName: true, primaryEmail: true, patientId: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      this.fetchMembershipSubscribers(),
+    ]);
+
+    const availableBalance = balance.available.reduce((sum, b) => sum + b.amount, 0);
+    const pendingBalance = balance.pending.reduce((sum, b) => sum + b.amount, 0);
+
+    const activeStripeSubs = stripeSubscriptions.data.filter(s => s.status === 'active');
+    const cancelledStripeSubs = stripeSubscriptions.data.filter(s => s.status === 'canceled');
+    const pastDueStripeSubs = stripeSubscriptions.data.filter(s => s.status === 'past_due');
+
+    const mrr = activeStripeSubs.reduce((sum, s) => {
+      const item = s.items?.data?.[0];
+      if (!item?.price?.unit_amount) return sum;
+      const amount = item.price.unit_amount;
+      const interval = item.price.recurring?.interval;
+      return sum + (interval === 'year' ? Math.round(amount / 12) : amount);
+    }, 0);
+
+    const totalChargesAmount = recentCharges.data
+      .filter(c => c.status === 'succeeded')
+      .reduce((sum, c) => sum + c.amount, 0);
+
+    return {
+      balance: {
+        available: availableBalance,
+        pending: pendingBalance,
+        currency: balance.available[0]?.currency ?? 'usd',
+      },
+      mrr,
+      subscriptions: {
+        active: activeStripeSubs.length,
+        cancelled: cancelledStripeSubs.length,
+        pastDue: pastDueStripeSubs.length,
+        total: stripeSubscriptions.data.length,
+        list: stripeSubscriptions.data.map(s => ({
+          id: s.id,
+          status: s.status,
+          amount: s.items?.data?.[0]?.price?.unit_amount ?? 0,
+          interval: s.items?.data?.[0]?.price?.recurring?.interval ?? 'month',
+          currentPeriodEnd: (s as any).current_period_end ? new Date((s as any).current_period_end * 1000).toISOString() : null,
+          cancelAtPeriodEnd: (s as any).cancel_at_period_end,
+          customerEmail: (s.customer as any)?.email ?? null,
+          customerName: (s.customer as any)?.name ?? null,
+        })),
+      },
+      recentCharges: recentCharges.data.map(c => ({
+        id: c.id,
+        amount: c.amount,
+        currency: c.currency,
+        status: c.status,
+        description: c.description,
+        customerEmail: (c.customer as any)?.email ?? c.billing_details?.email ?? null,
+        customerName: (c.customer as any)?.name ?? c.billing_details?.name ?? null,
+        createdAt: c.created ? new Date(c.created * 1000).toISOString() : null,
+        receiptUrl: c.receipt_url,
+      })),
+      totalRecentCharges: totalChargesAmount,
+      signupPayments: welcomeOrders.map(o => ({
+        id: o.id,
+        email: o.email,
+        amount: o.finalAmount,
+        paymentIntentId: o.paymentIntentId,
+        createdAt: o.createdAt,
+        patientName: o.user ? `${o.user.firstName ?? ''} ${o.user.lastName ?? ''}`.trim() : null,
+        patientId: o.user?.patientId ?? null,
+      })),
+      premiumSubscribers,
+    };
+  }
+
+  /**
+   * Set of Stripe product IDs that count as a "premium membership".
+   *
+   * Membership has been sold under several products over time (rebrands +
+   * subscriptions created manually in the Stripe dashboard), so there is no
+   * single product or price to key off. We filter by PRODUCT (not price)
+   * because manual subscriptions frequently use custom/ad-hoc amounts that
+   * don't match the canonical price IDs.
+   *
+   * Durable path: tag each of these in Stripe with metadata.category="membership"
+   * and switch the filter below to read that metadata — then new membership
+   * products are picked up with no code change.
+   */
+  private static readonly MEMBERSHIP_PRODUCT_NAMES: Record<string, string> = {
+    prod_UOIPnP98Emok7X: 'OptimaleMD Performance Membership',
+    prod_UkH9gKprLDUMJr: 'FormaMD Membership',
+    prod_TlFcF1GoYwPuw2: 'Clinic Performance Membership',
+    prod_TlGE0xmQZYtPvp: 'Clinic Membership',
+    prod_T9OPgpicGL7fiD: 'Premium Subscription',
+    prod_TNNFToALkWvXzn: 'Performance Membership',
+  };
+
+  private async fetchMembershipSubscribers() {
+    const membershipProductIds = new Set(Object.keys(AdminService.MEMBERSHIP_PRODUCT_NAMES));
+
+    // ONE paginated pass over all active subscriptions, then filter in-memory
+    // by product. Far cheaper than querying per-price, and it captures manual
+    // subs on custom amounts (which per-price queries miss).
+    const seen = new Set<string>();
+    const membershipSubs: any[] = [];
+    let lastId: string | undefined;
+
+    while (true) {
+      const page = await this.stripe.subscriptions.list({
+        status: 'active',
+        limit: 100,
+        expand: ['data.customer'],
+        ...(lastId ? { starting_after: lastId } : {}),
+      });
+
+      for (const s of page.data) {
+        const price = s.items?.data?.[0]?.price;
+        const productId = typeof price?.product === 'string' ? price.product : (price?.product as any)?.id;
+        if (membershipProductIds.has(productId) && !seen.has(s.id)) {
+          seen.add(s.id);
+          membershipSubs.push(s);
+        }
+      }
+
+      if (!page.has_more) break;
+      lastId = page.data[page.data.length - 1].id;
+    }
+
+    // Cross-reference with DB by stripeCustomerId, falling back to email.
+    // Manual Stripe subscribers may have no DB user at all — those are kept
+    // and flagged as unlinked.
+    const customerIds = membershipSubs
+      .map(s => (typeof s.customer === 'string' ? s.customer : (s.customer as any)?.id))
+      .filter(Boolean);
+    const customerEmails = membershipSubs
+      .map(s => (s.customer as any)?.email)
+      .filter(Boolean);
+
+    const dbUsers = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { stripeCustomerId: { in: customerIds } },
+          { primaryEmail: { in: customerEmails } },
+        ],
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        primaryEmail: true,
+        patientId: true,
+        stripeCustomerId: true,
+        stripeSubscriptionId: true,
+      },
+    });
+
+    const byCustomerId = new Map(dbUsers.filter(u => u.stripeCustomerId).map(u => [u.stripeCustomerId, u]));
+    const byEmail = new Map(dbUsers.map(u => [u.primaryEmail?.toLowerCase(), u]));
+
+    return membershipSubs.map(s => {
+      const customerId = typeof s.customer === 'string' ? s.customer : (s.customer as any)?.id;
+      const customerEmail = (s.customer as any)?.email ?? null;
+      const customerName = (s.customer as any)?.name ?? null;
+      const dbUser = byCustomerId.get(customerId) ?? byEmail.get(customerEmail?.toLowerCase()) ?? null;
+
+      const price = s.items?.data?.[0]?.price;
+      const priceId = price?.id ?? null;
+      const productId = typeof price?.product === 'string' ? price.product : (price?.product as any)?.id;
+
+      return {
+        subscriptionId: s.id,
+        status: s.status,
+        productId,
+        productName: AdminService.MEMBERSHIP_PRODUCT_NAMES[productId] ?? 'Membership',
+        priceId,
+        amount: price?.unit_amount ?? null,
+        currency: price?.currency ?? 'usd',
+        interval: price?.recurring?.interval ?? 'month',
+        currentPeriodStart: (s as any).current_period_start ? new Date((s as any).current_period_start * 1000).toISOString() : null,
+        currentPeriodEnd: (s as any).current_period_end ? new Date((s as any).current_period_end * 1000).toISOString() : null,
+        cancelAtPeriodEnd: (s as any).cancel_at_period_end ?? false,
+        customerEmail,
+        customerName,
+        // DB-enriched fields
+        patientId: dbUser?.patientId ?? null,
+        patientName: dbUser ? `${dbUser.firstName ?? ''} ${dbUser.lastName ?? ''}`.trim() : null,
+        dbUserId: dbUser?.id ?? null,
+        linked: !!dbUser,
+      };
+    });
   }
 }
